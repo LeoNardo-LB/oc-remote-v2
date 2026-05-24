@@ -102,6 +102,22 @@ class EventReducer @Inject constructor() {
             is SseEvent.VcsBranchUpdated -> handleVcsBranchUpdated(event)
             is SseEvent.LspUpdated -> { /* LSP events not needed in mobile */ }
             is SseEvent.ProjectUpdated -> handleProjectUpdated(event)
+            
+            // V2 new events
+            is SseEvent.SessionCompacted -> handleSessionCompacted(event)
+            is SseEvent.PtyCreated -> { if (BuildConfig.DEBUG) Log.d(TAG, "PTY created: ${event.id}") }
+            is SseEvent.PtyUpdated -> { if (BuildConfig.DEBUG) Log.d(TAG, "PTY updated: ${event.id}") }
+            is SseEvent.PtyDeleted -> { if (BuildConfig.DEBUG) Log.d(TAG, "PTY deleted: ${event.id}") }
+            is SseEvent.WorkspaceReady -> { if (BuildConfig.DEBUG) Log.d(TAG, "Workspace ready: ${event.workspaceId}") }
+            is SseEvent.WorkspaceFailed -> Log.w(TAG, "Workspace failed: ${event.workspaceId} error=${event.error}")
+            is SseEvent.FileEdited -> { if (BuildConfig.DEBUG) Log.d(TAG, "File edited: ${event.path}") }
+            is SseEvent.McpToolsChanged -> { if (BuildConfig.DEBUG) Log.d(TAG, "MCP tools changed: ${event.server}") }
+            is SseEvent.CommandExecuted -> { if (BuildConfig.DEBUG) Log.d(TAG, "Command executed: ${event.name}") }
+            is SseEvent.FileWatcherUpdated -> { if (BuildConfig.DEBUG) Log.d(TAG, "File watcher updated: ${event.path}") }
+            is SseEvent.InstallationUpdated -> { if (BuildConfig.DEBUG) Log.d(TAG, "Installation updated: ${event.version}") }
+            is SseEvent.InstallationUpdateAvailable -> Log.i(TAG, "Update available: ${event.version}")
+            is SseEvent.WorktreeReady -> { if (BuildConfig.DEBUG) Log.d(TAG, "Worktree ready: ${event.path}") }
+            is SseEvent.WorktreeFailed -> Log.w(TAG, "Worktree failed: ${event.path} error=${event.error}")
         }
     }
     
@@ -276,7 +292,32 @@ class EventReducer @Inject constructor() {
             }
         }
     }
-    
+
+    /**
+     * Optimistically remove a permission from the pending list.
+     * Called after a successful API reply, in case the SSE event doesn't arrive.
+     */
+    fun removePermission(permissionId: String) {
+        _permissions.update { current ->
+            current.mapValues { (_, permissions) ->
+                permissions.filter { it.id != permissionId }
+            }
+        }
+    }
+
+    /**
+     * Set pending permissions for a session (loaded from REST API on session open).
+     */
+    fun setPermissions(sessionId: String, permissions: List<SseEvent.PermissionAsked>) {
+        _permissions.update { current ->
+            if (permissions.isEmpty()) {
+                current - sessionId
+            } else {
+                current + (sessionId to permissions)
+            }
+        }
+    }
+
     // ============ Question Events ============
     
     private fun handleQuestionAsked(event: SseEvent.QuestionAsked) {
@@ -450,5 +491,12 @@ class EventReducer @Inject constructor() {
     
     private fun handleProjectUpdated(event: SseEvent.ProjectUpdated) {
         _projectInfo.value = event.info
+    }
+
+    // ============ V2 Event Handlers ============
+
+    private fun handleSessionCompacted(event: SseEvent.SessionCompacted) {
+        Log.i(TAG, "Session ${event.sessionId} compacted")
+        // Session data will be refreshed via session.updated event that follows
     }
 }
