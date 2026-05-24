@@ -46,6 +46,7 @@ import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
@@ -841,6 +842,7 @@ private suspend fun buildAttachmentFromUri(
 fun ChatScreen(
     onNavigateBack: () -> Unit,
     onNavigateToSession: (sessionId: String) -> Unit = {},
+    onNavigateToChildSession: (String) -> Unit = {},
     onOpenInWebView: () -> Unit = {},
     initialSharedImages: List<Uri> = emptyList(),
     onSharedImagesConsumed: () -> Unit = {},
@@ -1436,6 +1438,26 @@ fun ChatScreen(
             TopAppBar(
                 title = {
                     Column {
+                        // Child session indicator (only when parentId is not null)
+                        if (uiState.sessionParentId != null) {
+                            Row(
+                                modifier = Modifier.padding(bottom = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SubdirectoryArrowRight,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp),
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "子会话",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
                         Text(
                             text = uiState.sessionTitle,
                             style = MaterialTheme.typography.titleMedium,
@@ -2384,6 +2406,7 @@ fun ChatScreen(
                             ChatMessageBubble(
                                 chatMessage = chatMessage,
                                 isQueued = chatMessage.message.id in uiState.queuedMessageIds,
+                                onViewSubSession = onNavigateToChildSession,
                                 onRevert = if (chatMessage.isUser) {
                                     {
                                         val revertText = chatMessage.parts
@@ -3471,6 +3494,7 @@ private fun resolveStepsStatus(stepParts: List<Part>): String {
 private fun ChatMessageBubble(
     chatMessage: ChatMessage,
     isQueued: Boolean = false,
+    onViewSubSession: ((String) -> Unit)? = null,
     onRevert: (() -> Unit)? = null,
     onCopyText: (() -> Unit)? = null
 ) {
@@ -3691,7 +3715,8 @@ private fun ChatMessageBubble(
                                     PartContent(
                                         part = part,
                                         textColor = textColor,
-                                        isUser = isUser
+                                        isUser = isUser,
+                                        onViewSubSession = onViewSubSession
                                     )
                                 }
                             }
@@ -3717,7 +3742,8 @@ private fun ChatMessageBubble(
                         PartContent(
                             part = part,
                             textColor = textColor,
-                            isUser = isUser
+                            isUser = isUser,
+                            onViewSubSession = onViewSubSession
                         )
                     }
 
@@ -3982,7 +4008,8 @@ private fun RevertBanner(onRedo: () -> Unit) {
 private fun PartContent(
     part: Part,
     textColor: Color,
-    isUser: Boolean = false
+    isUser: Boolean = false,
+    onViewSubSession: ((String) -> Unit)? = null
 ) {
     when (part) {
         is Part.Text -> {
@@ -4014,7 +4041,7 @@ private fun PartContent(
                     "bash" -> BashToolCard(tool = part)
                     "read" -> ReadToolCard(tool = part)
                     "glob", "grep" -> SearchToolCard(tool = part)
-                    "task" -> TaskToolCard(tool = part)
+                    "task" -> TaskToolCard(tool = part, onViewSubSession = onViewSubSession)
                     else -> ToolCallCard(tool = part)
                 }
             }
@@ -5354,7 +5381,10 @@ private fun SearchToolCard(tool: Part.Tool) {
  * Like WebUI: trigger = "Agent (task)" + description, content = child tool list.
  */
 @Composable
-private fun TaskToolCard(tool: Part.Tool) {
+private fun TaskToolCard(
+    tool: Part.Tool,
+    onViewSubSession: ((String) -> Unit)? = null
+) {
     val isAmoled = isAmoledTheme()
     val input = extractToolInput(tool)
     val description = input["description"]?.jsonPrimitive?.contentOrNull
@@ -5372,6 +5402,10 @@ private fun TaskToolCard(tool: Part.Tool) {
     var expanded by remember(autoExpand) { mutableStateOf(autoExpand) }
     val isRunning = tool.state is ToolState.Running
     val hasOutput = output.isNotBlank()
+    val subSessionId = (tool.state as? ToolState.Completed)
+        ?.metadata?.get("sessionId")
+        ?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
+        ?.takeIf { it?.isNotBlank() == true }
 
     Surface(
         shape = RoundedCornerShape(8.dp),
@@ -5447,6 +5481,29 @@ private fun TaskToolCard(tool: Part.Tool) {
                             .padding(8.dp)
                             .codeHorizontalScroll()
                             .verticalScroll(rememberScrollState())
+                    )
+                }
+            }
+
+            // "查看详情" button — only shown when sub-session exists and callback is provided
+            if (subSessionId != null && onViewSubSession != null && hasOutput) {
+                TextButton(
+                    onClick = { onViewSubSession(subSessionId) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        text = "查看详情",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }

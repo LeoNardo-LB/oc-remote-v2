@@ -71,7 +71,9 @@ data class ChatUiState(
     /** Total tokens from the last assistant message with output > 0 (current context usage). */
     val lastContextTokens: Int = 0,
     /** IDs of user messages that are queued (sent while assistant is still generating). */
-    val queuedMessageIds: Set<String> = emptySet()
+    val queuedMessageIds: Set<String> = emptySet(),
+    /** Parent session ID — non-null when this session is a child/sub-agent session. */
+    val sessionParentId: String? = null
 )
 
 data class RevertedDraftPayload(
@@ -390,7 +392,8 @@ class ChatViewModel @Inject constructor(
             shareUrl = session?.share?.url,
             contextWindow = currentModel?.limit?.context ?: 0,
             lastContextTokens = lastContextTokens,
-            queuedMessageIds = queuedMessageIds
+            queuedMessageIds = queuedMessageIds,
+            sessionParentId = session?.parentId
         )
     }.stateIn(
         viewModelScope,

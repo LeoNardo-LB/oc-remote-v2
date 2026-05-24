@@ -508,6 +508,15 @@ fun NavGraph(
                         }
                     }
                 },
+                onNavigateToChildSession = { childSessionId ->
+                    val route = Screen.Chat.createRoute(
+                        serverUrl = serverUrl, username = username, password = password,
+                        serverName = serverName, serverId = serverId, sessionId = childSessionId
+                    )
+                    navController.navigate(route) {
+                        launchSingleTop = true
+                    }
+                },
                 onOpenInWebView = {
                     // Build the session path: /<base64url(directory)>/session/<sessionId>
                     val session = eventReducer.sessions.value.find { it.id == sessionId }
