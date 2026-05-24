@@ -5874,19 +5874,26 @@ private fun PermissionCard(
     val isAmoled = isAmoledTheme()
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
-    val containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.tertiaryContainer
-    val contentColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onTertiaryContainer
+    var submitted by remember { mutableStateOf(false) }
+
+    // Use error-container colors to signal security sensitivity (distinct from Question's tertiary)
+    val containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.errorContainer
+    val contentColor = if (isAmoled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onErrorContainer
+    val accentTint = if (isAmoled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.error
+
     Card(
         colors = CardDefaults.cardColors(
             containerColor = containerColor
         ),
-        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.7f)) else null,
+        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.7f)) else null,
+        shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Header row: security icon + "Permission Request" title
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -5895,19 +5902,30 @@ private fun PermissionCard(
                     Icons.Default.Security,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
-                    tint = if (isAmoled) MaterialTheme.colorScheme.tertiary else contentColor
+                    tint = accentTint
                 )
                 Text(
                     text = stringResource(R.string.permission_title),
                     style = MaterialTheme.typography.titleSmall,
                     color = contentColor
                 )
+                if (submitted) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .padding(start = 4.dp),
+                        strokeWidth = 2.dp,
+                        color = contentColor
+                    )
+                }
             }
+            // Permission description
             Text(
                 text = permission.permission,
                 style = MaterialTheme.typography.bodySmall,
                 color = contentColor
             )
+            // File patterns (if any)
             if (permission.patterns.isNotEmpty()) {
                 Text(
                     text = permission.patterns.joinToString(", "),
@@ -5919,27 +5937,46 @@ private fun PermissionCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = { performHaptic(hapticView, hapticOn); onReject() },
+                    onClick = {
+                        if (submitted) return@OutlinedButton
+                        performHaptic(hapticView, hapticOn)
+                        submitted = true
+                        onReject()
+                    },
                     modifier = Modifier.weight(1f),
+                    enabled = !submitted,
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                 ) {
                     Text(stringResource(R.string.permission_deny), maxLines = 1)
                 }
                 OutlinedButton(
-                    onClick = { performHaptic(hapticView, hapticOn); onOnce() },
+                    onClick = {
+                        if (submitted) return@OutlinedButton
+                        performHaptic(hapticView, hapticOn)
+                        submitted = true
+                        onOnce()
+                    },
                     modifier = Modifier.weight(1f),
+                    enabled = !submitted,
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                 ) {
                     Text(stringResource(R.string.permission_allow_once), maxLines = 1)
                 }
                 Button(
-                    onClick = { performHaptic(hapticView, hapticOn); onAlways() },
+                    onClick = {
+                        if (submitted) return@Button
+                        performHaptic(hapticView, hapticOn)
+                        submitted = true
+                        onAlways()
+                    },
                     modifier = Modifier.weight(1f),
+                    enabled = !submitted,
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                 ) {
                     Text(stringResource(R.string.permission_allow_always), maxLines = 1)
@@ -6011,13 +6048,13 @@ private fun ChatInputBar(
     val canSend = (text.isNotBlank() || attachments.isNotEmpty()) && !isSending && (!isShellMode || !isBusy)
     var previewAttachmentIndex by remember { mutableStateOf(-1) }
 
-    // Build merged slash commands: client commands + server commands (deduplicated)
+    // Build merged slash commands: client commands + server commands + skills (deduplicated)
     val clientCmds = clientCommands()
     val allCommands = remember(commands, clientCmds) {
         val clientNames = clientCmds.map { it.name }.toSet()
         val serverSlash = commands
-            .filter { it.source != "skill" && it.name !in clientNames }
-            .map { SlashCommand(it.name, it.description, "server") }
+            .filter { it.name !in clientNames }
+            .map { SlashCommand(it.name, it.description, it.source ?: "server") }
         clientCmds + serverSlash
     }
 
@@ -6073,9 +6110,17 @@ private fun ChatInputBar(
                         Text(
                             text = "/${cmd.name}",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = if (cmd.type == "skill") MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
                             fontFamily = FontFamily.Monospace
                         )
+                        if (cmd.type == "skill") {
+                            Text(
+                                text = "skill",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.6f),
+                                modifier = Modifier.padding(end = 4.dp)
+                            )
+                        }
                         if (cmd.description != null) {
                             Text(
                                 text = cmd.description,
