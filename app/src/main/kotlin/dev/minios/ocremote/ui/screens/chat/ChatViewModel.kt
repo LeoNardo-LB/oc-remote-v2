@@ -69,7 +69,9 @@ data class ChatUiState(
     /** Context window size of the current model (0 if unknown). */
     val contextWindow: Int = 0,
     /** Total tokens from the last assistant message with output > 0 (current context usage). */
-    val lastContextTokens: Int = 0
+    val lastContextTokens: Int = 0,
+    /** IDs of user messages that are queued (sent while assistant is still generating). */
+    val queuedMessageIds: Set<String> = emptySet()
 )
 
 data class RevertedDraftPayload(
@@ -346,6 +348,19 @@ class ChatViewModel @Inject constructor(
         }
         val availableVariants = currentModel?.variants?.keys?.toList()?.sorted() ?: emptyList()
 
+        // Compute queued message IDs: messages sent while assistant is still generating
+        val pendingAssistantIndex = chatMessages.indexOfLast {
+            it.message is Message.Assistant && it.message.time.completed == null
+        }
+        val queuedMessageIds = if (pendingAssistantIndex >= 0) {
+            chatMessages.drop(pendingAssistantIndex + 1)
+                .filter { it.isUser }
+                .map { it.message.id }
+                .toSet()
+        } else {
+            emptySet<String>()
+        }
+
         ChatUiState(
             sessionTitle = session?.title ?: "Chat",
             serverName = serverName,
@@ -374,7 +389,8 @@ class ChatViewModel @Inject constructor(
             isLoadingOlder = isLoadingOlder,
             shareUrl = session?.share?.url,
             contextWindow = currentModel?.limit?.context ?: 0,
-            lastContextTokens = lastContextTokens
+            lastContextTokens = lastContextTokens,
+            queuedMessageIds = queuedMessageIds
         )
     }.stateIn(
         viewModelScope,

@@ -2383,6 +2383,7 @@ fun ChatScreen(
 
                             ChatMessageBubble(
                                 chatMessage = chatMessage,
+                                isQueued = chatMessage.message.id in uiState.queuedMessageIds,
                                 onRevert = if (chatMessage.isUser) {
                                     {
                                         val revertText = chatMessage.parts
@@ -3469,6 +3470,7 @@ private fun resolveStepsStatus(stepParts: List<Part>): String {
 @Composable
 private fun ChatMessageBubble(
     chatMessage: ChatMessage,
+    isQueued: Boolean = false,
     onRevert: (() -> Unit)? = null,
     onCopyText: (() -> Unit)? = null
 ) {
@@ -3618,6 +3620,30 @@ private fun ChatMessageBubble(
                                         .size(15.dp)
                                         .clickable { performHaptic(hapticView, hapticOn); onCopyText() },
                                     tint = textColor.copy(alpha = 0.3f)
+                                )
+                            }
+                        }
+                    }
+
+                    // QUEUED badge for user messages
+                    if (isUser && isQueued) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFFFFD700),  // Gold
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                Text(
+                                    text = "QUEUED",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                         }
