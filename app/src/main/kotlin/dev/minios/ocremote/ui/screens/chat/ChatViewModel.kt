@@ -829,15 +829,19 @@ class ChatViewModel @Inject constructor(
     fun replyToPermission(requestId: String, reply: String) {
         viewModelScope.launch {
             try {
-                api.replyToPermission(
+                val success = api.replyToPermission(
                     conn = conn,
                     requestId = requestId,
                     reply = reply,
                     directory = sessionDirectory
                 )
-                if (BuildConfig.DEBUG) Log.d(TAG, "Replied to permission $requestId with $reply")
+                if (success) {
+                    // Optimistically remove the permission card — SSE event may arrive late or not at all
+                    eventReducer.removePermission(requestId)
+                }
+                if (BuildConfig.DEBUG) Log.d(TAG, "Replied to permission $requestId with $reply (success=$success)")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to reply to permission", e)
+                Log.e(TAG, "Failed to reply to permission $requestId: ${e.javaClass.simpleName}: ${e.message}", e)
             }
         }
     }
