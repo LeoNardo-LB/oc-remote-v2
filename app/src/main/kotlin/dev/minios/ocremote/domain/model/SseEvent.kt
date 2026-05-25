@@ -3,6 +3,7 @@ package dev.minios.ocremote.domain.model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+// Note: JsonElement import kept for backward compat; V2 metadata uses Map<String, String>
 
 /**
  * SSE Event - events from Server-Sent Events stream.
@@ -88,8 +89,8 @@ sealed class SseEvent {
         val sessionId: String,
         val permission: String,
         val patterns: List<String> = emptyList(),
-        val metadata: Map<String, JsonElement>? = null,
-        val always: List<String> = emptyList(),
+        val metadata: Map<String, String>? = null,
+        val always: Boolean = false,
         val tool: ToolRef? = null
     ) : SseEvent()
 
@@ -160,6 +161,74 @@ sealed class SseEvent {
     // Project events
     @Serializable
     data class ProjectUpdated(val info: Project) : SseEvent()
+
+    // ============ V2 New Events ============
+
+    // Session compaction
+    @Serializable
+    data class SessionCompacted(val sessionId: String) : SseEvent()
+
+    // PTY events (using simple fields to avoid cross-package dependency)
+    @Serializable
+    data class PtyCreated(
+        val id: String,
+        val title: String = "",
+        val command: String = "",
+        val cwd: String = ""
+    ) : SseEvent()
+
+    @Serializable
+    data class PtyUpdated(
+        val id: String,
+        val title: String = "",
+        val command: String = "",
+        val status: String = ""
+    ) : SseEvent()
+
+    @Serializable
+    data class PtyDeleted(val id: String) : SseEvent()
+
+    // Workspace events
+    @Serializable
+    data class WorkspaceReady(val workspaceId: String) : SseEvent()
+
+    @Serializable
+    data class WorkspaceFailed(val workspaceId: String, val error: String? = null) : SseEvent()
+
+    // File edit event
+    @Serializable
+    data class FileEdited(val path: String) : SseEvent()
+
+    // MCP tools changed
+    @Serializable
+    data class McpToolsChanged(val server: String) : SseEvent()
+
+    // Command execution completed
+    @Serializable
+    data class CommandExecuted(
+        val name: String,
+        val sessionId: String,
+        val arguments: String = "",
+        val messageId: String = ""
+    ) : SseEvent()
+
+    // File watcher
+    @Serializable
+    data class FileWatcherUpdated(val path: String) : SseEvent()
+
+    // Installation updates
+    @Serializable
+    data class InstallationUpdated(val version: String) : SseEvent()
+
+    @Serializable
+    data class InstallationUpdateAvailable(val version: String) : SseEvent()
+
+    // Worktree events
+    @Serializable
+    data class WorktreeReady(val path: String) : SseEvent()
+
+    @Serializable
+    data class WorktreeFailed(val path: String, val error: String? = null) : SseEvent()
 }
 
 /**

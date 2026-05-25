@@ -20,7 +20,14 @@ data class Session(
     val summary: Summary? = null,
     val share: Share? = null,
     val permission: List<PermissionRule>? = null,
-    val revert: Revert? = null
+    val revert: Revert? = null,
+    // --- V2 新增字段 ---
+    @SerialName("workspaceID") val workspaceId: String? = null,
+    val path: String? = null,
+    val cost: Double? = null,
+    val tokens: SessionTokens? = null,
+    val agent: String? = null,
+    val model: SessionModel? = null
 ) {
     @Serializable
     data class Time(
@@ -54,6 +61,24 @@ data class Session(
         val permission: String,
         val pattern: String = "*",
         val action: String = "ask"
+    )
+
+    @Serializable
+    data class SessionTokens(
+        val input: Int = 0,
+        val output: Int = 0,
+        val reasoning: Int = 0,
+        val cache: Cache = Cache()
+    ) {
+        @Serializable
+        data class Cache(val read: Int = 0, val write: Int = 0)
+    }
+
+    @Serializable
+    data class SessionModel(
+        val id: String,
+        @SerialName("providerID") val providerId: String,
+        val variant: String? = null
     )
 
     val createdAt: Long

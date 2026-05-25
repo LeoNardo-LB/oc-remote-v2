@@ -5475,10 +5475,12 @@ private fun TaskToolCard(
     var expanded by remember(autoExpand) { mutableStateOf(autoExpand) }
     val isRunning = tool.state is ToolState.Running
     val hasOutput = output.isNotBlank()
-    val subSessionId = (tool.state as? ToolState.Completed)
-        ?.metadata?.get("sessionId")
-        ?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
-        ?.takeIf { it?.isNotBlank() == true }
+    val subSessionId = when (val state = tool.state) {
+            is ToolState.Completed -> state.metadata?.get("sessionId")
+            is ToolState.Running -> state.metadata?.get("sessionId")
+            else -> null
+        }?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
+            ?.takeIf { it?.isNotBlank() == true }
 
     Surface(
         shape = RoundedCornerShape(8.dp),
@@ -5560,7 +5562,7 @@ private fun TaskToolCard(
             }
 
             // "查看详情" button — only shown when sub-session exists and callback is provided
-            if (subSessionId != null && onViewSubSession != null && hasOutput) {
+            if (subSessionId != null && onViewSubSession != null) {
                 TextButton(
                     onClick = { onViewSubSession(subSessionId) },
                     modifier = Modifier

@@ -111,6 +111,81 @@ class SseClient @Inject constructor(
     }
 
     /**
+     * Connect to the per-instance event stream (V2).
+     * GET /event
+     * Returns a Flow that emits SSE events.
+     */
+    fun connectToInstanceEvents(conn: ServerConnection, directory: String? = null): Flow<SseEvent> = flow {
+        val sseUrl = "${conn.baseUrl}/event"
+        Log.i(TAG, "Connecting to instance SSE: $sseUrl (auth=${conn.authHeader != null})")
+
+        val statement = httpClient.prepareGet(sseUrl) {
+            conn.authHeader?.let { header("Authorization", it) }
+            header("Accept", "text/event-stream")
+            directory?.let { header("x-opencode-directory", it) }
+
+            timeout {
+                requestTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
+                connectTimeoutMillis = 10_000
+                socketTimeoutMillis = HttpTimeout.INFINITE_TIMEOUT_MS
+            }
+        }
+
+        statement.execute { response ->
+            val statusCode = response.status.value
+            Log.i(TAG, "Instance SSE response: status=$statusCode")
+
+            if (statusCode == 401) {
+                throw SseAuthException("Authentication failed (401)")
+            }
+
+            if (statusCode !in 200..299) {
+                throw SseConnectionException("HTTP $statusCode")
+            }
+
+            val channel = response.bodyAsChannel()
+            var lastHeartbeat = System.currentTimeMillis()
+            var buffer = ""
+            var eventCount = 0
+
+            while (!channel.isClosedForRead) {
+                if (System.currentTimeMillis() - lastHeartbeat > HEARTBEAT_TIMEOUT_MS) {
+                    Log.w(TAG, "Instance SSE heartbeat timeout after $eventCount events")
+                    break
+                }
+
+                val line = channel.readUTF8Line() ?: break
+
+                if (line.isEmpty()) {
+                    if (buffer.isNotEmpty()) {
+                        try {
+                            val event = parseEvent(buffer)
+                            if (event != null) {
+                                eventCount++
+                                if (event is SseEvent.ServerHeartbeat) {
+                                    lastHeartbeat = System.currentTimeMillis()
+                                } else {
+                                    if (BuildConfig.DEBUG) Log.d(TAG, "Instance event #$eventCount: ${event::class.simpleName}")
+                                    emit(event)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Instance parse error: ${buffer.take(200)}", e)
+                        }
+                        buffer = ""
+                    }
+                } else if (line.startsWith("data: ")) {
+                    buffer += line.substring(6)
+                } else if (line.startsWith("data:")) {
+                    buffer += line.substring(5)
+                }
+            }
+
+            Log.w(TAG, "Instance SSE stream closed after $eventCount events")
+        }
+    }
+
+    /**
      * Parse SSE event from raw JSON.
      * Global endpoint wraps events: {directory, payload: {type, properties}}
      * Per-instance endpoint sends directly: {type, properties}
@@ -238,10 +313,16 @@ class SseClient @Inject constructor(
                     val permission = props.str("permission")
                     val patterns = props["patterns"]?.jsonArray
                         ?.map { it.jsonPrimitive.content } ?: emptyList()
-                    val always = props["always"]?.jsonArray
-                        ?.map { it.jsonPrimitive.content } ?: emptyList()
-                    val metadata = props["metadata"]?.jsonObject?.let {
-                        it.mapValues { (_, v) -> v }
+                    // V2: always is Boolean; fallback to V1 List<String> for backward compat
+                    val always = props["always"]?.let { el ->
+                        when {
+                            el is JsonPrimitive -> el.booleanOrNull ?: false
+                            el is JsonArray -> el.isNotEmpty()
+                            else -> false
+                        }
+                    } ?: false
+                    val metadata = props["metadata"]?.jsonObject?.let { obj ->
+                        obj.mapValues { (_, v) -> v.jsonPrimitive.contentOrNull ?: v.toString() }
                     }
                     val toolRef = props["tool"]?.jsonObject?.let { toolObj ->
                         ToolRef(
@@ -344,6 +425,84 @@ class SseClient @Inject constructor(
                     SseEvent.ProjectUpdated(info)
                 }
 
+                // V2 new events
+                "session.compacted" -> {
+                    SseEvent.SessionCompacted(sessionId = props.str("sessionID"))
+                }
+
+                "pty.created" -> {
+                    SseEvent.PtyCreated(
+                        id = props.str("id"),
+                        title = props.str("title"),
+                        command = props.str("command"),
+                        cwd = props.str("cwd")
+                    )
+                }
+
+                "pty.updated" -> {
+                    SseEvent.PtyUpdated(
+                        id = props.str("id"),
+                        title = props.str("title"),
+                        command = props.str("command"),
+                        status = props.str("status")
+                    )
+                }
+
+                "pty.deleted" -> {
+                    SseEvent.PtyDeleted(id = props.str("id"))
+                }
+
+                "workspace.ready" -> {
+                    SseEvent.WorkspaceReady(workspaceId = props.str("workspaceID"))
+                }
+
+                "workspace.failed" -> {
+                    SseEvent.WorkspaceFailed(
+                        workspaceId = props.str("workspaceID"),
+                        error = props.strOrNull("error")
+                    )
+                }
+
+                "file.edited" -> {
+                    SseEvent.FileEdited(path = props.str("path"))
+                }
+
+                "mcp.tools.changed" -> {
+                    SseEvent.McpToolsChanged(server = props.str("server"))
+                }
+
+                "command.executed" -> {
+                    SseEvent.CommandExecuted(
+                        name = props.str("name"),
+                        sessionId = props.str("sessionID"),
+                        arguments = props.str("arguments"),
+                        messageId = props.str("messageID")
+                    )
+                }
+
+                "file.watcher.updated" -> {
+                    SseEvent.FileWatcherUpdated(path = props.str("path"))
+                }
+
+                "installation.updated" -> {
+                    SseEvent.InstallationUpdated(version = props.str("version"))
+                }
+
+                "installation.update_available" -> {
+                    SseEvent.InstallationUpdateAvailable(version = props.str("version"))
+                }
+
+                "worktree.ready" -> {
+                    SseEvent.WorktreeReady(path = props.str("path"))
+                }
+
+                "worktree.failed" -> {
+                    SseEvent.WorktreeFailed(
+                        path = props.str("path"),
+                        error = props.strOrNull("error")
+                    )
+                }
+
                 else -> {
                     if (BuildConfig.DEBUG) Log.d(TAG, "Unhandled event: $type")
                     null
@@ -412,6 +571,10 @@ class SseClient @Inject constructor(
     /** Safe string extraction with default. */
     private fun JsonObject.str(key: String, default: String = ""): String =
         this[key]?.jsonPrimitive?.content ?: default
+
+    /** Nullable string extraction. */
+    private fun JsonObject.strOrNull(key: String): String? =
+        this[key]?.jsonPrimitive?.contentOrNull
 }
 
 /** Thrown when SSE returns 401 */

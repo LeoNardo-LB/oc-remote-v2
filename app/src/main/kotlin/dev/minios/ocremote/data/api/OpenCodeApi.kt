@@ -818,6 +818,95 @@ class OpenCodeApi @Inject constructor(
         }.body()
     }
 
+    // ============ V2 Endpoints ============
+
+    /**
+     * List available skills.
+     * GET /skill
+     */
+    suspend fun listSkills(conn: ServerConnection, directory: String? = null): List<SkillInfo> {
+        return httpClient.get("${conn.baseUrl}/skill") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directory?.let { header("x-opencode-directory", it) }
+        }.body()
+    }
+
+    /**
+     * List child sessions of a session.
+     * GET /session/{sessionId}/children
+     */
+    suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> {
+        return httpClient.get("${conn.baseUrl}/session/$sessionId/children") {
+            conn.authHeader?.let { header("Authorization", it) }
+        }.body()
+    }
+
+    /**
+     * Get session todo list.
+     * GET /session/{sessionId}/todo
+     */
+    suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> {
+        return httpClient.get("${conn.baseUrl}/session/$sessionId/todo") {
+            conn.authHeader?.let { header("Authorization", it) }
+        }.body()
+    }
+
+    /**
+     * Batch get session statuses.
+     * GET /session/status
+     */
+    suspend fun listSessionStatus(conn: ServerConnection, directory: String? = null): Map<String, SessionStatusInfo> {
+        return httpClient.get("${conn.baseUrl}/session/status") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directory?.let { header("x-opencode-directory", it) }
+        }.body()
+    }
+
+    /**
+     * List available PTY shells.
+     * GET /pty/shells
+     */
+    suspend fun listPtyShells(conn: ServerConnection, directory: String? = null): List<ShellInfo> {
+        return httpClient.get("${conn.baseUrl}/pty/shells") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directory?.let { header("x-opencode-directory", it) }
+        }.body()
+    }
+
+    /**
+     * Search for symbols.
+     * GET /find/symbol
+     */
+    suspend fun findSymbols(conn: ServerConnection, query: String, directory: String? = null): List<SymbolInfo> {
+        return httpClient.get("${conn.baseUrl}/find/symbol") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directory?.let { header("x-opencode-directory", it) }
+            parameter("query", query)
+        }.body()
+    }
+
+    /**
+     * Get file git status.
+     * GET /file/status
+     */
+    suspend fun getFileStatus(conn: ServerConnection, directory: String? = null): List<FileStatusInfo> {
+        return httpClient.get("${conn.baseUrl}/file/status") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directory?.let { header("x-opencode-directory", it) }
+        }.body()
+    }
+
+    /**
+     * Dispose current instance.
+     * POST /instance/dispose
+     */
+    suspend fun disposeInstance(conn: ServerConnection): Boolean {
+        val response = httpClient.post("${conn.baseUrl}/instance/dispose") {
+            conn.authHeader?.let { header("Authorization", it) }
+        }
+        return response.status.isSuccess()
+    }
+
     // ============ Files ============
 
     suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatch> {
@@ -1145,4 +1234,51 @@ data class ServerPaths(
     val config: String = "",
     val worktree: String = "",
     val directory: String = ""
+)
+
+// ============ V2 DTOs ============
+
+@Serializable
+data class SkillInfo(
+    val name: String,
+    val description: String? = null,
+    val location: String = "",
+    val content: String = ""
+)
+
+@Serializable
+data class TodoItem(
+    val id: String = "",
+    val content: String,
+    val status: String = "pending",
+    val priority: String = "medium"
+)
+
+@Serializable
+data class SessionStatusInfo(
+    val id: String = "",
+    val status: Map<String, String> = emptyMap()
+)
+
+@Serializable
+data class ShellInfo(
+    val path: String,
+    val name: String,
+    val acceptable: Boolean = true
+)
+
+@Serializable
+data class SymbolInfo(
+    val name: String,
+    val kind: String = "",
+    val path: String = "",
+    val line: Int? = null,
+    val language: String? = null
+)
+
+@Serializable
+data class FileStatusInfo(
+    val path: String,
+    val status: String,
+    val staged: Boolean = false
 )
