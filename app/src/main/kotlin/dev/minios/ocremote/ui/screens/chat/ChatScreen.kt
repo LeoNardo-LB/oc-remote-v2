@@ -2421,7 +2421,13 @@ fun ChatScreen(
 
                         items(
                             chatItems,
-                            key = { it.key }
+                            key = { it.key },
+                            contentType = { chatItem ->
+                                when (chatItem) {
+                                    is ChatItem.UserMessage -> "user"
+                                    is ChatItem.AssistantTurn -> "assistant"
+                                }
+                            }
                         ) { chatItem ->
                             when (chatItem) {
                                 is ChatItem.UserMessage -> {
@@ -3934,26 +3940,19 @@ private fun AssistantTurnBubble(
     }
 
     // Collect all renderable content from all messages in the turn
+    // Keep parts in their original order so tool calls are interleaved with text/reasoning
     val allContent = remember(messages) {
         messages.mapNotNull { msg ->
             val parts = msg.parts
             val assistantMsg = msg.message as? Message.Assistant ?: return@mapNotNull null
             val errorText = formatAssistantErrorMessage(assistantMsg.error)
 
-            // Split into content and step parts (same logic as ChatMessageBubble)
-            val contentParts = parts.filter { part ->
-                part is Part.Text || part is Part.Reasoning || part is Part.Patch ||
-                        part is Part.File || part is Part.Permission || part is Part.Question ||
-                        part is Part.Abort || part is Part.Retry
-            }
-            val stepParts = parts.filter { part ->
-                part is Part.Tool || part is Part.StepStart || part is Part.StepFinish
-            }
+            val renderableParts = parts.filter(::isBubbleRenderablePart)
 
-            if (contentParts.isEmpty() && stepParts.isEmpty() && errorText == null) {
+            if (renderableParts.isEmpty() && errorText == null) {
                 null
             } else {
-                Triple(contentParts, stepParts, errorText to assistantMsg)
+                Pair(renderableParts, errorText to assistantMsg)
             }
         }
     }
@@ -4028,41 +4027,12 @@ private fun AssistantTurnBubble(
                     }
                 }
 
-                // Render all messages' parts sequentially
-                for ((contentParts, stepParts, errorPair) in allContent) {
+                // Render all messages' parts in original order (text, tool, reasoning interleaved)
+                for ((renderableParts, errorPair) in allContent) {
                     val (errorText, assistantMsg) = errorPair
 
-                    // Step/tool parts
-                    if (stepParts.isNotEmpty()) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            for (part in stepParts) {
-                                key(part.id) {
-                                    PartContent(
-                                        part = part,
-                                        textColor = textColor,
-                                        isUser = false,
-                                        onViewSubSession = onViewSubSession
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Content parts
-                    val imageFiles = contentParts.filterIsInstance<Part.File>()
-                        .filter { it.mime.startsWith("image/") && !it.url.isNullOrBlank() }
-                    val otherParts = contentParts.filter { part ->
-                        !(part is Part.File && part.mime.startsWith("image/") && !part.url.isNullOrBlank())
-                    }
-                    val renderableOtherParts = otherParts.filter(::isBubbleRenderablePart)
-
-                    if (imageFiles.isNotEmpty()) {
-                        ImageThumbnailRow(imageFiles = imageFiles)
-                    }
-
-                    for (part in renderableOtherParts) {
+                    // Collect image files for thumbnail display while preserving order
+                    for (part in renderableParts) {
                         key(part.id) {
                             PartContent(
                                 part = part,
