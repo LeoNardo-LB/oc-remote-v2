@@ -77,6 +77,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.LocalView
@@ -105,21 +106,31 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.times
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import coil.compose.AsyncImage
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
+import com.mikepenz.markdown.compose.LocalMarkdownColors
+import com.mikepenz.markdown.compose.LocalMarkdownDimens
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.coil2.Coil2ImageTransformerImpl
 import com.mikepenz.markdown.compose.elements.highlightedCodeBlock
 import com.mikepenz.markdown.compose.elements.highlightedCodeFence
+import com.mikepenz.markdown.compose.elements.material.MarkdownBasicText
 import com.mikepenz.markdown.model.markdownDimens
+import com.mikepenz.markdown.utils.buildMarkdownAnnotatedString
+import org.intellij.markdown.ast.ASTNode
+import org.intellij.markdown.ast.findChildOfType
+import org.intellij.markdown.flavours.gfm.GFMElementTypes
+import org.intellij.markdown.flavours.gfm.GFMTokenTypes
 import dev.minios.ocremote.domain.model.*
 import dev.minios.ocremote.data.api.AgentInfo
 import dev.minios.ocremote.data.api.CommandInfo
@@ -1364,6 +1375,8 @@ fun ChatScreen(
         }
     }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     // Whether auto-scroll should follow new content.
     // Disabled when user manually scrolls up; re-enabled when user scrolls back to bottom.
     var autoScrollEnabled by remember { mutableStateOf(true) }
@@ -1414,6 +1427,7 @@ fun ChatScreen(
     val pendingCount = uiState.pendingPermissions.size + uiState.pendingQuestions.size
     val isBusy = uiState.sessionStatus is SessionStatus.Busy
     LaunchedEffect(messageCount, lastPartCount, lastContentLength, pendingCount, isBusy) {
+        if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@LaunchedEffect
         if (messageCount > 0 && (autoScrollEnabled || pendingCount > 0)) {
             val lastIndex = listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1
             listState.scrollToItem(lastIndex)
@@ -1433,6 +1447,7 @@ fun ChatScreen(
 
     // Also auto-scroll when first loading
     LaunchedEffect(uiState.isLoading) {
+        if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@LaunchedEffect
         if (!uiState.isLoading && messageCount > 0) {
             val lastIndex = listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1
             listState.scrollToItem(lastIndex)
@@ -4293,12 +4308,91 @@ private fun MarkdownContent(
     )
 
     val wordWrap = LocalCodeWordWrap.current
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
+    val maxTableWidth = screenWidthDp * 1.5f
+    val tableDimens = LocalMarkdownDimens.current
+
+    // Custom table component that allows text wrapping in cells instead of truncating with ellipsis.
+    // The library's default MarkdownTable hardcodes maxLines=1, overflow=Ellipsis.
+    val wrappingTableComponent: @Composable ColumnScope.(com.mikepenz.markdown.compose.components.MarkdownComponentModel) -> Unit = { model ->
+        val tableCellWidth = tableDimens.tableCellWidth
+        val tableCellPadding = tableDimens.tableCellPadding
+        val tableCornerSize = tableDimens.tableCornerSize
+        val backgroundCodeColor = LocalMarkdownColors.current.tableBackground
+        val textColor = LocalMarkdownColors.current.tableText
+        val style = model.typography.text
+
+        val columnsCount = remember { model.node.findChildOfType(GFMElementTypes.HEADER)?.children?.count { it.type == GFMTokenTypes.CELL } ?: 0 }
+        val tableWidth = if (tableCellWidth != Dp.Unspecified) columnsCount.toFloat() * tableCellWidth else Dp.Unspecified
+
+        BoxWithConstraints(
+            modifier = Modifier
+                .background(backgroundCodeColor, RoundedCornerShape(tableCornerSize))
+                .widthIn(max = maxTableWidth)
+        ) {
+            val scrollable = maxWidth <= tableWidth && tableWidth != Dp.Unspecified
+            Column(
+                modifier = if (scrollable) {
+                    Modifier.horizontalScroll(rememberScrollState()).requiredWidth(tableWidth)
+                } else Modifier.fillMaxWidth()
+            ) {
+                model.node.children.forEach { child ->
+                    when (child.type) {
+                        GFMElementTypes.HEADER -> {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.widthIn(tableWidth).height(IntrinsicSize.Max)
+                            ) {
+                                child.children.forEach { cell ->
+                                    if (cell.type == GFMTokenTypes.CELL) {
+                                        MarkdownBasicText(
+                                            text = model.content.buildMarkdownAnnotatedString(cell, style.copy(fontWeight = FontWeight.Bold)),
+                                            style = style.copy(fontWeight = FontWeight.Bold),
+                                            color = textColor,
+                                            modifier = Modifier.padding(tableCellPadding),
+                                            softWrap = true
+                                        )
+                                        Box(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+                        GFMElementTypes.ROW -> {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.widthIn(tableWidth)
+                            ) {
+                                child.children.filter { it.type == GFMTokenTypes.CELL }.forEach { cell ->
+                                    MarkdownBasicText(
+                                        text = model.content.buildMarkdownAnnotatedString(cell, style),
+                                        style = style,
+                                        color = textColor,
+                                        modifier = Modifier.padding(tableCellPadding),
+                                        softWrap = true
+                                    )
+                                    Box(Modifier.weight(1f))
+                                }
+                            }
+                        }
+                        GFMTokenTypes.TABLE_SEPARATOR -> {
+                            HorizontalDivider(
+                                color = textColor.copy(alpha = 0.2f),
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     val components = if (wordWrap) {
-        markdownComponents()
+        markdownComponents(table = wrappingTableComponent)
     } else {
         markdownComponents(
             codeBlock = highlightedCodeBlock,
-            codeFence = highlightedCodeFence
+            codeFence = highlightedCodeFence,
+            table = wrappingTableComponent
         )
     }
 
@@ -6286,8 +6380,14 @@ private fun ChatInputBar(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                onTextFieldValueChange(TextFieldValue(""))
-                                onSlashCommand(cmd)
+                                if (cmd.type == "skill") {
+                                    // Put skill command into input field for user to add additional input
+                                    val skillText = "/${cmd.name} "
+                                    onTextFieldValueChange(TextFieldValue(skillText, TextRange(skillText.length)))
+                                } else {
+                                    onTextFieldValueChange(TextFieldValue(""))
+                                    onSlashCommand(cmd)
+                                }
                             }
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
