@@ -2347,8 +2347,9 @@ fun ChatScreen(
                     }
                 }
                 else -> {
-                    val messageSpacing = if (LocalCompactMessages.current) 4.dp else 12.dp
-                    LazyColumn(
+                     val messageSpacing = if (LocalCompactMessages.current) 4.dp else 12.dp
+                     val chatItems = remember(uiState.messages) { groupMessages(uiState.messages) }
+                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
@@ -2388,135 +2389,131 @@ fun ChatScreen(
                             }
                         }
 
-                        itemsIndexed(
-                            uiState.messages,
-                            key = { _, it -> it.message.id }
-                        ) { index, chatMessage ->
-                            // Detect compaction trigger messages (user messages with Part.Compaction)
-                            val isCompactionTrigger = chatMessage.isUser &&
-                                chatMessage.parts.any { it is Part.Compaction }
+                        items(
+                            chatItems,
+                            key = { it.key }
+                        ) { chatItem ->
+                            when (chatItem) {
+                                is ChatItem.UserMessage -> {
+                                    val chatMessage = chatItem.chatMessage
 
-                            // Show compact system-style divider for compaction triggers
-                            // Long-press to revert (undo compaction and subsequent messages)
-                            if (isCompactionTrigger) {
-                                var showRevertDialog by remember { mutableStateOf(false) }
+                                    // Detect compaction trigger messages (user messages with Part.Compaction)
+                                    val isCompactionTrigger = chatMessage.parts.any { it is Part.Compaction }
 
-                                if (showRevertDialog) {
-                                    AlertDialog(
-                                        onDismissRequest = { showRevertDialog = false },
-                                        title = { Text(stringResource(R.string.chat_revert_title)) },
-                                        text = { Text(stringResource(R.string.chat_revert_message)) },
-                                        confirmButton = {
-                                            TextButton(
-                                                onClick = {
-                                                    showRevertDialog = false
-                                                    viewModel.revertMessage(chatMessage.message.id) { ok ->
-                                                        coroutineScope.launch {
-                                                            snackbarHostState.showSnackbar(
-                                                                if (ok) context.getString(R.string.chat_message_reverted) else context.getString(R.string.chat_message_revert_failed)
-                                                            )
+                                    // Show compact system-style divider for compaction triggers
+                                    // Long-press to revert (undo compaction and subsequent messages)
+                                    if (isCompactionTrigger) {
+                                        var showRevertDialog by remember { mutableStateOf(false) }
+
+                                        if (showRevertDialog) {
+                                            AlertDialog(
+                                                onDismissRequest = { showRevertDialog = false },
+                                                title = { Text(stringResource(R.string.chat_revert_title)) },
+                                                text = { Text(stringResource(R.string.chat_revert_message)) },
+                                                confirmButton = {
+                                                    TextButton(
+                                                        onClick = {
+                                                            showRevertDialog = false
+                                                            viewModel.revertMessage(chatMessage.message.id) { ok ->
+                                                                coroutineScope.launch {
+                                                                    snackbarHostState.showSnackbar(
+                                                                        if (ok) context.getString(R.string.chat_message_reverted) else context.getString(R.string.chat_message_revert_failed)
+                                                                    )
+                                                                }
+                                                            }
                                                         }
+                                                    ) {
+                                                        Text(stringResource(R.string.chat_revert), color = MaterialTheme.colorScheme.error)
+                                                    }
+                                                },
+                                                dismissButton = {
+                                                    TextButton(onClick = { showRevertDialog = false }) {
+                                                        Text(stringResource(R.string.cancel))
                                                     }
                                                 }
-                                            ) {
-                                                Text(stringResource(R.string.chat_revert), color = MaterialTheme.colorScheme.error)
+                                            )
+                                        }
+
+                                        @OptIn(ExperimentalFoundationApi::class)
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .combinedClickable(
+                                                    onClick = { },
+                                                    onLongClick = { showRevertDialog = true }
+                                                )
+                                                .padding(vertical = 4.dp, horizontal = 32.dp),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            HorizontalDivider(
+                                                modifier = Modifier.weight(1f),
+                                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.chat_summarized),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                modifier = Modifier.padding(horizontal = 12.dp)
+                                            )
+                                            HorizontalDivider(
+                                                modifier = Modifier.weight(1f),
+                                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                            )
+                                        }
+                                        return@items
+                                    }
+
+                                    ChatMessageBubble(
+                                        chatMessage = chatMessage,
+                                        isQueued = chatMessage.message.id in uiState.queuedMessageIds,
+                                        onViewSubSession = onNavigateToChildSession,
+                                        onRevert = {
+                                            val revertText = chatMessage.parts
+                                                .filterIsInstance<Part.Text>()
+                                                .joinToString("\n") { it.text }
+                                            viewModel.revertMessage(chatMessage.message.id, revertText) { ok ->
+                                                coroutineScope.launch {
+                                                    snackbarHostState.showSnackbar(
+                                                        if (ok) context.getString(R.string.chat_message_reverted) else context.getString(R.string.chat_message_revert_failed)
+                                                    )
+                                                }
                                             }
                                         },
-                                        dismissButton = {
-                                            TextButton(onClick = { showRevertDialog = false }) {
-                                                Text(stringResource(R.string.cancel))
-                                            }
-                                        }
-                                    )
-                                }
-
-                                @OptIn(ExperimentalFoundationApi::class)
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .combinedClickable(
-                                            onClick = { },
-                                            onLongClick = { showRevertDialog = true }
-                                        )
-                                        .padding(vertical = 4.dp, horizontal = 32.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    HorizontalDivider(
-                                        modifier = Modifier.weight(1f),
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.chat_summarized),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.padding(horizontal = 12.dp)
-                                    )
-                                    HorizontalDivider(
-                                        modifier = Modifier.weight(1f),
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                                    )
-                                }
-                                return@itemsIndexed
-                            }
-
-                            // Determine bubble group position for assistant messages.
-                            // Consecutive assistant messages are visually merged into one bubble.
-                            val isFirstInGroup = when {
-                                chatMessage.isUser -> true
-                                index == 0 -> true
-                                index > 0 && index <= uiState.messages.lastIndex && uiState.messages[index - 1].isUser -> true
-                                else -> false
-                            }
-                            val isLastInGroup = when {
-                                chatMessage.isUser -> true
-                                index == uiState.messages.lastIndex -> true
-                                index + 1 <= uiState.messages.lastIndex && uiState.messages[index + 1].isUser -> true
-                                else -> false
-                            }
-
-                            Box(
-                                modifier = if (!isFirstInGroup) {
-                                    // Pull consecutive assistant messages closer to visually merge them
-                                    Modifier.offset(y = -messageSpacing)
-                                } else {
-                                    Modifier
-                                }
-                            ) {
-                            ChatMessageBubble(
-                                chatMessage = chatMessage,
-                                isQueued = chatMessage.message.id in uiState.queuedMessageIds,
-                                isFirstInGroup = isFirstInGroup,
-                                isLastInGroup = isLastInGroup,
-                                onViewSubSession = onNavigateToChildSession,
-                                onRevert = if (chatMessage.isUser) {
-                                    {
-                                        val revertText = chatMessage.parts
-                                            .filterIsInstance<Part.Text>()
-                                            .joinToString("\n") { it.text }
-                                        viewModel.revertMessage(chatMessage.message.id, revertText) { ok ->
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar(
-                                                    if (ok) context.getString(R.string.chat_message_reverted) else context.getString(R.string.chat_message_revert_failed)
+                                        onCopyText = {
+                                            val text = chatMessage.parts
+                                                .filterIsInstance<Part.Text>()
+                                                .joinToString("\n") { it.text }
+                                            if (text.isNotBlank()) {
+                                                clipboardManager.setText(
+                                                    androidx.compose.ui.text.AnnotatedString(text)
                                                 )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
+                                                }
                                             }
                                         }
-                                    }
-                                } else null,
-                                onCopyText = {
-                                    val text = chatMessage.parts
-                                        .filterIsInstance<Part.Text>()
-                                        .joinToString("\n") { it.text }
-                                    if (text.isNotBlank()) {
-                                        clipboardManager.setText(
-                                            androidx.compose.ui.text.AnnotatedString(text)
-                                        )
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
-                                        }
-                                    }
+                                    )
                                 }
-                            )
+                                is ChatItem.AssistantTurn -> {
+                                    AssistantTurnBubble(
+                                        messages = chatItem.messages,
+                                        onViewSubSession = onNavigateToChildSession,
+                                        onCopyText = {
+                                            val text = chatItem.messages.flatMap { msg ->
+                                                msg.parts.filterIsInstance<Part.Text>()
+                                            }.joinToString("\n") { it.text }
+                                            if (text.isNotBlank()) {
+                                                clipboardManager.setText(
+                                                    androidx.compose.ui.text.AnnotatedString(text)
+                                                )
+                                                coroutineScope.launch {
+                                                    snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
 
@@ -3572,42 +3569,82 @@ private fun resolveStepsStatus(stepParts: List<Part>): String {
     }
 }
 
+/**
+ * Represents a renderable item in the chat list.
+ * Consecutive assistant messages are grouped into a single AssistantTurn.
+ */
+private sealed class ChatItem {
+    abstract val key: String
+
+    data class UserMessage(
+        override val key: String,
+        val chatMessage: ChatMessage
+    ) : ChatItem()
+
+    data class AssistantTurn(
+        override val key: String,
+        val messages: List<ChatMessage>
+    ) : ChatItem()
+}
+
+/**
+ * Groups a flat list of ChatMessages into ChatItems.
+ * Consecutive assistant messages are merged into a single AssistantTurn.
+ */
+private fun groupMessages(messages: List<ChatMessage>): List<ChatItem> {
+    val items = mutableListOf<ChatItem>()
+    var currentAssistantGroup = mutableListOf<ChatMessage>()
+
+    fun flushAssistantGroup() {
+        if (currentAssistantGroup.isNotEmpty()) {
+            items.add(ChatItem.AssistantTurn(
+                key = "turn_${currentAssistantGroup.first().message.id}",
+                messages = currentAssistantGroup.toList()
+            ))
+            currentAssistantGroup = mutableListOf()
+        }
+    }
+
+    for (msg in messages) {
+        if (msg.isUser) {
+            flushAssistantGroup()
+            items.add(ChatItem.UserMessage(
+                key = msg.message.id,
+                chatMessage = msg
+            ))
+        } else {
+            currentAssistantGroup.add(msg)
+        }
+    }
+    flushAssistantGroup()
+
+    return items
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatMessageBubble(
     chatMessage: ChatMessage,
     isQueued: Boolean = false,
-    isFirstInGroup: Boolean = true,
-    isLastInGroup: Boolean = true,
     onViewSubSession: ((String) -> Unit)? = null,
     onRevert: (() -> Unit)? = null,
     onCopyText: (() -> Unit)? = null
 ) {
-    val isUser = chatMessage.isUser
     val isAmoled = isAmoledTheme()
-    val alignment = if (isUser) Alignment.End else Alignment.Start
     val backgroundColor = if (isAmoled) {
         Color.Black
-    } else if (isUser) {
-        MaterialTheme.colorScheme.primaryContainer
     } else {
-        MaterialTheme.colorScheme.surfaceContainerHigh
+        MaterialTheme.colorScheme.primaryContainer
     }
     val textColor = if (isAmoled) {
         MaterialTheme.colorScheme.onSurface
-    } else if (isUser) {
-        MaterialTheme.colorScheme.onPrimaryContainer
     } else {
-        MaterialTheme.colorScheme.onSurface
+        MaterialTheme.colorScheme.onPrimaryContainer
     }
     val bubbleBorder = if (isAmoled) {
         BorderStroke(
             1.dp,
-            if (isUser) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
-            } else {
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)
-            }
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
         )
     } else {
         null
@@ -3615,124 +3652,49 @@ private fun ChatMessageBubble(
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
 
-    // Separate parts into text/reasoning (shown directly) and step parts (behind toggle)
-    val visibleParts = if (isUser) {
-        chatMessage.parts.filter { part ->
-            when (part) {
-                is Part.Text -> part.synthetic != true && part.ignored != true && part.text.isNotBlank()
-                else -> true
-            }
+    // Filter visible parts for user messages
+    val visibleParts = chatMessage.parts.filter { part ->
+        when (part) {
+            is Part.Text -> part.synthetic != true && part.ignored != true && part.text.isNotBlank()
+            else -> true
         }
-    } else {
-        chatMessage.parts
     }
 
     val userMessage = chatMessage.message as? Message.User
-    val assistantMessage = chatMessage.message as? Message.Assistant
-    val assistantErrorText = formatAssistantErrorMessage(assistantMessage?.error)
     val userFallbackText = userMessage?.summary?.body?.takeIf { it.isNotBlank() }
         ?: userMessage?.summary?.title?.takeIf { it.isNotBlank() }
-    val userCommandLabel = if (isUser) {
-        resolveUserCommandLabel(chatMessage.parts)
-    } else {
-        null
-    }
+    val userCommandLabel = resolveUserCommandLabel(chatMessage.parts)
 
-    // For assistant messages: split into "content" (text, reasoning, patch) and "steps" (tool calls, step markers)
-    val contentParts: List<Part>
-    val stepParts: List<Part>
-    if (!isUser) {
-        contentParts = visibleParts.filter { part ->
-            part is Part.Text || part is Part.Reasoning || part is Part.Patch ||
-                    part is Part.File || part is Part.Permission || part is Part.Question ||
-                    part is Part.Abort || part is Part.Retry
-        }
-        stepParts = visibleParts.filter { part ->
-            part is Part.Tool || part is Part.StepStart || part is Part.StepFinish
-        }
-    } else {
-        contentParts = visibleParts
-        stepParts = emptyList()
-    }
+    val contentParts = visibleParts
 
     val hasRenderableUserPart = contentParts.any(::isBubbleRenderablePart)
-    val hasRenderableUserContent = !isUser || hasRenderableUserPart || userFallbackText != null || userCommandLabel != null
-    val hasRenderableAssistantContent = isUser ||
-            contentParts.isNotEmpty() ||
-            stepParts.isNotEmpty() ||
-            assistantErrorText != null
-    if (!hasRenderableUserContent || !hasRenderableAssistantContent) {
+    if (!hasRenderableUserPart && userFallbackText == null && userCommandLabel == null) {
         return
     }
-
-    val hasSteps = stepParts.isNotEmpty()
-    val isMerged = !isUser && !isFirstInGroup
 
         val bubbleContent: @Composable () -> Unit = {
         Surface(
             shape = RoundedCornerShape(
-                topStart = if (isUser) 18.dp else if (isFirstInGroup) 4.dp else 0.dp,
-                topEnd = if (isUser) 4.dp else if (isFirstInGroup) 18.dp else 0.dp,
-                bottomStart = if (isUser) 18.dp else if (isLastInGroup) 18.dp else 0.dp,
-                bottomEnd = if (isUser) 18.dp else if (isLastInGroup) 18.dp else 0.dp
+                topStart = 18.dp,
+                topEnd = 4.dp,
+                bottomStart = 18.dp,
+                bottomEnd = 18.dp
             ),
-            color = if (isMerged) Color.Transparent else backgroundColor,
-            border = if (isMerged) null else bubbleBorder,
-            tonalElevation = if (isMerged || isAmoled || isUser) 0.dp else 1.dp,
+            color = backgroundColor,
+            border = bubbleBorder,
+            tonalElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             val compact = LocalCompactMessages.current
             Column(
                     modifier = Modifier.padding(
                         horizontal = if (compact) 10.dp else 16.dp,
-                        vertical = if (isMerged) 2.dp else if (compact) 8.dp else 14.dp
+                        vertical = if (compact) 8.dp else 14.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp)
                 ) {
-                    // "Response" header with provider icon and copy button — assistant messages only
-                    // Hidden for consecutive assistant messages to visually merge them
-                    if (!isUser && isFirstInGroup) {
-                        val assistantMsg = assistantMessage
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
-                            ) {
-                                if (assistantMsg?.providerId != null) {
-                                    ProviderIcon(
-                                        providerId = assistantMsg.providerId,
-                                        size = 12.dp,
-                                        tint = textColor.copy(alpha = 0.4f)
-                                    )
-                                }
-                                Text(
-                                    text = stringResource(R.string.chat_response),
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        letterSpacing = 0.8.sp,
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    color = textColor.copy(alpha = 0.4f)
-                                )
-                            }
-                            if (onCopyText != null) {
-                                Icon(
-                                    Icons.Default.ContentCopy,
-                                    contentDescription = stringResource(R.string.chat_copy),
-                                    modifier = Modifier
-                                        .size(15.dp)
-                                        .clickable { performHaptic(hapticView, hapticOn); onCopyText() },
-                                    tint = textColor.copy(alpha = 0.3f)
-                                )
-                            }
-                        }
-                    }
-
                     // QUEUED badge for user messages
-                    if (isUser && isQueued) {
+                    if (isQueued) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.End,
@@ -3755,21 +3717,7 @@ private fun ChatMessageBubble(
                         }
                     }
 
-                    // Step/tool parts — displayed directly without outer toggle
-                    if (hasSteps) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            for (part in stepParts) {
-                                PartContent(
-                                    part = part,
-                                    textColor = textColor,
-                                    isUser = isUser,
-                                    onViewSubSession = onViewSubSession
-                                )
-                            }
-                        }
-                    }
+                    // Step/tool parts — not applicable for user messages (handled by AssistantTurnBubble)
 
                     // Content parts (text, reasoning, patches, etc.)
                     // Group image file parts into a compact thumbnail row
@@ -3790,12 +3738,12 @@ private fun ChatMessageBubble(
                         PartContent(
                             part = part,
                             textColor = textColor,
-                            isUser = isUser,
+                            isUser = true,
                             onViewSubSession = onViewSubSession
                         )
                     }
 
-                    if (isUser && imageFiles.isEmpty() && renderableOtherParts.isEmpty() && userCommandLabel != null) {
+                    if (imageFiles.isEmpty() && renderableOtherParts.isEmpty() && userCommandLabel != null) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -3814,24 +3762,8 @@ private fun ChatMessageBubble(
                         }
                     }
 
-                    if (!isUser && assistantErrorText != null) {
-                        Surface(
-                            color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = if (isAmoled) 0.75f else 0.35f)),
-                            tonalElevation = 0.dp,
-                        ) {
-                            ErrorPayloadContent(
-                                text = assistantErrorText,
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                textColor = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                            )
-                        }
-                    }
-
                     // If text parts are absent but server provided a summary, render it.
-                    if (visibleParts.isEmpty() && isUser && userFallbackText != null) {
+                    if (visibleParts.isEmpty() && userFallbackText != null) {
                         Text(
                             text = userFallbackText,
                             style = MaterialTheme.typography.bodyMedium,
@@ -3844,9 +3776,9 @@ private fun ChatMessageBubble(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = alignment
+        horizontalAlignment = Alignment.End
     ) {
-        if (isUser && onRevert != null) {
+        if (onRevert != null) {
             // Swipe-to-revert for user messages with confirmation dialog
             var showRevertConfirmation by remember { mutableStateOf(false) }
             val hapticEnabled = LocalHapticFeedbackEnabled.current
@@ -3939,6 +3871,188 @@ private fun ChatMessageBubble(
             }
         } else {
             bubbleContent()
+        }
+    }
+}
+
+@Composable
+private fun AssistantTurnBubble(
+    messages: List<ChatMessage>,
+    onViewSubSession: ((String) -> Unit)? = null,
+    onCopyText: (() -> Unit)? = null
+) {
+    val isAmoled = isAmoledTheme()
+    val backgroundColor = if (isAmoled) {
+        Color.Black
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+    val textColor = if (isAmoled) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    val bubbleBorder = if (isAmoled) {
+        BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)
+        )
+    } else {
+        null
+    }
+
+    // Collect all renderable content from all messages in the turn
+    val allContent = messages.mapNotNull { msg ->
+        val parts = msg.parts
+        val assistantMsg = msg.message as? Message.Assistant ?: return@mapNotNull null
+        val errorText = formatAssistantErrorMessage(assistantMsg.error)
+
+        // Split into content and step parts (same logic as ChatMessageBubble)
+        val contentParts = parts.filter { part ->
+            part is Part.Text || part is Part.Reasoning || part is Part.Patch ||
+                    part is Part.File || part is Part.Permission || part is Part.Question ||
+                    part is Part.Abort || part is Part.Retry
+        }
+        val stepParts = parts.filter { part ->
+            part is Part.Tool || part is Part.StepStart || part is Part.StepFinish
+        }
+
+        if (contentParts.isEmpty() && stepParts.isEmpty() && errorText == null) {
+            null
+        } else {
+            Triple(contentParts, stepParts, errorText to assistantMsg)
+        }
+    }
+
+    if (allContent.isEmpty()) return
+
+    // Use the first message's assistant info for the header
+    val firstAssistant = messages.firstOrNull()?.message as? Message.Assistant
+
+    val compact = LocalCompactMessages.current
+    val hapticView = LocalView.current
+    val hapticOn = LocalHapticFeedbackEnabled.current
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Surface(
+            shape = RoundedCornerShape(
+                topStart = 4.dp,
+                topEnd = 18.dp,
+                bottomStart = 18.dp,
+                bottomEnd = 18.dp
+            ),
+            color = backgroundColor,
+            border = bubbleBorder,
+            tonalElevation = if (isAmoled) 0.dp else 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(
+                    horizontal = if (compact) 10.dp else 16.dp,
+                    vertical = if (compact) 8.dp else 14.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp)
+            ) {
+                // "Response" header with provider icon and copy button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        if (firstAssistant?.providerId != null) {
+                            ProviderIcon(
+                                providerId = firstAssistant.providerId,
+                                size = 12.dp,
+                                tint = textColor.copy(alpha = 0.4f)
+                            )
+                        }
+                        Text(
+                            text = stringResource(R.string.chat_response),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                letterSpacing = 0.8.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = textColor.copy(alpha = 0.4f)
+                        )
+                    }
+                    if (onCopyText != null) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = stringResource(R.string.chat_copy),
+                            modifier = Modifier
+                                .size(15.dp)
+                                .clickable { performHaptic(hapticView, hapticOn); onCopyText() },
+                            tint = textColor.copy(alpha = 0.3f)
+                        )
+                    }
+                }
+
+                // Render all messages' parts sequentially
+                for ((contentParts, stepParts, errorPair) in allContent) {
+                    val (errorText, assistantMsg) = errorPair
+
+                    // Step/tool parts
+                    if (stepParts.isNotEmpty()) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            for (part in stepParts) {
+                                PartContent(
+                                    part = part,
+                                    textColor = textColor,
+                                    isUser = false,
+                                    onViewSubSession = onViewSubSession
+                                )
+                            }
+                        }
+                    }
+
+                    // Content parts
+                    val imageFiles = contentParts.filterIsInstance<Part.File>()
+                        .filter { it.mime.startsWith("image/") && !it.url.isNullOrBlank() }
+                    val otherParts = contentParts.filter { part ->
+                        !(part is Part.File && part.mime.startsWith("image/") && !part.url.isNullOrBlank())
+                    }
+                    val renderableOtherParts = otherParts.filter(::isBubbleRenderablePart)
+
+                    if (imageFiles.isNotEmpty()) {
+                        ImageThumbnailRow(imageFiles = imageFiles)
+                    }
+
+                    for (part in renderableOtherParts) {
+                        PartContent(
+                            part = part,
+                            textColor = textColor,
+                            isUser = false,
+                            onViewSubSession = onViewSubSession
+                        )
+                    }
+
+                    // Error display
+                    if (errorText != null) {
+                        Surface(
+                            color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = if (isAmoled) 0.75f else 0.35f)),
+                            tonalElevation = 0.dp,
+                        ) {
+                            ErrorPayloadContent(
+                                text = errorText,
+                                textStyle = MaterialTheme.typography.bodySmall,
+                                textColor = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
