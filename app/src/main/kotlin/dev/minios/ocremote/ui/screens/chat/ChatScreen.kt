@@ -119,18 +119,11 @@ import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.compose.LocalMarkdownColors
-import com.mikepenz.markdown.compose.LocalMarkdownDimens
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.coil2.Coil2ImageTransformerImpl
 import com.mikepenz.markdown.compose.elements.highlightedCodeBlock
 import com.mikepenz.markdown.compose.elements.highlightedCodeFence
-import com.mikepenz.markdown.compose.elements.material.MarkdownBasicText
 import com.mikepenz.markdown.model.markdownDimens
-import com.mikepenz.markdown.utils.buildMarkdownAnnotatedString
-import org.intellij.markdown.ast.ASTNode
-import org.intellij.markdown.ast.findChildOfType
-import org.intellij.markdown.flavours.gfm.GFMElementTypes
-import org.intellij.markdown.flavours.gfm.GFMTokenTypes
 import dev.minios.ocremote.domain.model.*
 import dev.minios.ocremote.data.api.AgentInfo
 import dev.minios.ocremote.data.api.CommandInfo
@@ -1793,6 +1786,30 @@ fun ChatScreen(
                             viewModel.clearFileSearch()
                             viewModel.clearDraft()
                             return@doSend
+                        }
+                        // Detect slash commands (e.g., /skillname arguments)
+                        if (rawText.startsWith("/") && !rawText.startsWith("/ ") && confirmedFilePaths.isEmpty()) {
+                            val parts = rawText.trim().split("\\s+".toRegex(), 2)
+                            val commandName = parts[0].removePrefix("/")
+                            val commandArgs = parts.getOrElse(1) { "" }
+                            if (commandName.isNotBlank()) {
+                                viewModel.executeCommand(commandName, commandArgs) { ok ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (ok) context.getString(R.string.chat_command_executed, commandName)
+                                            else context.getString(R.string.chat_command_failed, commandName)
+                                        )
+                                    }
+                                }
+                                inputText = TextFieldValue("")
+                                if (isShellMode) {
+                                    inputMode = ChatInputMode.NORMAL.name
+                                }
+                                viewModel.clearConfirmedPaths()
+                                viewModel.clearFileSearch()
+                                viewModel.clearDraft()
+                                return@doSend
+                            }
                         }
                         // Build prompt parts: split text around confirmed @file mentions
                         val allParts = buildPromptParts(rawText, confirmedFilePaths, viewModel.getSessionDirectory())
@@ -4309,97 +4326,21 @@ private fun MarkdownContent(
 
     val wordWrap = LocalCodeWordWrap.current
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
-    val maxTableWidth = screenWidthDp * 1.5f
-    val tableDimens = LocalMarkdownDimens.current
-
-    // Custom table component that allows text wrapping in cells instead of truncating with ellipsis.
-    // The library's default MarkdownTable hardcodes maxLines=1, overflow=Ellipsis.
-    val wrappingTableComponent: @Composable ColumnScope.(com.mikepenz.markdown.compose.components.MarkdownComponentModel) -> Unit = { model ->
-        val tableCellWidth = tableDimens.tableCellWidth
-        val tableCellPadding = tableDimens.tableCellPadding
-        val tableCornerSize = tableDimens.tableCornerSize
-        val backgroundCodeColor = LocalMarkdownColors.current.tableBackground
-        val textColor = LocalMarkdownColors.current.tableText
-        val style = model.typography.text
-
-        val columnsCount = remember { model.node.findChildOfType(GFMElementTypes.HEADER)?.children?.count { it.type == GFMTokenTypes.CELL } ?: 0 }
-        val tableWidth = if (tableCellWidth != Dp.Unspecified) columnsCount.toFloat() * tableCellWidth else Dp.Unspecified
-
-        BoxWithConstraints(
-            modifier = Modifier
-                .background(backgroundCodeColor, RoundedCornerShape(tableCornerSize))
-                .widthIn(max = maxTableWidth)
-        ) {
-            val scrollable = maxWidth <= tableWidth && tableWidth != Dp.Unspecified
-            Column(
-                modifier = if (scrollable) {
-                    Modifier.horizontalScroll(rememberScrollState()).requiredWidth(tableWidth)
-                } else Modifier.fillMaxWidth()
-            ) {
-                model.node.children.forEach { child ->
-                    when (child.type) {
-                        GFMElementTypes.HEADER -> {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.widthIn(tableWidth).height(IntrinsicSize.Max)
-                            ) {
-                                child.children.forEach { cell ->
-                                    if (cell.type == GFMTokenTypes.CELL) {
-                                        MarkdownBasicText(
-                                            text = model.content.buildMarkdownAnnotatedString(cell, style.copy(fontWeight = FontWeight.Bold)),
-                                            style = style.copy(fontWeight = FontWeight.Bold),
-                                            color = textColor,
-                                            modifier = Modifier.padding(tableCellPadding),
-                                            softWrap = true
-                                        )
-                                        Box(Modifier.weight(1f))
-                                    }
-                                }
-                            }
-                        }
-                        GFMElementTypes.ROW -> {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.widthIn(tableWidth)
-                            ) {
-                                child.children.filter { it.type == GFMTokenTypes.CELL }.forEach { cell ->
-                                    MarkdownBasicText(
-                                        text = model.content.buildMarkdownAnnotatedString(cell, style),
-                                        style = style,
-                                        color = textColor,
-                                        modifier = Modifier.padding(tableCellPadding),
-                                        softWrap = true
-                                    )
-                                    Box(Modifier.weight(1f))
-                                }
-                            }
-                        }
-                        GFMTokenTypes.TABLE_SEPARATOR -> {
-                            HorizontalDivider(
-                                color = textColor.copy(alpha = 0.2f),
-                                modifier = Modifier.padding(horizontal = 4.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     val components = if (wordWrap) {
-        markdownComponents(table = wrappingTableComponent)
+        markdownComponents()
     } else {
         markdownComponents(
             codeBlock = highlightedCodeBlock,
-            codeFence = highlightedCodeFence,
-            table = wrappingTableComponent
+            codeFence = highlightedCodeFence
         )
     }
 
     val dimens = markdownDimens(
         tableCellPadding = 6.dp,
         tableCellWidth = Dp.Unspecified,
-        tableCornerSize = 4.dp
+        tableCornerSize = 4.dp,
+        tableMaxWidth = screenWidthDp * 1.5f
     )
 
     SelectionContainer {

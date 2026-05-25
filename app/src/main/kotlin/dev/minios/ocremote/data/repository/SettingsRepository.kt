@@ -216,7 +216,7 @@ class SettingsRepository @Inject constructor(
      * Whether tool cards are collapsed by default. Default: false.
      */
     val collapseTools: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[COLLAPSE_TOOLS_KEY] ?: false
+        preferences[COLLAPSE_TOOLS_KEY] ?: true
     }
 
     suspend fun setCollapseTools(enabled: Boolean) {
