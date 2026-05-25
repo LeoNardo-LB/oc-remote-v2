@@ -3666,11 +3666,7 @@ private fun ChatMessageBubble(
     }
 
     val hasSteps = stepParts.isNotEmpty()
-    val autoExpand = LocalCollapseTools.current
-    var stepsExpanded by remember(autoExpand) { mutableStateOf(autoExpand) }
-
-    // Check if any tool is currently running (show spinner)
-    val hasRunningTool = stepParts.any { it is Part.Tool && it.state is ToolState.Running }
+    val isMerged = !isUser && !isFirstInGroup
 
         val bubbleContent: @Composable () -> Unit = {
         Surface(
@@ -3680,16 +3676,16 @@ private fun ChatMessageBubble(
                 bottomStart = if (isUser) 18.dp else if (isLastInGroup) 18.dp else 0.dp,
                 bottomEnd = if (isUser) 18.dp else if (isLastInGroup) 18.dp else 0.dp
             ),
-            color = backgroundColor,
-            border = bubbleBorder,
-            tonalElevation = if (isAmoled || isUser) 0.dp else 1.dp,
+            color = if (isMerged) Color.Transparent else backgroundColor,
+            border = if (isMerged) null else bubbleBorder,
+            tonalElevation = if (isMerged || isAmoled || isUser) 0.dp else 1.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             val compact = LocalCompactMessages.current
             Column(
                     modifier = Modifier.padding(
                         horizontal = if (compact) 10.dp else 16.dp,
-                        vertical = if (compact) 8.dp else 14.dp
+                        vertical = if (isMerged) 2.dp else if (compact) 8.dp else 14.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp)
                 ) {
@@ -3759,52 +3755,18 @@ private fun ChatMessageBubble(
                         }
                     }
 
-                    // Steps toggle (like WebUI "Show/Hide steps")
+                    // Step/tool parts — displayed directly without outer toggle
                     if (hasSteps) {
-                        val stepsStatus = resolveStepsStatus(stepParts)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { performHaptic(hapticView, hapticOn); stepsExpanded = !stepsExpanded }
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            if (hasRunningTool) {
-                                PulsingDotsIndicator(
-                                    dotSize = 5.dp,
-                                    dotSpacing = 3.dp,
-                                    color = MaterialTheme.colorScheme.tertiary
+                            for (part in stepParts) {
+                                PartContent(
+                                    part = part,
+                                    textColor = textColor,
+                                    isUser = isUser,
+                                    onViewSubSession = onViewSubSession
                                 )
-                            } else {
-                                Icon(
-                                    imageVector = if (stepsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = textColor.copy(alpha = 0.5f)
-                                )
-                            }
-                            Text(
-                                text = if (stepsExpanded) stringResource(R.string.chat_hide_steps) else stepsStatus,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = textColor.copy(alpha = 0.6f)
-                            )
-                        }
-
-                        // Expanded step parts
-                        AnimatedVisibility(visible = stepsExpanded) {
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                for (part in stepParts) {
-                                    PartContent(
-                                        part = part,
-                                        textColor = textColor,
-                                        isUser = isUser,
-                                        onViewSubSession = onViewSubSession
-                                    )
-                                }
                             }
                         }
                     }
