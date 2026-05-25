@@ -3605,57 +3605,8 @@ private fun resolveStepsStatus(stepParts: List<Part>): String {
     }
 }
 
-/**
- * Represents a renderable item in the chat list.
- * Consecutive assistant messages are grouped into a single AssistantTurn.
- */
-private sealed class ChatItem {
-    abstract val key: String
-
-    data class UserMessage(
-        override val key: String,
-        val chatMessage: ChatMessage
-    ) : ChatItem()
-
-    data class AssistantTurn(
-        override val key: String,
-        val messages: List<ChatMessage>
-    ) : ChatItem()
-}
-
-/**
- * Groups a flat list of ChatMessages into ChatItems.
- * Consecutive assistant messages are merged into a single AssistantTurn.
- */
-private fun groupMessages(messages: List<ChatMessage>): List<ChatItem> {
-    val items = mutableListOf<ChatItem>()
-    var currentAssistantGroup = mutableListOf<ChatMessage>()
-
-    fun flushAssistantGroup() {
-        if (currentAssistantGroup.isNotEmpty()) {
-            items.add(ChatItem.AssistantTurn(
-                key = "turn_${currentAssistantGroup.first().message.id}",
-                messages = currentAssistantGroup.toList()
-            ))
-            currentAssistantGroup = mutableListOf()
-        }
-    }
-
-    for (msg in messages) {
-        if (msg.isUser) {
-            flushAssistantGroup()
-            items.add(ChatItem.UserMessage(
-                key = msg.message.id,
-                chatMessage = msg
-            ))
-        } else {
-            currentAssistantGroup.add(msg)
-        }
-    }
-    flushAssistantGroup()
-
-    return items
-}
+// ChatItem, groupMessages, isBubbleRenderablePart, and filterRenderableParts
+// are now defined in ChatParts.kt for testability.
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -3947,7 +3898,7 @@ private fun AssistantTurnBubble(
             val assistantMsg = msg.message as? Message.Assistant ?: return@mapNotNull null
             val errorText = formatAssistantErrorMessage(assistantMsg.error)
 
-            val renderableParts = parts.filter(::isBubbleRenderablePart)
+            val renderableParts = filterRenderableParts(parts)
 
             if (renderableParts.isEmpty() && errorText == null) {
                 null
@@ -4065,20 +4016,7 @@ private fun AssistantTurnBubble(
     }
 }
 
-private fun isBubbleRenderablePart(part: Part): Boolean {
-    return when (part) {
-        is Part.Text,
-        is Part.Reasoning,
-        is Part.Patch,
-        is Part.File,
-        is Part.Permission,
-        is Part.Question,
-        is Part.Abort,
-        is Part.Retry,
-        is Part.Tool -> true
-        else -> false
-    }
-}
+// isBubbleRenderablePart moved to ChatParts.kt for testability
 
 @Composable
 private fun resolveUserCommandLabel(parts: List<Part>): String? {
@@ -4429,7 +4367,25 @@ private fun MarkdownContent(
         tableMaxWidth = screenWidthDp * 1.5f
     )
 
-    SelectionContainer {
+    // NOTE: SelectionContainer intentionally removed for assistant messages.
+    // The selectableGroup() pointer-input handler inside SelectionContainer
+    // interferes with click handling on subsequent sibling composables (tool
+    // cards, expand/collapse rows) inside the same Column when the Markdown
+    // content undergoes async Loading→Success transitions.  Text can still be
+    // copied via the "Copy" button in the bubble header.
+    if (isUser) {
+        SelectionContainer {
+            Markdown(
+                content = normalizedMarkdown,
+                colors = colors,
+                typography = typography,
+                components = components,
+                dimens = dimens,
+                imageTransformer = Coil2ImageTransformerImpl,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    } else {
         Markdown(
             content = normalizedMarkdown,
             colors = colors,
@@ -4574,15 +4530,11 @@ private fun ToolCallCard(tool: Part.Tool) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            // Header row
+            // Header row — always clickable to allow expand/collapse in any state
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .let { mod ->
-                        if (tool.state is ToolState.Completed || tool.state is ToolState.Error) {
-                            mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded }
-                        } else mod
-                    },
+                    .clickable { performHaptic(hapticView, hapticOn); expanded = !expanded },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4620,19 +4572,19 @@ private fun ToolCallCard(tool: Part.Tool) {
                         }
                     }
                 }
-                // Expand indicator for completed/errored tools
-                if (tool.state is ToolState.Completed || tool.state is ToolState.Error) {
+                // Expand indicator
+                if (tool.state is ToolState.Running) {
+                    PulsingDotsIndicator(
+                        dotSize = 5.dp,
+                        dotSpacing = 3.dp,
+                        color = stateColor
+                    )
+                } else {
                     Icon(
                         imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (expanded) stringResource(R.string.chat_collapse) else stringResource(R.string.chat_expand),
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    )
-                } else if (tool.state is ToolState.Running) {
-                    PulsingDotsIndicator(
-                        dotSize = 5.dp,
-                        dotSpacing = 3.dp,
-                        color = stateColor
                     )
                 }
             }
@@ -4901,12 +4853,12 @@ private fun EditToolCard(tool: Part.Tool) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            // Header row
+            // Header row — always clickable
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .let { mod ->
-                        if (hasContent && !isRunning) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
+                        if (hasContent) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
                     },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -5167,7 +5119,7 @@ private fun WriteToolCard(tool: Part.Tool) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .let { mod ->
-                        if (hasContent && !isRunning) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
+                        if (hasContent) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
                     },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -5285,7 +5237,7 @@ private fun BashToolCard(tool: Part.Tool) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .let { mod ->
-                        if (hasContent && !isRunning) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
+                        if (hasContent) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
                     },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -5416,9 +5368,7 @@ private fun ReadToolCard(tool: Part.Tool) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .let { mod ->
-                        if (isCompleted || isError) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
-                    },
+                    .clickable { performHaptic(hapticView, hapticOn); expanded = !expanded },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -5465,7 +5415,7 @@ private fun ReadToolCard(tool: Part.Tool) {
                 }
                 if (isRunning) {
                     PulsingDotsIndicator(dotSize = 5.dp, dotSpacing = 3.dp, color = MaterialTheme.colorScheme.tertiary)
-                } else if (isCompleted || isError) {
+                } else {
                     Icon(
                         imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = null,
@@ -5572,7 +5522,7 @@ private fun SearchToolCard(tool: Part.Tool) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .let { mod ->
-                        if (hasOutput && !isRunning) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
+                        if (hasOutput) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
                     },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -5703,9 +5653,9 @@ private fun TaskToolCard(
                     .fillMaxWidth()
                     .let { mod ->
                         when {
-                            subSessionId != null && onViewSubSession != null && !isRunning ->
+                            subSessionId != null && onViewSubSession != null ->
                                 mod.clickable { performHaptic(hapticView, hapticOn); onViewSubSession(subSessionId) }
-                            hasOutput && !isRunning ->
+                            hasOutput ->
                                 mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded }
                             else -> mod
                         }
@@ -5727,12 +5677,19 @@ private fun TaskToolCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = serverTitle?.takeIf { it.isNotBlank() }
-                                ?: agentName?.let { "Agent: $it" }
                                 ?: stringResource(R.string.tool_sub_agent),
                             style = MaterialTheme.typography.labelMedium,
                             maxLines = 1
                         )
-                        if (description != null) {
+                        if (agentName != null) {
+                            Text(
+                                text = "Agent: $agentName",
+                                style = CodeTypography.copy(fontSize = 11.sp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        } else if (description != null) {
                             Text(
                                 text = description,
                                 style = CodeTypography.copy(fontSize = 11.sp),

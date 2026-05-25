@@ -4,6 +4,7 @@ import android.net.Uri
 import android.util.Log
 import dev.minios.ocremote.BuildConfig
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -395,6 +396,7 @@ fun NavGraph(
                 serverName = serverName,
                 initialPath = initialPath,
                 navigateUrlFlow = webViewNavigateFlow,
+                isDarkTheme = isSystemInDarkTheme(),
                 onNavigateBack = {
                     navController.popBackStack()
                 }

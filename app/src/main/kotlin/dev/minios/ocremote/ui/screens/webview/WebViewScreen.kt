@@ -43,6 +43,7 @@ fun WebViewScreen(
     serverName: String,
     initialPath: String = "",
     navigateUrlFlow: SharedFlow<String>? = null,
+    isDarkTheme: Boolean = false,
     onNavigateBack: () -> Unit
 ) {
     // Build the full URL: serverUrl + initialPath (for session deep-links)
@@ -166,6 +167,27 @@ fun WebViewScreen(
                                 Log.d("WebViewScreen", "Page finished: $url")
                                 isLoading = false
                                 isRefreshing = false
+                                // Inject theme to match app's dark/light mode
+                                val themeJs = if (isDarkTheme) {
+                                    """
+                                    (function() {
+                                        document.documentElement.classList.add('dark');
+                                        document.documentElement.style.colorScheme = 'dark';
+                                        var meta = document.querySelector('meta[name="color-scheme"]');
+                                        if (meta) meta.content = 'dark';
+                                    })();
+                                    """
+                                } else {
+                                    """
+                                    (function() {
+                                        document.documentElement.classList.remove('dark');
+                                        document.documentElement.style.colorScheme = 'light';
+                                        var meta = document.querySelector('meta[name="color-scheme"]');
+                                        if (meta) meta.content = 'light';
+                                    })();
+                                    """
+                                }
+                                view?.evaluateJavascript(themeJs, null)
                             }
 
                             override fun onReceivedHttpAuthRequest(
