@@ -29,8 +29,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -872,7 +874,9 @@ fun ChatScreen(
             inputText = TextFieldValue(payload.text, TextRange(payload.text.length))
         }
     }
-    val listState = rememberLazyListState()
+    val listState = rememberSaveable(saver = LazyListState.Saver) {
+        LazyListState()
+    }
 
     // Preserve scroll position when loading older messages
     val previousMessageCount = remember { mutableIntStateOf(0) }
@@ -2355,10 +2359,10 @@ fun ChatScreen(
                             }
                         }
 
-                        items(
+                        itemsIndexed(
                             uiState.messages,
-                            key = { it.message.id }
-                        ) { chatMessage ->
+                            key = { _, it -> it.message.id }
+                        ) { index, chatMessage ->
                             // Detect compaction trigger messages (user messages with Part.Compaction)
                             val isCompactionTrigger = chatMessage.isUser &&
                                 chatMessage.parts.any { it is Part.Compaction }
@@ -2424,12 +2428,30 @@ fun ChatScreen(
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                                     )
                                 }
-                                return@items
+                                return@itemsIndexed
                             }
 
+                            // Determine whether to show the "Response" header for assistant messages.
+                            // Hide it for consecutive assistant messages to visually merge them.
+                            val showResponseHeader = when {
+                                chatMessage.isUser -> true
+                                index == 0 -> true
+                                uiState.messages[index - 1].isUser -> true
+                                else -> false
+                            }
+
+                            Box(
+                                modifier = if (!showResponseHeader) {
+                                    // Pull consecutive assistant messages closer to visually merge them
+                                    Modifier.offset(y = -(messageSpacing / 2))
+                                } else {
+                                    Modifier
+                                }
+                            ) {
                             ChatMessageBubble(
                                 chatMessage = chatMessage,
                                 isQueued = chatMessage.message.id in uiState.queuedMessageIds,
+                                showResponseHeader = showResponseHeader,
                                 onViewSubSession = onNavigateToChildSession,
                                 onRevert = if (chatMessage.isUser) {
                                     {
@@ -2459,6 +2481,7 @@ fun ChatScreen(
                                     }
                                 }
                             )
+                            }
                         }
 
                         // Revert banner
@@ -3518,6 +3541,7 @@ private fun resolveStepsStatus(stepParts: List<Part>): String {
 private fun ChatMessageBubble(
     chatMessage: ChatMessage,
     isQueued: Boolean = false,
+    showResponseHeader: Boolean = true,
     onViewSubSession: ((String) -> Unit)? = null,
     onRevert: (() -> Unit)? = null,
     onCopyText: (() -> Unit)? = null
@@ -3614,8 +3638,8 @@ private fun ChatMessageBubble(
         val bubbleContent: @Composable () -> Unit = {
         Surface(
             shape = RoundedCornerShape(
-                topStart = if (isUser) 18.dp else 4.dp,
-                topEnd = if (isUser) 4.dp else 18.dp,
+                topStart = if (isUser) 18.dp else if (showResponseHeader) 4.dp else 0.dp,
+                topEnd = if (isUser) 4.dp else if (showResponseHeader) 18.dp else 0.dp,
                 bottomStart = 18.dp,
                 bottomEnd = 18.dp
             ),
@@ -3633,7 +3657,8 @@ private fun ChatMessageBubble(
                     verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp)
                 ) {
                     // "Response" header with provider icon and copy button — assistant messages only
-                    if (!isUser) {
+                    // Hidden for consecutive assistant messages to visually merge them
+                    if (!isUser && showResponseHeader) {
                         val assistantMsg = assistantMessage
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -4278,16 +4303,24 @@ private fun MarkdownContent(
         tableCornerSize = 4.dp
     )
 
-    SelectionContainer {
-        Markdown(
-            content = normalizedMarkdown,
-            colors = colors,
-            typography = typography,
-            components = components,
-            dimens = dimens,
-            imageTransformer = Coil2ImageTransformerImpl,
-            modifier = Modifier.fillMaxWidth()
-        )
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+    ) {
+        SelectionContainer {
+            Markdown(
+                content = normalizedMarkdown,
+                colors = colors,
+                typography = typography,
+                components = components,
+                dimens = dimens,
+                imageTransformer = Coil2ImageTransformerImpl,
+                modifier = Modifier.widthIn(min = screenWidthDp)
+            )
+        }
     }
 }
 
