@@ -1378,6 +1378,11 @@ fun ChatScreen(
     // Prevents re-scrolling to bottom when navigating back from a sub-session.
     var hasPerformedInitialScroll by rememberSaveable { mutableStateOf(false) }
 
+    // Scroll anchor for restoring position after loading older messages.
+    var savedFirstVisibleIndex by remember { mutableIntStateOf(0) }
+    var savedScrollOffset by remember { mutableIntStateOf(0) }
+    var savedMessageCount by remember { mutableIntStateOf(0) }
+
     // True when the very bottom of the list is visible (accounting for offset within tall items)
     val isAtBottom by remember {
         derivedStateOf {
@@ -1425,6 +1430,8 @@ fun ChatScreen(
     val isBusy = uiState.sessionStatus is SessionStatus.Busy
     LaunchedEffect(messageCount, lastPartCount, lastContentLength, pendingCount, isBusy) {
         if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@LaunchedEffect
+        // Don't auto-scroll when a scroll position restoration is pending (loading older messages)
+        if (savedMessageCount > 0) return@LaunchedEffect
         if (messageCount > 0 && (autoScrollEnabled || pendingCount > 0)) {
             val lastIndex = listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1
             listState.scrollToItem(lastIndex)
@@ -1458,6 +1465,18 @@ fun ChatScreen(
             }
             autoScrollEnabled = true
             hasPerformedInitialScroll = true
+        }
+    }
+
+    // Restore scroll position after loading older messages
+    LaunchedEffect(uiState.isLoadingOlder) {
+        if (!uiState.isLoadingOlder && savedMessageCount > 0) {
+            val addedCount = uiState.messages.size - savedMessageCount
+            if (addedCount > 0) {
+                val targetIndex = savedFirstVisibleIndex + addedCount
+                listState.scrollToItem(targetIndex.coerceAtMost(listState.layoutInfo.totalItemsCount - 1), savedScrollOffset)
+            }
+            savedMessageCount = 0 // Reset after restoration
         }
     }
 
@@ -2386,7 +2405,13 @@ fun ChatScreen(
                                             )
                                         }
                                     } else {
-                                        TextButton(onClick = { viewModel.loadOlderMessages() }) {
+                                        TextButton(onClick = {
+                                            // Save scroll position before loading older messages
+                                            savedFirstVisibleIndex = listState.firstVisibleItemIndex
+                                            savedScrollOffset = listState.firstVisibleItemScrollOffset
+                                            savedMessageCount = uiState.messages.size
+                                            viewModel.loadOlderMessages()
+                                        }) {
                                             Text(stringResource(R.string.chat_load_earlier))
                                         }
                                     }
