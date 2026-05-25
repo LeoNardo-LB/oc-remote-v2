@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -874,9 +873,7 @@ fun ChatScreen(
             inputText = TextFieldValue(payload.text, TextRange(payload.text.length))
         }
     }
-    val listState = rememberSaveable(saver = LazyListState.Saver) {
-        LazyListState()
-    }
+    val listState = rememberLazyListState()
 
     // Preserve scroll position when loading older messages
     val previousMessageCount = remember { mutableIntStateOf(0) }
@@ -2431,19 +2428,25 @@ fun ChatScreen(
                                 return@itemsIndexed
                             }
 
-                            // Determine whether to show the "Response" header for assistant messages.
-                            // Hide it for consecutive assistant messages to visually merge them.
-                            val showResponseHeader = when {
+                            // Determine bubble group position for assistant messages.
+                            // Consecutive assistant messages are visually merged into one bubble.
+                            val isFirstInGroup = when {
                                 chatMessage.isUser -> true
                                 index == 0 -> true
-                                uiState.messages[index - 1].isUser -> true
+                                index > 0 && index <= uiState.messages.lastIndex && uiState.messages[index - 1].isUser -> true
+                                else -> false
+                            }
+                            val isLastInGroup = when {
+                                chatMessage.isUser -> true
+                                index == uiState.messages.lastIndex -> true
+                                index + 1 <= uiState.messages.lastIndex && uiState.messages[index + 1].isUser -> true
                                 else -> false
                             }
 
                             Box(
-                                modifier = if (!showResponseHeader) {
+                                modifier = if (!isFirstInGroup) {
                                     // Pull consecutive assistant messages closer to visually merge them
-                                    Modifier.offset(y = -(messageSpacing / 2))
+                                    Modifier.offset(y = -messageSpacing)
                                 } else {
                                     Modifier
                                 }
@@ -2451,7 +2454,8 @@ fun ChatScreen(
                             ChatMessageBubble(
                                 chatMessage = chatMessage,
                                 isQueued = chatMessage.message.id in uiState.queuedMessageIds,
-                                showResponseHeader = showResponseHeader,
+                                isFirstInGroup = isFirstInGroup,
+                                isLastInGroup = isLastInGroup,
                                 onViewSubSession = onNavigateToChildSession,
                                 onRevert = if (chatMessage.isUser) {
                                     {
@@ -3541,7 +3545,8 @@ private fun resolveStepsStatus(stepParts: List<Part>): String {
 private fun ChatMessageBubble(
     chatMessage: ChatMessage,
     isQueued: Boolean = false,
-    showResponseHeader: Boolean = true,
+    isFirstInGroup: Boolean = true,
+    isLastInGroup: Boolean = true,
     onViewSubSession: ((String) -> Unit)? = null,
     onRevert: (() -> Unit)? = null,
     onCopyText: (() -> Unit)? = null
@@ -3638,10 +3643,10 @@ private fun ChatMessageBubble(
         val bubbleContent: @Composable () -> Unit = {
         Surface(
             shape = RoundedCornerShape(
-                topStart = if (isUser) 18.dp else if (showResponseHeader) 4.dp else 0.dp,
-                topEnd = if (isUser) 4.dp else if (showResponseHeader) 18.dp else 0.dp,
-                bottomStart = 18.dp,
-                bottomEnd = 18.dp
+                topStart = if (isUser) 18.dp else if (isFirstInGroup) 4.dp else 0.dp,
+                topEnd = if (isUser) 4.dp else if (isFirstInGroup) 18.dp else 0.dp,
+                bottomStart = if (isUser) 18.dp else if (isLastInGroup) 18.dp else 0.dp,
+                bottomEnd = if (isUser) 18.dp else if (isLastInGroup) 18.dp else 0.dp
             ),
             color = backgroundColor,
             border = bubbleBorder,
@@ -3658,7 +3663,7 @@ private fun ChatMessageBubble(
                 ) {
                     // "Response" header with provider icon and copy button — assistant messages only
                     // Hidden for consecutive assistant messages to visually merge them
-                    if (!isUser && showResponseHeader) {
+                    if (!isUser && isFirstInGroup) {
                         val assistantMsg = assistantMessage
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -4299,28 +4304,20 @@ private fun MarkdownContent(
 
     val dimens = markdownDimens(
         tableCellPadding = 6.dp,
-        tableCellWidth = 120.dp,
+        tableCellWidth = Dp.Unspecified,
         tableCornerSize = 4.dp
     )
 
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-    ) {
-        SelectionContainer {
-            Markdown(
-                content = normalizedMarkdown,
-                colors = colors,
-                typography = typography,
-                components = components,
-                dimens = dimens,
-                imageTransformer = Coil2ImageTransformerImpl,
-                modifier = Modifier.widthIn(min = screenWidthDp)
-            )
-        }
+    SelectionContainer {
+        Markdown(
+            content = normalizedMarkdown,
+            colors = colors,
+            typography = typography,
+            components = components,
+            dimens = dimens,
+            imageTransformer = Coil2ImageTransformerImpl,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
