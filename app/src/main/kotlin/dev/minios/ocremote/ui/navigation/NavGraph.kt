@@ -513,9 +513,8 @@ fun NavGraph(
                         serverUrl = serverUrl, username = username, password = password,
                         serverName = serverName, serverId = serverId, sessionId = childSessionId
                     )
-                    navController.navigate(route) {
-                        launchSingleTop = true
-                    }
+                    // 不用 launchSingleTop — 它会阻止同 destination 不同参数的导航
+                    navController.navigate(route)
                 },
                 onOpenInWebView = {
                     // Build the session path: /<base64url(directory)>/session/<sessionId>

@@ -872,6 +872,25 @@ fun ChatScreen(
         }
     }
     val listState = rememberLazyListState()
+
+    // Preserve scroll position when loading older messages
+    val previousMessageCount = remember { mutableIntStateOf(0) }
+    val wasLoadingOlder = remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.isLoadingOlder) {
+        if (uiState.isLoadingOlder) {
+            wasLoadingOlder.value = true
+            previousMessageCount.intValue = uiState.messages.size
+        } else if (wasLoadingOlder.value) {
+            wasLoadingOlder.value = false
+            val newCount = uiState.messages.size
+            val addedCount = newCount - previousMessageCount.intValue
+            if (addedCount > 0) {
+                listState.scrollToItem(listState.firstVisibleItemIndex + addedCount)
+            }
+        }
+    }
+
     var showModelPicker by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -5369,11 +5388,15 @@ private fun SearchToolCard(tool: Part.Tool) {
                         .padding(top = 6.dp)
                         .heightIn(max = 600.dp)
                 ) {
-                    MarkdownContent(
-                        markdown = output,
-                        textColor = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer,
-                        isUser = false
-                    )
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState())
+                    ) {
+                        MarkdownContent(
+                            markdown = output,
+                            textColor = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer,
+                            isUser = false
+                        )
+                    }
                 }
             }
         }
@@ -5478,11 +5501,15 @@ private fun TaskToolCard(
                         .padding(top = 6.dp)
                         .heightIn(max = 600.dp)
                 ) {
-                    MarkdownContent(
-                        markdown = output,
-                        textColor = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer,
-                        isUser = false
-                    )
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState())
+                    ) {
+                        MarkdownContent(
+                            markdown = output,
+                            textColor = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer,
+                            isUser = false
+                        )
+                    }
                 }
             }
 
