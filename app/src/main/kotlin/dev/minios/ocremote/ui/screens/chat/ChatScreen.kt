@@ -96,6 +96,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -114,13 +115,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.compose.LocalMarkdownColors
 import com.mikepenz.markdown.compose.components.markdownComponents
-import com.mikepenz.markdown.coil2.Coil2ImageTransformerImpl
+import com.mikepenz.markdown.coil3.Coil3ImageTransformerImpl
 import com.mikepenz.markdown.compose.elements.highlightedCodeBlock
 import com.mikepenz.markdown.compose.elements.highlightedCodeFence
 import com.mikepenz.markdown.model.markdownDimens
@@ -4572,9 +4573,6 @@ private fun MarkdownContent(
 
     val colors = markdownColor(
         text = textColor,
-        codeText = codeBlockFg,
-        inlineCodeText = inlineCodeFg,
-        linkText = linkColor,
         codeBackground = codeBlockBg,
         inlineCodeBackground = Color.Transparent,
         dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
@@ -4623,9 +4621,11 @@ private fun MarkdownContent(
         ordered = bodyStyle,
         bullet = bodyStyle,
         list = bodyStyle,
-        link = bodyStyle.copy(
-            color = linkColor,
-            fontWeight = FontWeight.Medium
+        textLink = TextLinkStyles(
+            style = bodyStyle.copy(
+                color = linkColor,
+                fontWeight = FontWeight.Medium
+            ).toSpanStyle()
         )
     )
 
@@ -4668,7 +4668,7 @@ private fun MarkdownContent(
         typography = typography,
         components = components,
         dimens = dimens,
-        imageTransformer = Coil2ImageTransformerImpl,
+        imageTransformer = Coil3ImageTransformerImpl,
         modifier = Modifier.fillMaxWidth()
     )
 }

@@ -16,8 +16,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.foundation.background
 import kotlinx.coroutines.flow.SharedFlow
 
@@ -115,9 +115,10 @@ fun WebViewScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        SwipeRefresh(
-            state = rememberSwipeRefreshState(isRefreshing),
-            onRefresh = { refresh() }
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { refresh() },
+            state = rememberPullToRefreshState(),
         ) {
             Box(
                 modifier = Modifier
