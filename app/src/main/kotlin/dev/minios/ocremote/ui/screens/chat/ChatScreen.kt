@@ -1393,16 +1393,6 @@ fun ChatScreen(
         }
     }
 
-    // 键盘弹出时，如果用户在底部（autoScrollEnabled），滚动到最新消息
-    LaunchedEffect(imeVisible) {
-        if (imeVisible && autoScrollEnabled) {
-            delay(100)
-            val lastIndex = listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1
-            if (lastIndex >= 0) {
-                listState.animateScrollToItem(lastIndex)
-            }
-        }
-    }
 
 
     // Auto-scroll to bottom when new content arrives (only if auto-scroll is enabled)
@@ -6429,6 +6419,7 @@ private fun ChatInputBar(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
+            .imePadding()
     ) {
         // Thin divider
         HorizontalDivider(
