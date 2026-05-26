@@ -1479,26 +1479,6 @@ fun ChatScreen(
             TopAppBar(
                 title = {
                     Column {
-                        // Child session indicator (only when parentId is not null)
-                        if (uiState.sessionParentId != null) {
-                            Row(
-                                modifier = Modifier.padding(bottom = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.SubdirectoryArrowRight,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(12.dp),
-                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = stringResource(R.string.chat_child_session),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                                )
-                            }
-                        }
                         Text(
                             text = uiState.sessionTitle,
                             style = MaterialTheme.typography.titleMedium,
@@ -5628,13 +5608,15 @@ private fun TaskToolCard(
     val isAmoled = isAmoledTheme()
     val input = extractToolInput(tool)
     val description = input["description"]?.jsonPrimitive?.contentOrNull
-    val inputAgentName = input["agent"]?.jsonPrimitive?.contentOrNull
+    val inputAgentType = input["subagent_type"]?.jsonPrimitive?.contentOrNull?.replaceFirstChar { it.uppercase() }
     val metadataAgentName = when (val s = tool.state) {
         is ToolState.Completed -> s.metadata?.get("agent")?.jsonPrimitive?.contentOrNull
         is ToolState.Running -> s.metadata?.get("agent")?.jsonPrimitive?.contentOrNull
         else -> null
     }
-    val agentName = inputAgentName ?: metadataAgentName ?: turnAgentName
+    val agentType = inputAgentType
+        ?: metadataAgentName?.replaceFirstChar { it.uppercase() }
+        ?: turnAgentName?.replaceFirstChar { it.uppercase() }
     val output = extractToolOutput(tool)
 
     val serverTitle = when (val s = tool.state) {
@@ -5692,13 +5674,13 @@ private fun TaskToolCard(
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = agentName?.let { "Agent: $it" }
+                            text = agentType?.let { "$it Agent" }
                                 ?: serverTitle?.takeIf { it.isNotBlank() }
                                 ?: stringResource(R.string.tool_sub_agent),
                             style = MaterialTheme.typography.labelMedium,
                             maxLines = 1
                         )
-                        if (agentName == null && description != null) {
+                        if (description != null) {
                             Text(
                                 text = description,
                                 style = CodeTypography.copy(fontSize = 11.sp),
