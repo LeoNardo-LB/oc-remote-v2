@@ -29,3 +29,7 @@
 -dontwarn org.slf4j.**
 -dontwarn java.lang.management.ManagementFactory
 -dontwarn java.lang.management.RuntimeMXBean
+
+# Markdown Renderer (mikepenz) — keep state/model classes to prevent R8 breaking async parsing
+-keep class com.mikepenz.markdown.** { *; }
+-keep class org.intellij.markdown.** { *; }

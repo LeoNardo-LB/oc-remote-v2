@@ -58,6 +58,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.SolidColor
@@ -124,7 +126,16 @@ import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.coil3.Coil3ImageTransformerImpl
 import com.mikepenz.markdown.compose.elements.highlightedCodeBlock
 import com.mikepenz.markdown.compose.elements.highlightedCodeFence
+import com.mikepenz.markdown.compose.elements.material.MarkdownBasicText
+import com.mikepenz.markdown.annotator.annotatorSettings
+import com.mikepenz.markdown.annotator.buildMarkdownAnnotatedString
 import com.mikepenz.markdown.model.markdownDimens
+import org.intellij.markdown.ast.ASTNode
+import org.intellij.markdown.ast.getTextInNode
+import org.intellij.markdown.flavours.gfm.GFMElementTypes.HEADER as GFMHeader
+import org.intellij.markdown.flavours.gfm.GFMElementTypes.ROW as GFMRow
+import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL as GFMCell
+import org.intellij.markdown.flavours.gfm.GFMTokenTypes.TABLE_SEPARATOR as GFMTableSeparator
 import dev.minios.ocremote.domain.model.*
 import dev.minios.ocremote.data.api.AgentInfo
 import dev.minios.ocremote.data.api.CommandInfo
@@ -1358,10 +1369,6 @@ fun ChatScreen(
     // Disabled when user manually scrolls up; re-enabled when user scrolls back to bottom.
     var autoScrollEnabled by remember { mutableStateOf(true) }
 
-    // Track whether initial load scroll has been performed.
-    // Prevents re-scrolling to bottom when navigating back from a sub-session.
-    var hasPerformedInitialScroll by rememberSaveable { mutableStateOf(false) }
-
     // Scroll anchor for restoring position after loading older messages.
     var savedFirstVisibleIndex by remember { mutableIntStateOf(0) }
     var savedScrollOffset by remember { mutableIntStateOf(0) }
@@ -1370,17 +1377,10 @@ fun ChatScreen(
     // is complete. Prevents the auto-scroll effect from racing with restoration.
     var isRestoringPosition by remember { mutableStateOf(false) }
 
-    // True when the very bottom of the list is visible (accounting for offset within tall items)
+    // In reverseLayout=true mode, firstVisibleItemIndex == 0 means we're at the bottom
     val isAtBottom by remember {
         derivedStateOf {
-            val info = listState.layoutInfo
-            val lastVisible = info.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf true
-            val totalItems = info.totalItemsCount
-            if (lastVisible.index < totalItems - 1) return@derivedStateOf false
-            // Last item is visible — check if its bottom edge is within the viewport
-            val itemBottom = lastVisible.offset + lastVisible.size
-            val viewportEnd = info.viewportEndOffset
-            itemBottom <= viewportEnd + 50 // 50px tolerance
+            listState.firstVisibleItemIndex == 0
         }
     }
 
@@ -1421,53 +1421,17 @@ fun ChatScreen(
         // Don't auto-scroll when a scroll position restoration is pending (loading older messages)
         if (savedMessageCount > 0 || isRestoringPosition) return@LaunchedEffect
         if (messageCount > 0 && (autoScrollEnabled || pendingCount > 0)) {
-            val lastIndex = listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1
-            listState.scrollToItem(lastIndex)
-            // scrollToItem goes to the TOP of the last item; when a message is
-            // taller than the viewport (e.g. streaming summarisation) we also
-            // need to scroll past it so the user sees the bottom of that message.
-            val lastItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-            if (lastItem != null) {
-                val viewport = listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset
-                val bottomPaddingPx = with(density) { 8.dp.roundToPx() }
-                val overflow = lastItem.size + bottomPaddingPx - viewport
-                if (overflow > 0) {
-                    listState.scrollBy(overflow.toFloat())
-                }
-            }
-        }
-    }
-
-    // Also auto-scroll when first loading
-    LaunchedEffect(uiState.isLoading) {
-        if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@LaunchedEffect
-        if (!uiState.isLoading && messageCount > 0 && !hasPerformedInitialScroll) {
-            val lastIndex = listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1
-            listState.scrollToItem(lastIndex)
-            val lastItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-            if (lastItem != null) {
-                val viewport = listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset
-                val bottomPaddingPx = with(density) { 8.dp.roundToPx() }
-                val overflow = lastItem.size + bottomPaddingPx - viewport
-                if (overflow > 0) {
-                    listState.scrollBy(overflow.toFloat())
-                }
-            }
-            autoScrollEnabled = true
-            hasPerformedInitialScroll = true
+            // With reverseLayout=true + reversed data, index 0 = newest at the bottom
+            listState.scrollToItem(0)
         }
     }
 
     // Restore scroll position after loading older messages
     LaunchedEffect(uiState.isLoadingOlder) {
         if (!uiState.isLoadingOlder && savedMessageCount > 0) {
-            val addedCount = uiState.messages.size - savedMessageCount
-            if (addedCount > 0) {
-                val targetIndex = savedFirstVisibleIndex + addedCount
-                listState.scrollToItem(targetIndex.coerceAtMost(listState.layoutInfo.totalItemsCount - 1), savedScrollOffset)
-            }
-            // Reset counters after restoration; keep isRestoringPosition true for one
-            // more frame so the auto-scroll LaunchedEffect doesn't race and jump to bottom.
+            // With reverseLayout=true + reversed data, prepended old messages go to
+            // the END of the reversed list, so existing items keep their indices.
+            listState.scrollToItem(savedFirstVisibleIndex, savedScrollOffset)
             savedMessageCount = 0
             isRestoringPosition = false
         }
@@ -2309,11 +2273,6 @@ fun ChatScreen(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                uiState.isLoading && uiState.messages.isNotEmpty() && !hasPerformedInitialScroll -> {
-                    PulsingDotsIndicator(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
                 uiState.error != null && uiState.messages.isEmpty() -> {
                     Column(
                         modifier = Modifier
@@ -2367,60 +2326,68 @@ fun ChatScreen(
                          Box(
                              modifier = Modifier.fillMaxSize()
                          ) {
-                                 LazyColumn(
-                                     state = listState,
-                                     modifier = Modifier.fillMaxSize(),
-                                     contentPadding = PaddingValues(
-                                         start = 12.dp,
-                                         top = 8.dp,
-                                         end = 12.dp,
-                                         bottom = 8.dp
-                                     ),
-                                     verticalArrangement = Arrangement.spacedBy(messageSpacing)
-                    ) {
-                        // "Load earlier messages" button at the top
-                        if (uiState.hasOlderMessages) {
-                            item(key = "load_older") {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (uiState.isLoadingOlder) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            PulsingDotsIndicator(
-                                                dotSize = 6.dp,
-                                                dotSpacing = 4.dp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            Text(
-                                                text = stringResource(R.string.chat_loading_earlier),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    } else {
-                                        TextButton(onClick = {
-                                            // Save scroll position before loading older messages
-                                            savedFirstVisibleIndex = listState.firstVisibleItemIndex
-                                            savedScrollOffset = listState.firstVisibleItemScrollOffset
-                                            savedMessageCount = uiState.messages.size
-                                            isRestoringPosition = true
-                                            viewModel.loadOlderMessages()
-                                        }) {
-                                            Text(stringResource(R.string.chat_load_earlier))
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                                  LazyColumn(
+                                      state = listState,
+                                      modifier = Modifier.fillMaxSize(),
+                                      reverseLayout = true,
+                                      contentPadding = PaddingValues(
+                                          start = 12.dp,
+                                          top = 8.dp,
+                                          end = 12.dp,
+                                          bottom = 8.dp
+                                      ),
+                                      verticalArrangement = Arrangement.spacedBy(messageSpacing)
+                     ) {
+                         // reverseLayout=true: items declared first render at the BOTTOM
+                         // Visual order (top→bottom): load_older → old msgs → new msgs → revert → pending
 
-                        items(
-                            chatItems,
+                         // Pending questions (bottom-most in visual order, so declared first)
+                         items(
+                             uiState.pendingQuestions,
+                             key = { "question_${it.id}" }
+                         ) { question ->
+                             QuestionCard(
+                                 question = question,
+                                 onSubmit = { answers ->
+                                     viewModel.replyToQuestion(question.id, answers)
+                                 },
+                                 onReject = {
+                                     viewModel.rejectQuestion(question.id)
+                                 }
+                             )
+                         }
+
+                         // Pending permissions
+                         items(
+                             uiState.pendingPermissions,
+                             key = { "perm_${it.id}" }
+                         ) { permission ->
+                             PermissionCard(
+                                 permission = permission,
+                                 onOnce = { viewModel.replyToPermission(permission.id, "once") },
+                                 onAlways = { viewModel.replyToPermission(permission.id, "always") },
+                                 onReject = { viewModel.replyToPermission(permission.id, "reject") }
+                             )
+                         }
+
+                         // Revert banner
+                         if (uiState.revert != null) {
+                             item(key = "revert_banner") {
+                                 RevertBanner(onRedo = {
+                                     viewModel.redoMessage { ok ->
+                                         coroutineScope.launch {
+                                             snackbarHostState.showSnackbar(
+                                                 if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
+                                             )
+                                         }
+                                     }
+                                 })
+                             }
+                         }
+
+                         // Chat messages (reversed so index 0 = newest = at the bottom)
+                         items(
+                             chatItems.reversed(),
                             key = { it.key },
                             contentType = { chatItem ->
                                 when (chatItem) {
@@ -2552,85 +2519,72 @@ fun ChatScreen(
                                     )
                                 }
                             }
-                        }
+                         }
 
-                        // Revert banner
-                        if (uiState.revert != null) {
-                            item(key = "revert_banner") {
-                                RevertBanner(onRedo = {
-                                    viewModel.redoMessage { ok ->
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(
-                                                if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
-                                            )
-                                        }
-                                    }
-                                })
-                            }
-                        }
+                         // "Load earlier messages" button at the top (last in DSL = topmost visually)
+                         if (uiState.hasOlderMessages) {
+                             item(key = "load_older") {
+                                 Box(
+                                     modifier = Modifier
+                                         .fillMaxWidth()
+                                         .padding(vertical = 4.dp),
+                                     contentAlignment = Alignment.Center
+                                 ) {
+                                     if (uiState.isLoadingOlder) {
+                                         Row(
+                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                             verticalAlignment = Alignment.CenterVertically
+                                         ) {
+                                             PulsingDotsIndicator(
+                                                 dotSize = 6.dp,
+                                                 dotSpacing = 4.dp,
+                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                                             )
+                                             Text(
+                                                 text = stringResource(R.string.chat_loading_earlier),
+                                                 style = MaterialTheme.typography.bodySmall,
+                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                                             )
+                                         }
+                                     } else {
+                                         TextButton(onClick = {
+                                             // Save scroll position before loading older messages
+                                             savedFirstVisibleIndex = listState.firstVisibleItemIndex
+                                             savedScrollOffset = listState.firstVisibleItemScrollOffset
+                                             savedMessageCount = uiState.messages.size
+                                             isRestoringPosition = true
+                                             viewModel.loadOlderMessages()
+                                         }) {
+                                             Text(stringResource(R.string.chat_load_earlier))
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                     }
 
-                        // Pending permissions
-                        items(
-                            uiState.pendingPermissions,
-                            key = { "perm_${it.id}" }
-                        ) { permission ->
-                            PermissionCard(
-                                permission = permission,
-                                onOnce = { viewModel.replyToPermission(permission.id, "once") },
-                                onAlways = { viewModel.replyToPermission(permission.id, "always") },
-                                onReject = { viewModel.replyToPermission(permission.id, "reject") }
-                            )
-                        }
-
-                        // Pending questions
-                        items(
-                            uiState.pendingQuestions,
-                            key = { "question_${it.id}" }
-                        ) { question ->
-                            QuestionCard(
-                                question = question,
-                                onSubmit = { answers ->
-                                    viewModel.replyToQuestion(question.id, answers)
-                                },
-                                onReject = {
-                                    viewModel.rejectQuestion(question.id)
-                                }
-                            )
-                        }
-                    }
-
-                    // Scroll-to-bottom FAB
-                    if (!isAtBottom && !autoScrollEnabled) {
-                        SmallFloatingActionButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    val lastIndex = listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1
-                                    listState.scrollToItem(lastIndex)
-                                    val lastItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-                                    if (lastItem != null) {
-                                        val viewport = listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset
-                                        val bottomPaddingPx = with(density) { 8.dp.roundToPx() }
-                                        val overflow = lastItem.size + bottomPaddingPx - viewport
-                                        if (overflow > 0) {
-                                            listState.scrollBy(overflow.toFloat())
-                                        }
-                                    }
-                                    autoScrollEnabled = true
-                                }
-                            },
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(bottom = 8.dp),
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        ) {
-                            Icon(
-                                Icons.Default.KeyboardArrowDown,
-                                contentDescription = stringResource(R.string.chat_scroll_bottom),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
+                     // Scroll-to-bottom FAB
+                     if (!isAtBottom && !autoScrollEnabled) {
+                         SmallFloatingActionButton(
+                             onClick = {
+                                 coroutineScope.launch {
+                                     listState.scrollToItem(0)
+                                     autoScrollEnabled = true
+                                 }
+                             },
+                             modifier = Modifier
+                                 .align(Alignment.BottomEnd)
+                                 .padding(bottom = 8.dp),
+                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                             contentColor = MaterialTheme.colorScheme.onSurface
+                         ) {
+                             Icon(
+                                 Icons.Default.KeyboardArrowDown,
+                                 contentDescription = stringResource(R.string.chat_scroll_bottom),
+                                 modifier = Modifier.size(20.dp)
+                             )
+                         }
+                     }
 
                          }
                      } else {
@@ -2639,54 +2593,62 @@ fun ChatScreen(
                             LazyColumn(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
+                                reverseLayout = true,
                                 contentPadding = PaddingValues(
                                     horizontal = 12.dp,
                                     vertical = 8.dp
                                 ),
                                 verticalArrangement = Arrangement.spacedBy(messageSpacing)
                             ) {
-                                // "Load earlier messages" button at the top
-                                if (uiState.hasOlderMessages) {
-                                    item(key = "load_older") {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 4.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (uiState.isLoadingOlder) {
-                                                Row(
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    PulsingDotsIndicator(
-                                                        dotSize = 6.dp,
-                                                        dotSpacing = 4.dp,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                // reverseLayout=true: items declared first render at the BOTTOM
+
+                                // Pending questions (bottom-most visually, declared first)
+                                items(
+                                    uiState.pendingQuestions,
+                                    key = { "question_${it.id}" }
+                                ) { question ->
+                                    QuestionCard(
+                                        question = question,
+                                        onSubmit = { answers ->
+                                            viewModel.replyToQuestion(question.id, answers)
+                                        },
+                                        onReject = {
+                                            viewModel.rejectQuestion(question.id)
+                                        }
+                                    )
+                                }
+
+                                // Pending permissions
+                                items(
+                                    uiState.pendingPermissions,
+                                    key = { "perm_${it.id}" }
+                                ) { permission ->
+                                    PermissionCard(
+                                        permission = permission,
+                                        onOnce = { viewModel.replyToPermission(permission.id, "once") },
+                                        onAlways = { viewModel.replyToPermission(permission.id, "always") },
+                                        onReject = { viewModel.replyToPermission(permission.id, "reject") }
+                                    )
+                                }
+
+                                // Revert banner
+                                if (uiState.revert != null) {
+                                    item(key = "revert_banner") {
+                                        RevertBanner(onRedo = {
+                                            viewModel.redoMessage { ok ->
+                                                coroutineScope.launch {
+                                                    snackbarHostState.showSnackbar(
+                                                        if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
                                                     )
-                                                    Text(
-                                                        text = stringResource(R.string.chat_loading_earlier),
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                }
-                                            } else {
-                                                TextButton(onClick = {
-                                                    savedFirstVisibleIndex = listState.firstVisibleItemIndex
-                                                    savedScrollOffset = listState.firstVisibleItemScrollOffset
-                                                    savedMessageCount = uiState.messages.size
-                                                    isRestoringPosition = true
-                                                    viewModel.loadOlderMessages()
-                                                }) {
-                                                    Text(stringResource(R.string.chat_load_earlier))
                                                 }
                                             }
-                                        }
+                                        })
                                     }
                                 }
 
+                                // Chat messages (reversed so index 0 = newest = at the bottom)
                                 items(
-                                    chatItems,
+                                    chatItems.reversed(),
                                     key = { it.key },
                                     contentType = { chatItem ->
                                         when (chatItem) {
@@ -2807,48 +2769,44 @@ fun ChatScreen(
                                     }
                                 }
 
-                                // Revert banner
-                                if (uiState.revert != null) {
-                                    item(key = "revert_banner") {
-                                        RevertBanner(onRedo = {
-                                            viewModel.redoMessage { ok ->
-                                                coroutineScope.launch {
-                                                    snackbarHostState.showSnackbar(
-                                                        if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
+                                // "Load earlier messages" button at the top (last in DSL = topmost visually)
+                                if (uiState.hasOlderMessages) {
+                                    item(key = "load_older") {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (uiState.isLoadingOlder) {
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    PulsingDotsIndicator(
+                                                        dotSize = 6.dp,
+                                                        dotSpacing = 4.dp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    Text(
+                                                        text = stringResource(R.string.chat_loading_earlier),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                                     )
                                                 }
+                                            } else {
+                                                TextButton(onClick = {
+                                                    savedFirstVisibleIndex = listState.firstVisibleItemIndex
+                                                    savedScrollOffset = listState.firstVisibleItemScrollOffset
+                                                    savedMessageCount = uiState.messages.size
+                                                    isRestoringPosition = true
+                                                    viewModel.loadOlderMessages()
+                                                }) {
+                                                    Text(stringResource(R.string.chat_load_earlier))
+                                                }
                                             }
-                                        })
-                                    }
-                                }
-
-                                // Pending permissions
-                                items(
-                                    uiState.pendingPermissions,
-                                    key = { "perm_${it.id}" }
-                                ) { permission ->
-                                    PermissionCard(
-                                        permission = permission,
-                                        onOnce = { viewModel.replyToPermission(permission.id, "once") },
-                                        onAlways = { viewModel.replyToPermission(permission.id, "always") },
-                                        onReject = { viewModel.replyToPermission(permission.id, "reject") }
-                                    )
-                                }
-
-                                // Pending questions
-                                items(
-                                    uiState.pendingQuestions,
-                                    key = { "question_${it.id}" }
-                                ) { question ->
-                                    QuestionCard(
-                                        question = question,
-                                        onSubmit = { answers ->
-                                            viewModel.replyToQuestion(question.id, answers)
-                                        },
-                                        onReject = {
-                                            viewModel.rejectQuestion(question.id)
                                         }
-                                    )
+                                    }
                                 }
                             }
 
@@ -2857,17 +2815,7 @@ fun ChatScreen(
                                 SmallFloatingActionButton(
                                     onClick = {
                                         coroutineScope.launch {
-                                            val lastIndex = listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1
-                                            listState.scrollToItem(lastIndex)
-                                            val lastItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-                                            if (lastItem != null) {
-                                                val viewport = listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset
-                                                val bottomPaddingPx = with(density) { 8.dp.roundToPx() }
-                                                val overflow = lastItem.size + bottomPaddingPx - viewport
-                                                if (overflow > 0) {
-                                                    listState.scrollBy(overflow.toFloat())
-                                                }
-                                            }
+                                            listState.scrollToItem(0)
                                             autoScrollEnabled = true
                                         }
                                     },
@@ -4525,6 +4473,7 @@ private fun MarkdownContent(
     isUser: Boolean
 ) {
     val normalizedMarkdown = remember(markdown) { preserveRawHtmlPayload(markdown) }
+
     val isAmoled = isAmoledTheme()
 
     // Inline code: keep text styling, but no opaque background so selection remains visible.
@@ -4575,7 +4524,8 @@ private fun MarkdownContent(
         text = textColor,
         codeBackground = codeBlockBg,
         inlineCodeBackground = Color.Transparent,
-        dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        tableBackground = MaterialTheme.colorScheme.surfaceContainerLow
     )
 
     val typography = markdownTypography(
@@ -4621,6 +4571,7 @@ private fun MarkdownContent(
         ordered = bodyStyle,
         bullet = bodyStyle,
         list = bodyStyle,
+        table = bodyStyle,
         textLink = TextLinkStyles(
             style = bodyStyle.copy(
                 color = linkColor,
@@ -4633,11 +4584,20 @@ private fun MarkdownContent(
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
 
     val components = if (wordWrap) {
-        markdownComponents()
+        markdownComponents(
+            table = { model ->
+                // Fallback table for 0.41.0: use simplified rendering since
+                // the default MarkdownTableBasicText inline pipeline is broken.
+                SimpleMarkdownTable(model.content, model.node, model.typography.table)
+            }
+        )
     } else {
         markdownComponents(
             codeBlock = highlightedCodeBlock,
-            codeFence = highlightedCodeFence
+            codeFence = highlightedCodeFence,
+            table = { model ->
+                SimpleMarkdownTable(model.content, model.node, model.typography.table)
+            }
         )
     }
 
@@ -4671,6 +4631,113 @@ private fun MarkdownContent(
         imageTransformer = Coil3ImageTransformerImpl,
         modifier = Modifier.fillMaxWidth()
     )
+}
+
+/**
+ * Table component for 0.41.0 — replaces the default MarkdownTable whose
+ * MarkdownTableBasicText inline-content pipeline fails to render cells.
+ *
+ * Styled with header background, alternating rows, vertical dividers, and an
+ * outer border for a clean but distinct table appearance.
+ */
+@Composable
+private fun SimpleMarkdownTable(
+    content: String,
+    tableNode: ASTNode,
+    style: TextStyle,
+) {
+    val headerBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+    val rowBgEven = Color.Transparent
+    val rowBgOdd = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
+    val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+    val pad = 10.dp
+    val shape = RoundedCornerShape(6.dp)
+    val border = BorderStroke(1.dp, dividerColor)
+
+    var rowIndex = 0
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(border, shape)
+            .clip(shape)
+    ) {
+        tableNode.children.forEach { child ->
+            when (child.type) {
+                GFMHeader -> {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(headerBg),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        child.children.filter { it.type == GFMCell }.forEachIndexed { colIndex, cell ->
+                            val isLast = colIndex == child.children.count { it.type == GFMCell } - 1
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .then(
+                                        if (!isLast) Modifier.drawBehind {
+                                            drawLine(dividerColor, Offset(size.width, 0f), Offset(size.width, size.height), strokeWidth = 1f)
+                                        } else Modifier
+                                    )
+                                    .padding(horizontal = pad, vertical = 8.dp)
+                            ) {
+                                MarkdownBasicText(
+                                    text = content.buildMarkdownAnnotatedString(
+                                        textNode = cell,
+                                        style = style.copy(fontWeight = FontWeight.SemiBold),
+                                        annotatorSettings = annotatorSettings(),
+                                    ),
+                                    style = style.copy(fontWeight = FontWeight.SemiBold),
+                                )
+                            }
+                        }
+                    }
+                    HorizontalDivider(thickness = 1.5.dp, color = dividerColor)
+                }
+                GFMRow -> {
+                    val rowBg = if (rowIndex % 2 == 0) rowBgEven else rowBgOdd
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(rowBg),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        child.children.filter { it.type == GFMCell }.forEachIndexed { colIndex, cell ->
+                            val isLast = colIndex == child.children.count { it.type == GFMCell } - 1
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .then(
+                                        if (!isLast) Modifier.drawBehind {
+                                            drawLine(dividerColor, Offset(size.width, 0f), Offset(size.width, size.height), strokeWidth = 1f)
+                                        } else Modifier
+                                    )
+                                    .padding(horizontal = pad, vertical = 6.dp)
+                            ) {
+                                MarkdownBasicText(
+                                    text = content.buildMarkdownAnnotatedString(
+                                        textNode = cell,
+                                        style = style,
+                                        annotatorSettings = annotatorSettings(),
+                                    ),
+                                    style = style,
+                                )
+                            }
+                        }
+                    }
+                    if (rowIndex < tableNode.children.count { it.type == GFMRow } - 1) {
+                        HorizontalDivider(color = dividerColor.copy(alpha = 0.5f))
+                    }
+                    rowIndex++
+                }
+                GFMTableSeparator -> {
+                    HorizontalDivider(thickness = 1.5.dp, color = dividerColor)
+                }
+            }
+        }
+    }
 }
 
 private val HtmlDocumentHintRegex = Regex("(?is)<!doctype\\s+html\\b|<\\s*html\\b")
