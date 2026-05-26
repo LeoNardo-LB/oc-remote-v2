@@ -146,7 +146,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.view.ViewTreeObserver
+
 import android.media.AudioManager
 import android.os.Build
 import android.os.SystemClock
@@ -848,35 +848,6 @@ private suspend fun buildAttachmentFromUri(
     )
 }
 
-/**
- * Manually detect keyboard height via ViewTreeObserver.
- * Returns the keyboard height in pixels (0 when keyboard is hidden).
- * This avoids relying on WindowInsets.ime which is unreliable on some devices.
- */
-@Composable
-fun rememberKeyboardHeight(): State<Int> {
-    val keyboardHeight = remember { mutableStateOf(0) }
-    val view = LocalView.current
-
-    DisposableEffect(view) {
-        val listener = ViewTreeObserver.OnGlobalLayoutListener {
-            val rect = android.graphics.Rect()
-            view.getWindowVisibleDisplayFrame(rect)
-            val screenHeight = view.rootView.height
-            val keypadHeight = screenHeight - rect.bottom
-            // Only consider it a keyboard if it exceeds 15% of screen height
-            // (excludes navigation bar and other system UI)
-            keyboardHeight.value = if (keypadHeight > screenHeight * 0.15) keypadHeight else 0
-        }
-        view.viewTreeObserver.addOnGlobalLayoutListener(listener)
-        onDispose {
-            view.viewTreeObserver.removeOnGlobalLayoutListener(listener)
-        }
-    }
-
-    return keyboardHeight
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -927,7 +898,6 @@ fun ChatScreen(
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     val view = LocalView.current
     val density = LocalDensity.current
-    val keyboardHeightPx by rememberKeyboardHeight()
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
     var terminalOverlayHeightPx by remember { mutableStateOf(0) }
 
@@ -1731,13 +1701,12 @@ fun ChatScreen(
                     val model = provider?.models?.get(uiState.selectedModelId)
                     model?.name ?: uiState.selectedModelId ?: ""
                 } else ""
-                val keyboardHeightDp = with(density) { keyboardHeightPx.toDp() }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surface)
                         .navigationBarsPadding()
-                        .padding(bottom = keyboardHeightDp)
+                        .imePadding()
                 ) {
                     ChatInputBar(
                         textFieldValue = inputText,
