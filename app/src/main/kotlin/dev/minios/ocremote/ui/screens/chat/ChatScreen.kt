@@ -1695,7 +1695,9 @@ fun ChatScreen(
             }
         },
         bottomBar = {
-            if (!isTerminalMode && uiState.sessionParentId == null) {
+            if (uiState.sessionParentId == null && !isTerminalMode &&
+                (uiState.messages.isNotEmpty() || !uiState.isLoading) && uiState.error == null
+            ) {
                 val modelLabel = if (uiState.selectedModelId != null && uiState.providers.isNotEmpty()) {
                     val provider = uiState.providers.find { it.id == uiState.selectedProviderId }
                     val model = provider?.models?.get(uiState.selectedModelId)
@@ -2359,16 +2361,21 @@ fun ChatScreen(
                      val messageSpacing = if (LocalCompactMessages.current) 4.dp else 12.dp
                      val chatItems = remember(uiState.messages) { groupMessages(uiState.messages) }
 
-                     LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            start = 12.dp,
-                            top = 8.dp,
-                            end = 12.dp,
-                            bottom = 8.dp
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(messageSpacing)
+                     if (uiState.sessionParentId == null) {
+                         // Main session: Scaffold bottomBar contains ChatInputBar; content is LazyColumn + FAB
+                         Box(
+                             modifier = Modifier.fillMaxSize()
+                         ) {
+                                 LazyColumn(
+                                     state = listState,
+                                     modifier = Modifier.fillMaxSize(),
+                                     contentPadding = PaddingValues(
+                                         start = 12.dp,
+                                         top = 8.dp,
+                                         end = 12.dp,
+                                         bottom = 8.dp
+                                     ),
+                                     verticalArrangement = Arrangement.spacedBy(messageSpacing)
                     ) {
                         // "Load earlier messages" button at the top
                         if (uiState.hasOlderMessages) {
@@ -2611,7 +2618,7 @@ fun ChatScreen(
                                 }
                             },
                             modifier = Modifier
-                                .align(Alignment.BottomCenter)
+                                .align(Alignment.BottomEnd)
                                 .padding(bottom = 8.dp),
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             contentColor = MaterialTheme.colorScheme.onSurface
@@ -2621,6 +2628,261 @@ fun ChatScreen(
                                 contentDescription = stringResource(R.string.chat_scroll_bottom),
                                 modifier = Modifier.size(20.dp)
                             )
+                        }
+                    }
+
+                         }
+                     } else {
+                        // Sub-session (no input bar): just LazyColumn + FAB
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(
+                                    horizontal = 12.dp,
+                                    vertical = 8.dp
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(messageSpacing)
+                            ) {
+                                // "Load earlier messages" button at the top
+                                if (uiState.hasOlderMessages) {
+                                    item(key = "load_older") {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (uiState.isLoadingOlder) {
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    PulsingDotsIndicator(
+                                                        dotSize = 6.dp,
+                                                        dotSpacing = 4.dp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    Text(
+                                                        text = stringResource(R.string.chat_loading_earlier),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            } else {
+                                                TextButton(onClick = {
+                                                    savedFirstVisibleIndex = listState.firstVisibleItemIndex
+                                                    savedScrollOffset = listState.firstVisibleItemScrollOffset
+                                                    savedMessageCount = uiState.messages.size
+                                                    isRestoringPosition = true
+                                                    viewModel.loadOlderMessages()
+                                                }) {
+                                                    Text(stringResource(R.string.chat_load_earlier))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                items(
+                                    chatItems,
+                                    key = { it.key },
+                                    contentType = { chatItem ->
+                                        when (chatItem) {
+                                            is ChatItem.UserMessage -> "user"
+                                            is ChatItem.AssistantTurn -> "assistant"
+                                        }
+                                    }
+                                ) { chatItem ->
+                                    when (chatItem) {
+                                        is ChatItem.UserMessage -> {
+                                            val chatMessage = chatItem.chatMessage
+
+                                            // Detect compaction trigger messages (user messages with Part.Compaction)
+                                            val isCompactionTrigger = chatMessage.parts.any { it is Part.Compaction }
+
+                                            // Show compact system-style divider for compaction triggers
+                                            if (isCompactionTrigger) {
+                                                var showRevertDialog by remember { mutableStateOf(false) }
+
+                                                if (showRevertDialog) {
+                                                    AlertDialog(
+                                                        onDismissRequest = { showRevertDialog = false },
+                                                        title = { Text(stringResource(R.string.chat_revert_title)) },
+                                                        text = { Text(stringResource(R.string.chat_revert_message)) },
+                                                        confirmButton = {
+                                                            TextButton(
+                                                                onClick = {
+                                                                    showRevertDialog = false
+                                                                    viewModel.revertMessage(chatMessage.message.id) { ok ->
+                                                                        coroutineScope.launch {
+                                                                            snackbarHostState.showSnackbar(
+                                                                                if (ok) context.getString(R.string.chat_message_reverted) else context.getString(R.string.chat_message_revert_failed)
+                                                                            )
+                                                                        }
+                                                                    }
+                                                                }
+                                                            ) {
+                                                                Text(stringResource(R.string.chat_revert), color = MaterialTheme.colorScheme.error)
+                                                            }
+                                                        },
+                                                        dismissButton = {
+                                                            TextButton(onClick = { showRevertDialog = false }) {
+                                                                Text(stringResource(R.string.cancel))
+                                                            }
+                                                        }
+                                                    )
+                                                }
+
+                                                @OptIn(ExperimentalFoundationApi::class)
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .combinedClickable(
+                                                            onClick = { },
+                                                            onLongClick = { showRevertDialog = true }
+                                                        )
+                                                        .padding(vertical = 4.dp, horizontal = 32.dp),
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    HorizontalDivider(
+                                                        modifier = Modifier.weight(1f),
+                                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                                    )
+                                                    Text(
+                                                        text = stringResource(R.string.chat_summarized),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                        modifier = Modifier.padding(horizontal = 12.dp)
+                                                    )
+                                                    HorizontalDivider(
+                                                        modifier = Modifier.weight(1f),
+                                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                                    )
+                                                }
+                                                return@items
+                                            }
+
+                                            ChatMessageBubble(
+                                                chatMessage = chatMessage,
+                                                isQueued = chatMessage.message.id in uiState.queuedMessageIds,
+                                                onViewSubSession = onNavigateToChildSession,
+                                                onRevert = null,
+                                                onCopyText = {
+                                                    val text = chatMessage.parts
+                                                        .filterIsInstance<Part.Text>()
+                                                        .joinToString("\n") { it.text }
+                                                    if (text.isNotBlank()) {
+                                                        clipboardManager.setText(
+                                                            androidx.compose.ui.text.AnnotatedString(text)
+                                                        )
+                                                        coroutineScope.launch {
+                                                            snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
+                                                        }
+                                                    }
+                                                }
+                                            )
+                                        }
+                                        is ChatItem.AssistantTurn -> {
+                                            AssistantTurnBubble(
+                                                messages = chatItem.messages,
+                                                onViewSubSession = onNavigateToChildSession,
+                                                onCopyText = {
+                                                    val text = chatItem.messages.flatMap { msg ->
+                                                        msg.parts.filterIsInstance<Part.Text>()
+                                                    }.joinToString("\n") { it.text }
+                                                    if (text.isNotBlank()) {
+                                                        clipboardManager.setText(
+                                                            androidx.compose.ui.text.AnnotatedString(text)
+                                                        )
+                                                        coroutineScope.launch {
+                                                            snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
+                                                        }
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Revert banner
+                                if (uiState.revert != null) {
+                                    item(key = "revert_banner") {
+                                        RevertBanner(onRedo = {
+                                            viewModel.redoMessage { ok ->
+                                                coroutineScope.launch {
+                                                    snackbarHostState.showSnackbar(
+                                                        if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
+                                                    )
+                                                }
+                                            }
+                                        })
+                                    }
+                                }
+
+                                // Pending permissions
+                                items(
+                                    uiState.pendingPermissions,
+                                    key = { "perm_${it.id}" }
+                                ) { permission ->
+                                    PermissionCard(
+                                        permission = permission,
+                                        onOnce = { viewModel.replyToPermission(permission.id, "once") },
+                                        onAlways = { viewModel.replyToPermission(permission.id, "always") },
+                                        onReject = { viewModel.replyToPermission(permission.id, "reject") }
+                                    )
+                                }
+
+                                // Pending questions
+                                items(
+                                    uiState.pendingQuestions,
+                                    key = { "question_${it.id}" }
+                                ) { question ->
+                                    QuestionCard(
+                                        question = question,
+                                        onSubmit = { answers ->
+                                            viewModel.replyToQuestion(question.id, answers)
+                                        },
+                                        onReject = {
+                                            viewModel.rejectQuestion(question.id)
+                                        }
+                                    )
+                                }
+                            }
+
+                            // Scroll-to-bottom FAB
+                            if (!isAtBottom && !autoScrollEnabled) {
+                                SmallFloatingActionButton(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            val lastIndex = listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1
+                                            listState.scrollToItem(lastIndex)
+                                            val lastItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                                            if (lastItem != null) {
+                                                val viewport = listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset
+                                                val bottomPaddingPx = with(density) { 8.dp.roundToPx() }
+                                                val overflow = lastItem.size + bottomPaddingPx - viewport
+                                                if (overflow > 0) {
+                                                    listState.scrollBy(overflow.toFloat())
+                                                }
+                                            }
+                                            autoScrollEnabled = true
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .padding(bottom = 8.dp),
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                ) {
+                                    Icon(
+                                        Icons.Default.KeyboardArrowDown,
+                                        contentDescription = stringResource(R.string.chat_scroll_bottom),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
