@@ -1484,12 +1484,7 @@ fun ChatScreen(
                 },
                 actions = {
                     if (uiState.sessionParentId == null) {
-                    IconButton(onClick = { isTerminalMode = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Terminal,
-                            contentDescription = stringResource(R.string.tool_terminal)
-                        )
-                    }
+                    // Terminal moved into the overflow (three-dot) menu below
                     Box {
                         val isAmoled = isAmoledTheme()
                         IconButton(onClick = { showMenu = true }) {
@@ -1501,6 +1496,18 @@ fun ChatScreen(
                             containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
                             border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null
                         ) {
+                            if (uiState.sessionParentId == null) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tool_terminal)) },
+                                onClick = {
+                                    showMenu = false
+                                    isTerminalMode = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Terminal, contentDescription = null)
+                                }
+                            )
+                            }
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.menu_open_in_web)) },
                                 onClick = {
