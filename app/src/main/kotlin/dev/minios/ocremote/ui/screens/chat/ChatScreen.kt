@@ -144,6 +144,7 @@ import dev.minios.ocremote.data.api.ProviderInfo
 import dev.minios.ocremote.data.api.ProviderModel
 import dev.minios.ocremote.MainActivity
 import dev.minios.ocremote.ui.theme.CodeTypography
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -1368,6 +1369,7 @@ fun ChatScreen(
     // Whether auto-scroll should follow new content.
     // Disabled when user manually scrolls up; re-enabled when user scrolls back to bottom.
     var autoScrollEnabled by remember { mutableStateOf(true) }
+    var isAutoScrolling by remember { mutableStateOf(false) }
 
     // Scroll anchor for restoring position after loading older messages.
     var savedFirstVisibleMessageId by remember { mutableStateOf<String?>(null) }
@@ -1384,8 +1386,10 @@ fun ChatScreen(
         }
     }
 
-    // When user touches the list, disable auto-scroll; re-enable when they reach the bottom
+    // When user manually touches the list, disable auto-scroll; re-enable when they reach bottom.
+    // Guarded by isAutoScrolling to prevent programmatic scrollToItem from re-enabling auto-scroll.
     LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
+        if (isAutoScrolling) return@LaunchedEffect
         if (listState.isScrollInProgress) {
             // User is actively dragging/flinging — disable auto-scroll
             autoScrollEnabled = false
@@ -1398,31 +1402,25 @@ fun ChatScreen(
 
 
     // Auto-scroll to bottom when new content arrives (only if auto-scroll is enabled)
-    // Track message count, part count, and content length of the last part to catch streaming updates
+    // Track message count and part count — NOT content length — to avoid high-frequency
+    // scrollToItem during streaming which causes click-race on tool cards.
     val messageCount = uiState.messages.size
     val lastPartCount = uiState.messages.firstOrNull()?.parts?.size ?: 0
-    val lastContentLength = uiState.messages.firstOrNull()?.parts?.lastOrNull()?.let { part ->
-        when (part) {
-            is Part.Text -> part.text.length
-            is Part.Reasoning -> part.text.length
-            is Part.Tool -> when (val s = part.state) {
-                is ToolState.Completed -> s.output.length
-                is ToolState.Error -> s.error.length
-                is ToolState.Running -> s.title?.length ?: 1
-                is ToolState.Pending -> 0
-            }
-            else -> 0
-        }
-    } ?: 0
     val pendingCount = uiState.pendingPermissions.size + uiState.pendingQuestions.size
     val isBusy = uiState.sessionStatus is SessionStatus.Busy
-    LaunchedEffect(messageCount, lastPartCount, lastContentLength, pendingCount, isBusy) {
+    LaunchedEffect(messageCount, lastPartCount, pendingCount, isBusy) {
         if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@LaunchedEffect
         // Don't auto-scroll when a scroll position restoration is pending (loading older messages)
         if (savedMessageCount > 0 || isRestoringPosition) return@LaunchedEffect
         if (messageCount > 0 && autoScrollEnabled) {
+            isAutoScrolling = true
             // With reverseLayout=true + reversed data, index 0 = newest at the bottom
             listState.scrollToItem(0)
+            // Wait for the scroll to fully complete before clearing the flag,
+            // so the guard LaunchedEffect doesn't re-enable autoScrollEnabled
+            // due to the programmatic scroll's isScrollInProgress → isAtBottom sequence.
+            snapshotFlow { listState.isScrollInProgress }.first { !it }
+            isAutoScrolling = false
         }
     }
 
@@ -4676,85 +4674,92 @@ private fun SimpleMarkdownTable(
     if (columnCount == 0) return
 
     var rowIndex = 0
+    val cellMinWidth = 120.dp
+    val scrollState = rememberScrollState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(border, shape)
-            .clip(shape)
-    ) {
-        tableNode.children.forEach { child ->
-            when (child.type) {
-                GFMHeader -> {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(headerBg),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        child.children.filter { it.type == GFMCell }.forEachIndexed { colIndex, cell ->
-                            val isLast = colIndex == columnCount - 1
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .then(
-                                        if (!isLast) Modifier.drawBehind {
-                                            drawLine(dividerColor, Offset(size.width, 0f), Offset(size.width, size.height), strokeWidth = 1f)
-                                        } else Modifier
-                                    )
-                                    .padding(horizontal = pad, vertical = 8.dp)
-                            ) {
-                                MarkdownBasicText(
-                                    text = content.buildMarkdownAnnotatedString(
-                                        textNode = cell,
+    BoxWithConstraints {
+        val rowWidth = maxOf(maxWidth, cellMinWidth * columnCount)
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(scrollState)
+                .border(border, shape)
+                .clip(shape)
+        ) {
+            tableNode.children.forEach { child ->
+                when (child.type) {
+                    GFMHeader -> {
+                        Row(
+                            modifier = Modifier
+                                .width(rowWidth)
+                                .background(headerBg),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            child.children.filter { it.type == GFMCell }.forEachIndexed { colIndex, cell ->
+                                val isLast = colIndex == columnCount - 1
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .then(
+                                            if (!isLast) Modifier.drawBehind {
+                                                drawLine(dividerColor, Offset(size.width, 0f), Offset(size.width, size.height), strokeWidth = 1f)
+                                            } else Modifier
+                                        )
+                                        .padding(horizontal = pad, vertical = 8.dp)
+                                ) {
+                                    MarkdownBasicText(
+                                        text = content.buildMarkdownAnnotatedString(
+                                            textNode = cell,
+                                            style = style.copy(fontWeight = FontWeight.SemiBold),
+                                            annotatorSettings = annotatorSettings(),
+                                        ),
                                         style = style.copy(fontWeight = FontWeight.SemiBold),
-                                        annotatorSettings = annotatorSettings(),
-                                    ),
-                                    style = style.copy(fontWeight = FontWeight.SemiBold),
-                                )
-                            }
-                        }
-                    }
-                    HorizontalDivider(thickness = 1.5.dp, color = dividerColor)
-                }
-                GFMRow -> {
-                    val rowBg = if (rowIndex % 2 == 0) rowBgEven else rowBgOdd
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(rowBg),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        child.children.filter { it.type == GFMCell }.forEachIndexed { colIndex, cell ->
-                            val isLast = colIndex == columnCount - 1
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .then(
-                                        if (!isLast) Modifier.drawBehind {
-                                            drawLine(dividerColor, Offset(size.width, 0f), Offset(size.width, size.height), strokeWidth = 1f)
-                                        } else Modifier
                                     )
-                                    .padding(horizontal = pad, vertical = 6.dp)
-                            ) {
-                                MarkdownBasicText(
-                                    text = content.buildMarkdownAnnotatedString(
-                                        textNode = cell,
-                                        style = style,
-                                        annotatorSettings = annotatorSettings(),
-                                    ),
-                                    style = style,
-                                )
+                                }
                             }
                         }
+                        HorizontalDivider(thickness = 1.5.dp, color = dividerColor)
                     }
-                    if (rowIndex < tableNode.children.count { it.type == GFMRow } - 1) {
-                        HorizontalDivider(color = dividerColor.copy(alpha = 0.5f))
+                    GFMRow -> {
+                        val rowBg = if (rowIndex % 2 == 0) rowBgEven else rowBgOdd
+                        Row(
+                            modifier = Modifier
+                                .width(rowWidth)
+                                .background(rowBg),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            child.children.filter { it.type == GFMCell }.forEachIndexed { colIndex, cell ->
+                                val isLast = colIndex == columnCount - 1
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .then(
+                                            if (!isLast) Modifier.drawBehind {
+                                                drawLine(dividerColor, Offset(size.width, 0f), Offset(size.width, size.height), strokeWidth = 1f)
+                                            } else Modifier
+                                        )
+                                        .padding(horizontal = pad, vertical = 6.dp)
+                                ) {
+                                    MarkdownBasicText(
+                                        text = content.buildMarkdownAnnotatedString(
+                                            textNode = cell,
+                                            style = style,
+                                            annotatorSettings = annotatorSettings(),
+                                        ),
+                                        style = style,
+                                    )
+                                }
+                            }
+                        }
+                        if (rowIndex < tableNode.children.count { it.type == GFMRow } - 1) {
+                            HorizontalDivider(color = dividerColor.copy(alpha = 0.5f))
+                        }
+                        rowIndex++
                     }
-                    rowIndex++
-                }
-                GFMTableSeparator -> {
-                    HorizontalDivider(thickness = 1.5.dp, color = dividerColor)
+                    GFMTableSeparator -> {
+                        HorizontalDivider(thickness = 1.5.dp, color = dividerColor)
+                    }
                 }
             }
         }
