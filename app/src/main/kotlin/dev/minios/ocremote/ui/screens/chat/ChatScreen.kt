@@ -4532,10 +4532,16 @@ private fun MarkdownContent(
         else -> MaterialTheme.colorScheme.primary
     }
 
+    val inlineCodeBg = when {
+        isAmoled -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
+        isUser -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f)
+        else -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+    }
+
     val colors = markdownColor(
         text = textColor,
         codeBackground = codeBlockBg,
-        inlineCodeBackground = Color.Transparent,
+        inlineCodeBackground = inlineCodeBg,
         dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         tableBackground = MaterialTheme.colorScheme.surfaceContainerLow
     )
