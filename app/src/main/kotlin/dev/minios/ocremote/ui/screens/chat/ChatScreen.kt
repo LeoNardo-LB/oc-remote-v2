@@ -1381,21 +1381,26 @@ fun ChatScreen(
 
     // "Jump to bottom" indicator: shown when user has scrolled away from the bottom.
     // With reverseLayout=false, canScrollForward=true means there is content below the
-    // viewport (i.e. user is NOT at the very bottom). This is more accurate than
-    // checking firstVisibleItemIndex, because a long assistant message can span
-    // multiple screens while still having index 0.
+    // viewport (i.e. user is NOT at the very bottom).
     val showJumpToBottom by remember {
         derivedStateOf {
             listState.canScrollForward
         }
     }
 
-    // Disable auto-scroll when user scrolls away from bottom.
-    // Re-enable only via FAB onClick.
-    LaunchedEffect(showJumpToBottom) {
-        if (showJumpToBottom) {
-            autoScrollEnabled = false
-        }
+    // Disable auto-scroll when user manually scrolls away from bottom.
+    // We detect USER scroll (not programmatic) by checking isScrollInProgress.
+    // This avoids the race condition where initial load triggers showJumpToBottom=true
+    // which would prematurely disable autoScrollEnabled before scrollToItem runs.
+    LaunchedEffect(Unit) {
+        snapshotFlow { listState.isScrollInProgress to listState.canScrollForward }
+            .collect { (isScrolling, canScrollForward) ->
+                if (!isScrolling && canScrollForward) {
+                    // User just finished scrolling AND viewport is not at bottom
+                    // → disable auto-scroll
+                    autoScrollEnabled = false
+                }
+            }
     }
 
     // Keys for chatItems remember — used to avoid recomputation on every text delta
