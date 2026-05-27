@@ -66,7 +66,7 @@ fun SettingsScreen(
     val chatFontSize by viewModel.chatFontSize.collectAsState()
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
 
-    val initialMessageCount by viewModel.initialMessageCount.collectAsState()
+    val initialChatItemCount by viewModel.initialChatItemCount.collectAsState()
     val codeWordWrap by viewModel.codeWordWrap.collectAsState()
     val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsState()
     val amoledDark by viewModel.amoledDark.collectAsState()
@@ -285,7 +285,7 @@ fun SettingsScreen(
             // Initial message count
             ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_initial_messages)) },
-                supportingContent = { Text("$initialMessageCount") },
+                supportingContent = { Text("$initialChatItemCount") },
                 leadingContent = {
                     Icon(Icons.Default.Storage, contentDescription = null)
                 },
@@ -499,9 +499,9 @@ fun SettingsScreen(
 
         if (showMessageCountDialog) {
             MessageCountPickerDialog(
-                currentCount = initialMessageCount,
+                currentCount = initialChatItemCount,
                 onCountSelected = { count ->
-                    viewModel.setInitialMessageCount(count)
+                    viewModel.setInitialChatItemCount(count)
                     showMessageCountDialog = false
                 },
                 onDismiss = { showMessageCountDialog = false }
@@ -1114,7 +1114,7 @@ private fun MessageCountPickerDialog(
 ) {
     SettingsPickerDialog(
         title = stringResource(R.string.settings_initial_messages),
-        options = listOf(25, 50, 100, 200).map { it to "$it" },
+        options = listOf(10, 20, 30, 50).map { it to "$it" },
         selectedKey = currentCount,
         onSelect = onCountSelected,
         onDismiss = onDismiss

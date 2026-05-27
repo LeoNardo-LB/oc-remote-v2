@@ -147,14 +147,12 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    /**
-     * Initial number of messages to load per session. Default: 50.
-     */
-    val initialMessageCount: Flow<Int> = dataStore.data.map { preferences ->
-        preferences[INITIAL_MESSAGE_COUNT_KEY] ?: 50
+    /** Number of chat items (bubbles) to load per page. Default: 10. */
+    val initialChatItemCount: Flow<Int> = dataStore.data.map { preferences ->
+        preferences[INITIAL_MESSAGE_COUNT_KEY] ?: 10
     }
 
-    suspend fun setInitialMessageCount(count: Int) {
+    suspend fun setInitialChatItemCount(count: Int) {
         dataStore.edit { preferences ->
             preferences[INITIAL_MESSAGE_COUNT_KEY] = count
         }

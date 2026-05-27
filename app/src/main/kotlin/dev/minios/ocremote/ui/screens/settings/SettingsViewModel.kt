@@ -45,7 +45,7 @@ class SettingsViewModel @Inject constructor(
         initialValue = true
     )
 
-    val initialMessageCount = settingsRepository.initialMessageCount.stateIn(
+    val initialChatItemCount = settingsRepository.initialChatItemCount.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = 50
@@ -219,9 +219,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setInitialMessageCount(count: Int) {
+    fun setInitialChatItemCount(count: Int) {
         viewModelScope.launch {
-            settingsRepository.setInitialMessageCount(count)
+            settingsRepository.setInitialChatItemCount(count)
         }
     }
 
