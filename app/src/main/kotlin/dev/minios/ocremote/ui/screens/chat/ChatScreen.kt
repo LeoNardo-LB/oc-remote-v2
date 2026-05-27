@@ -1379,33 +1379,30 @@ fun ChatScreen(
     // is complete. Prevents the auto-scroll effect from racing with restoration.
     var isRestoringPosition by remember { mutableStateOf(false) }
 
-    // In reverseLayout=true mode, firstVisibleItemIndex == 0 means we're at the bottom
-    val isAtBottom by remember {
+    // "Jump to bottom" indicator: shown when user has scrolled away from the bottom.
+    // In reverseLayout=true, index 0 = bottom. Threshold accounts for small scroll jitter.
+    val showJumpToBottom by remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex == 0
+            listState.firstVisibleItemIndex > 1
         }
     }
 
     // Disable auto-scroll when user scrolls away from bottom.
-    // Do NOT re-enable here — that caused a positive feedback loop where
-    // scrollToItem(0) → isAtBottom=true → autoScrollEnabled=true → scrollToItem(0) → flash.
     // Re-enable only via FAB onClick.
-    LaunchedEffect(isAtBottom) {
-        if (!isAtBottom) {
+    LaunchedEffect(showJumpToBottom) {
+        if (showJumpToBottom) {
             autoScrollEnabled = false
         }
     }
 
-
-
-    // Auto-scroll to bottom when new content arrives (only if auto-scroll is enabled)
-    // Track message count and part count — NOT content length — to avoid high-frequency
-    // scrollToItem during streaming which causes click-race on tool cards.
+    // Keys for chatItems remember — used to avoid recomputation on every text delta
     val messageCount = uiState.messages.size
     val lastPartCount = uiState.messages.firstOrNull()?.parts?.size ?: 0
-    val pendingCount = uiState.pendingPermissions.size + uiState.pendingQuestions.size
-    val isBusy = uiState.sessionStatus is SessionStatus.Busy
-    LaunchedEffect(messageCount, lastPartCount, pendingCount, isBusy) {
+
+    // Auto-scroll: ONLY triggered on messageCount change (new messages arrive).
+    // Removing lastPartCount/pendingCount/isBusy as triggers dramatically reduces
+    // scrollToItem frequency during streaming, eliminating click-race on tool cards.
+    LaunchedEffect(messageCount) {
         if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@LaunchedEffect
         // Don't auto-scroll when a scroll position restoration is pending (loading older messages)
         if (savedMessageCount > 0 || isRestoringPosition) return@LaunchedEffect
@@ -2313,7 +2310,10 @@ fun ChatScreen(
                 }
                 else -> {
                      val messageSpacing = if (LocalCompactMessages.current) 4.dp else 12.dp
-                     val chatItems = remember(uiState.messages) { groupMessages(uiState.messages) }
+                     // Use messageCount + lastPartCount as keys instead of uiState.messages reference.
+                     // This avoids recomputation on every text delta during streaming — only
+                     // structural changes (new message / new Part) trigger regrouping.
+                     val chatItems = remember(messageCount, lastPartCount) { groupMessages(uiState.messages) }
 
                      if (uiState.sessionParentId == null) {
                           // Main session: Scaffold bottomBar contains ChatInputBar; content is LazyColumn + FAB
