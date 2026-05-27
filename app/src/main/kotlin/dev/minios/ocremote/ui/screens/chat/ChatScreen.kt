@@ -5200,9 +5200,7 @@ private fun EditToolCard(tool: Part.Tool) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .let { mod ->
-                        if (hasContent) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
-                    },
+                    .clickable { performHaptic(hapticView, hapticOn); expanded = !expanded },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -5461,9 +5459,7 @@ private fun WriteToolCard(tool: Part.Tool) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .let { mod ->
-                        if (hasContent) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
-                    },
+                    .clickable { performHaptic(hapticView, hapticOn); expanded = !expanded },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -5579,9 +5575,7 @@ private fun BashToolCard(tool: Part.Tool) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .let { mod ->
-                        if (hasContent) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
-                    },
+                    .clickable { performHaptic(hapticView, hapticOn); expanded = !expanded },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -5864,9 +5858,7 @@ private fun SearchToolCard(tool: Part.Tool) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .let { mod ->
-                        if (hasOutput) mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded } else mod
-                    },
+                    .clickable { performHaptic(hapticView, hapticOn); expanded = !expanded },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -6007,9 +5999,8 @@ private fun TaskToolCard(
                         when {
                             subSessionId != null && onViewSubSession != null ->
                                 mod.clickable { performHaptic(hapticView, hapticOn); onViewSubSession(subSessionId) }
-                            hasOutput ->
+                            else ->
                                 mod.clickable { performHaptic(hapticView, hapticOn); expanded = !expanded }
-                            else -> mod
                         }
                     },
                 horizontalArrangement = Arrangement.SpaceBetween,
