@@ -119,6 +119,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import coil3.compose.AsyncImage
 import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.compose.LocalMarkdownColors
@@ -1380,7 +1381,6 @@ fun ChatScreen(
     // Disable auto-scroll when user scrolls away from bottom.
     // Re-enable only via FAB onClick.
     LaunchedEffect(showJumpToBottom) {
-        android.util.Log.w("SCR", "showJumpToBottom=$showJumpToBottom idx=${listState.firstVisibleItemIndex} auto=$autoScrollEnabled")
         if (showJumpToBottom) {
             autoScrollEnabled = false
         }
@@ -1391,11 +1391,8 @@ fun ChatScreen(
     // Auto-scroll to bottom when new messages arrive and user is at bottom.
     // In reverseLayout=true, scrollToItem(0) brings newest message into view.
     LaunchedEffect(messageCount) {
-        android.util.Log.w("SCR", "LaunchedEffect(mc=$messageCount) auto=$autoScrollEnabled idx=${listState.firstVisibleItemIndex} canFwd=${listState.canScrollForward}")
         if (messageCount > 0 && autoScrollEnabled) {
-            android.util.Log.w("SCR", "→ scrollToItem(0)")
             listState.scrollToItem(0)
-            android.util.Log.w("SCR", "→ after: idx=${listState.firstVisibleItemIndex} canFwd=${listState.canScrollForward}")
         }
     }
 
@@ -4619,8 +4616,16 @@ private fun MarkdownContent(
     // adjacent AssistantTurnBubble items.
     //
     // Text can still be copied via the "Copy" button in the bubble header.
-    Markdown(
+    //
+    // retainState = true keeps the previous rendered content visible while
+    // new markdown is being parsed, preventing the Loading→Success flicker
+    // that causes screen flashing during streaming output.
+    val markdownState = rememberMarkdownState(
         content = normalizedMarkdown,
+        retainState = true
+    )
+    Markdown(
+        markdownState = markdownState,
         colors = colors,
         typography = typography,
         components = components,
