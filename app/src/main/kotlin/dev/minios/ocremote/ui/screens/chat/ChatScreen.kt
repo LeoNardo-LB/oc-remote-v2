@@ -21,7 +21,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -32,7 +31,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -197,11 +195,6 @@ val LocalCollapseTools = compositionLocalOf { false }
 
 /** Whether haptic feedback is enabled. */
 val LocalHapticFeedbackEnabled = compositionLocalOf { true }
-
-/** Provides [LazyListState] to descendant composables (e.g. tool cards) for scroll compensation. */
-private val LocalListState = compositionLocalOf<LazyListState> {
-    error("LocalListState not provided")
-}
 
 /** Image save request callback available to image preview composables. */
 val LocalImageSaveRequest = compositionLocalOf<(ByteArray, String, String?) -> Unit> { { _, _, _ -> } }
@@ -2334,8 +2327,7 @@ fun ChatScreen(
                           Box(
                               modifier = Modifier.fillMaxSize()
                           ) {
-                              CompositionLocalProvider(LocalListState provides listState) {
-                                   LazyColumn(
+                                LazyColumn(
                                       state = listState,
                                       modifier = Modifier.fillMaxSize(),
                                       reverseLayout = true,
@@ -2571,8 +2563,7 @@ fun ChatScreen(
                              }
                          }
                      }
-                     } // CompositionLocalProvider
-
+ 
                      // Scroll-to-bottom FAB
                      if (!isAtBottom && !autoScrollEnabled) {
                          SmallFloatingActionButton(
@@ -2600,7 +2591,6 @@ fun ChatScreen(
                      } else {
                          // Sub-session (no input bar): just LazyColumn + FAB
                          Box(modifier = Modifier.fillMaxSize()) {
-                             CompositionLocalProvider(LocalListState provides listState) {
                              LazyColumn(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
@@ -2820,8 +2810,7 @@ fun ChatScreen(
                                     }
                                  }
                              }
-                             } // CompositionLocalProvider
-
+ 
                              // Scroll-to-bottom FAB
                              if (!isAtBottom && !autoScrollEnabled) {
                                  SmallFloatingActionButton(
@@ -5013,21 +5002,8 @@ private fun ToolCallCard(tool: Part.Tool) {
             }
 
             // Expandable details
-            val scrollListState = LocalListState.current
-            val scrollScope = rememberCoroutineScope()
-            var previousHeight by remember { mutableIntStateOf(0) }
             AnimatedVisibility(
-                visible = expanded,
-                modifier = Modifier.onSizeChanged { size ->
-                    val newHeight = size.height
-                    if (newHeight != previousHeight && expanded) {
-                        val diff = newHeight - previousHeight
-                        if (diff > 4) {
-                            try { scrollScope.launch { scrollListState.scrollBy(diff.toFloat()) } } catch (_: Exception) {}
-                        }
-                    }
-                    previousHeight = newHeight
-                }
+                visible = expanded
             ) {
                 Column(
                     modifier = Modifier.padding(top = 4.dp),
@@ -5353,21 +5329,8 @@ private fun EditToolCard(tool: Part.Tool) {
             }
 
             // Expanded diff view
-            val scrollListState = LocalListState.current
-            val scrollScope = rememberCoroutineScope()
-            var previousHeight by remember { mutableIntStateOf(0) }
             AnimatedVisibility(
-                visible = expanded && hasContent,
-                modifier = Modifier.onSizeChanged { size ->
-                    val newHeight = size.height
-                    if (newHeight != previousHeight && expanded) {
-                        val diff = newHeight - previousHeight
-                        if (diff > 4) {
-                            try { scrollScope.launch { scrollListState.scrollBy(diff.toFloat()) } } catch (_: Exception) {}
-                        }
-                    }
-                    previousHeight = newHeight
-                }
+                visible = expanded && hasContent
             ) {
                 Column(modifier = Modifier.padding(top = 6.dp)) {
                     if (isError) {
@@ -5612,21 +5575,8 @@ private fun WriteToolCard(tool: Part.Tool) {
                 }
             }
 
-            val scrollListState = LocalListState.current
-            val scrollScope = rememberCoroutineScope()
-            var previousHeight by remember { mutableIntStateOf(0) }
             AnimatedVisibility(
-                visible = expanded && hasContent,
-                modifier = Modifier.onSizeChanged { size ->
-                    val newHeight = size.height
-                    if (newHeight != previousHeight && expanded) {
-                        val diff = newHeight - previousHeight
-                        if (diff > 4) {
-                            try { scrollScope.launch { scrollListState.scrollBy(diff.toFloat()) } } catch (_: Exception) {}
-                        }
-                    }
-                    previousHeight = newHeight
-                }
+                visible = expanded && hasContent
             ) {
                 Surface(
                     shape = RoundedCornerShape(4.dp),
@@ -5765,21 +5715,8 @@ private fun BashToolCard(tool: Part.Tool) {
                 }
             }
 
-            val scrollListState = LocalListState.current
-            val scrollScope = rememberCoroutineScope()
-            var previousHeight by remember { mutableIntStateOf(0) }
             AnimatedVisibility(
-                visible = expanded && hasContent,
-                modifier = Modifier.onSizeChanged { size ->
-                    val newHeight = size.height
-                    if (newHeight != previousHeight && expanded) {
-                        val diff = newHeight - previousHeight
-                        if (diff > 4) {
-                            try { scrollScope.launch { scrollListState.scrollBy(diff.toFloat()) } } catch (_: Exception) {}
-                        }
-                    }
-                    previousHeight = newHeight
-                }
+                visible = expanded && hasContent
             ) {
                 Surface(
                     shape = RoundedCornerShape(4.dp),
@@ -5902,21 +5839,8 @@ private fun ReadToolCard(tool: Part.Tool) {
                 }
             }
 
-            val scrollListState = LocalListState.current
-            val scrollScope = rememberCoroutineScope()
-            var previousHeight by remember { mutableIntStateOf(0) }
             AnimatedVisibility(
-                visible = expanded,
-                modifier = Modifier.onSizeChanged { size ->
-                    val newHeight = size.height
-                    if (newHeight != previousHeight && expanded) {
-                        val diff = newHeight - previousHeight
-                        if (diff > 4) {
-                            try { scrollScope.launch { scrollListState.scrollBy(diff.toFloat()) } } catch (_: Exception) {}
-                        }
-                    }
-                    previousHeight = newHeight
-                }
+                visible = expanded
             ) {
                 Column(
                     modifier = Modifier.padding(top = 4.dp),
@@ -6071,21 +5995,8 @@ private fun SearchToolCard(tool: Part.Tool) {
                 }
             }
 
-            val scrollListState = LocalListState.current
-            val scrollScope = rememberCoroutineScope()
-            var previousHeight by remember { mutableIntStateOf(0) }
             AnimatedVisibility(
-                visible = expanded && hasOutput,
-                modifier = Modifier.onSizeChanged { size ->
-                    val newHeight = size.height
-                    if (newHeight != previousHeight && expanded) {
-                        val diff = newHeight - previousHeight
-                        if (diff > 4) {
-                            try { scrollScope.launch { scrollListState.scrollBy(diff.toFloat()) } } catch (_: Exception) {}
-                        }
-                    }
-                    previousHeight = newHeight
-                }
+                visible = expanded && hasOutput
             ) {
                 Surface(
                     shape = RoundedCornerShape(4.dp),
@@ -6225,21 +6136,8 @@ private fun TaskToolCard(
                 }
             }
 
-            val scrollListState = LocalListState.current
-            val scrollScope = rememberCoroutineScope()
-            var previousHeight by remember { mutableIntStateOf(0) }
             AnimatedVisibility(
-                visible = expanded && hasOutput,
-                modifier = Modifier.onSizeChanged { size ->
-                    val newHeight = size.height
-                    if (newHeight != previousHeight && expanded) {
-                        val diff = newHeight - previousHeight
-                        if (diff > 4) {
-                            try { scrollScope.launch { scrollListState.scrollBy(diff.toFloat()) } } catch (_: Exception) {}
-                        }
-                    }
-                    previousHeight = newHeight
-                }
+                visible = expanded && hasOutput
             ) {
                 Surface(
                     shape = RoundedCornerShape(4.dp),
@@ -6358,21 +6256,8 @@ private fun TodoListCard(tool: Part.Tool) {
             }
 
             // Todo items
-            val scrollListState = LocalListState.current
-            val scrollScope = rememberCoroutineScope()
-            var previousHeight by remember { mutableIntStateOf(0) }
             AnimatedVisibility(
-                visible = expanded,
-                modifier = Modifier.onSizeChanged { size ->
-                    val newHeight = size.height
-                    if (newHeight != previousHeight && expanded) {
-                        val diff = newHeight - previousHeight
-                        if (diff > 4) {
-                            try { scrollScope.launch { scrollListState.scrollBy(diff.toFloat()) } } catch (_: Exception) {}
-                        }
-                    }
-                    previousHeight = newHeight
-                }
+                visible = expanded
             ) {
                 Column(
                     modifier = Modifier.padding(top = 4.dp),
@@ -6509,21 +6394,8 @@ private fun PatchCard(patch: Part.Patch) {
             }
 
             // Expanded file list
-            val scrollListState = LocalListState.current
-            val scrollScope = rememberCoroutineScope()
-            var previousHeight by remember { mutableIntStateOf(0) }
             AnimatedVisibility(
-                visible = expanded,
-                modifier = Modifier.onSizeChanged { size ->
-                    val newHeight = size.height
-                    if (newHeight != previousHeight && expanded) {
-                        val diff = newHeight - previousHeight
-                        if (diff > 4) {
-                            try { scrollScope.launch { scrollListState.scrollBy(diff.toFloat()) } } catch (_: Exception) {}
-                        }
-                    }
-                    previousHeight = newHeight
-                }
+                visible = expanded
             ) {
                 Column(
                     modifier = Modifier.padding(top = 6.dp),
