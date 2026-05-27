@@ -1367,19 +1367,19 @@ fun ChatScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Whether auto-scroll should follow new content.
-    // Disabled when user scrolls up; re-enabled only via FAB onClick.
+    // Disabled when user scrolls away from bottom; re-enabled only via FAB.
     var autoScrollEnabled by remember { mutableStateOf(true) }
 
-    // "Jump to bottom" indicator: in reverseLayout=true, index 0 = bottom.
-    // User is NOT at the bottom when firstVisibleItemIndex > 0.
+    // "Jump to bottom" indicator: show when NOT at absolute bottom.
     val showJumpToBottom by remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex > 0
+            listState.firstVisibleItemIndex > 0 ||
+            listState.firstVisibleItemScrollOffset > 10
         }
     }
 
-    // Disable auto-scroll when user scrolls away from bottom.
-    // Re-enable only via FAB onClick.
+    // Disable auto-scroll when scrolled away from bottom.
+    // Re-enable only via FAB onClick (below).
     LaunchedEffect(showJumpToBottom) {
         if (showJumpToBottom) {
             autoScrollEnabled = false
