@@ -424,14 +424,25 @@ class EventReducer @Inject constructor() {
     }
     
     /**
-     * Refresh messages from REST load-older, replacing the full message list
-     * (to guarantee correct sort order) while preserving SSE-provided parts
-     * (which may be newer than the REST snapshot).
+     * Refresh messages from REST load-older.
+     * Merges by ID: keeps existing Message instances for unchanged IDs,
+     * only adds truly new messages. This prevents unnecessary recomposition
+     * when the same messages are re-fetched with a larger limit.
      */
     fun mergeMessages(sessionId: String, messages: List<MessageWithParts>) {
+        val incoming = messages.map { it.info }.sortedByDescending { m -> m.time.created }
+
         _messages.update { current ->
-            val incoming = messages.map { it.info }.sortedByDescending { m -> m.time.created }
-            current + (sessionId to incoming)
+            val existing = current[sessionId] ?: emptyList()
+            val existingById = existing.associateBy { it.id }
+
+            // Merge: keep existing instance if ID matches (avoids unnecessary object creation),
+            // add new messages that don't exist yet.
+            val merged = incoming.map { newMsg ->
+                existingById[newMsg.id] ?: newMsg
+            }
+
+            current + (sessionId to merged)
         }
 
         // Only merge parts that we don't already have from SSE (SSE is always fresher)
