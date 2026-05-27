@@ -1411,13 +1411,11 @@ fun ChatScreen(
     // Removing lastPartCount/pendingCount/isBusy as triggers dramatically reduces
     // scrollToItem frequency during streaming, eliminating click-race on tool cards.
     LaunchedEffect(messageCount) {
-        if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@LaunchedEffect
         // Don't auto-scroll when a scroll position restoration is pending (loading older messages)
-        if (savedMessageCount > 0 || isRestoringPosition) return@LaunchedEffect
+        if (savedMessageCount > 0 || isRestoringPosition) { return@LaunchedEffect }
         if (messageCount > 0 && autoScrollEnabled) {
-            // With reverseLayout=false, the newest message is at the END of the list,
-            // so scroll to the last index to bring it into view.
-            listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
+            val target = listState.layoutInfo.totalItemsCount - 1
+            listState.scrollToItem(target)
         }
     }
 
@@ -1955,10 +1953,12 @@ fun ChatScreen(
                                             snackbarHostState.showSnackbar(
                                                 if (ok) context.getString(R.string.chat_command_executed, cmd.name) else context.getString(R.string.chat_command_failed, cmd.name)
                                             )
-                                        }
-                                    }
-                                }
-                            }
+            }
+        }
+    }
+}
+
+
                         },
                         contextWindow = uiState.contextWindow,
                         lastContextTokens = uiState.lastContextTokens
