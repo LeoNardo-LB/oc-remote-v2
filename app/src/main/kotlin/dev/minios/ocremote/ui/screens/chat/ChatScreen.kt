@@ -1366,8 +1366,7 @@ fun ChatScreen(
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Whether auto-scroll should follow new content.
-    // Disabled when user scrolls to older messages (idx > 0); re-enabled via FAB.
+    // Whether the user has manually scrolled away — re-enable only via FAB.
     var autoScrollEnabled by remember { mutableStateOf(true) }
 
     // "Jump to bottom" indicator: show when user scrolled to older messages.
@@ -1378,7 +1377,6 @@ fun ChatScreen(
     }
 
     // Disable auto-scroll when user scrolls to older messages.
-    // Re-enable only via FAB onClick.
     LaunchedEffect(showJumpToBottom) {
         if (showJumpToBottom) {
             autoScrollEnabled = false
@@ -1394,28 +1392,24 @@ fun ChatScreen(
         }
     }
 
-    // Keep pinned to bottom during streaming (content growth).
-    //
-    // Key insight: scrollToItem(0) in reverseLayout puts item 0's TOP at the viewport bottom.
-    // We want item 0's BOTTOM at the viewport bottom. So we use scrollBy() to correct.
-    //
-    // In reverseLayout=true:
-    //   item.offset = distance from item's visual bottom edge to viewport bottom edge
-    //   offset == 0 → item bottom is flush with viewport bottom (perfect!)
-    //   offset != 0 → need to scrollBy(-offset) to correct
-    //   scrollBy(positive) scrolls toward list start (older items)
-    //   scrollBy(negative) scrolls toward list end (newer items)
+    // Streaming follow: track item 0's SIZE (height in pixels).
+    // size increases = content grew (streaming) → compensate offset to keep bottom pinned.
+    // size unchanged = user scrolled → do nothing.
     LaunchedEffect(autoScrollEnabled) {
         if (!autoScrollEnabled) return@LaunchedEffect
+        var previousSize = 0
         snapshotFlow {
-            listState.layoutInfo.visibleItemsInfo
+            val item0 = listState.layoutInfo.visibleItemsInfo
                 .firstOrNull { it.index == 0 }
-                ?.offset
-                ?: Int.MAX_VALUE
-        }.collect { offset ->
-            if (offset != Int.MAX_VALUE && offset != 0 && autoScrollEnabled) {
-                listState.scroll { scrollBy(-offset.toFloat()) }
+            if (item0 != null) item0.size to item0.offset else 0 to 0
+        }.collect { (size, offset) ->
+            if (size > previousSize && previousSize > 0) {
+                // Content grew by (size - previousSize) pixels.
+                // Compensate to keep item 0's bottom at viewport bottom.
+                val growth = size - previousSize
+                listState.scroll { scrollBy(-growth.toFloat()) }
             }
+            previousSize = size
         }
     }
 
