@@ -148,9 +148,9 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    /** Number of messages to load initially. Default: 10. */
+    /** Number of messages to load initially. Default: 30. */
     val initialMessageCount: Flow<Int> = dataStore.data.map { preferences ->
-        preferences[INITIAL_MESSAGE_COUNT_KEY] ?: 10
+        preferences[INITIAL_MESSAGE_COUNT_KEY] ?: 30
     }
 
     suspend fun setInitialMessageCount(count: Int) {

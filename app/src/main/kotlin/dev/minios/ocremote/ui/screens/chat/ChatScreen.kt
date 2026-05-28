@@ -59,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.SolidColor
@@ -1396,59 +1397,26 @@ fun ChatScreen(
         }
     }
 
-    // Whether the user has manually scrolled away — re-enable only via FAB.
+    // Auto-scroll: always follow new messages; disable when user scrolls up.
     var autoScrollEnabled by remember { mutableStateOf(true) }
-
-    // "Jump to bottom" indicator: show when user scrolled to older messages.
-    val showJumpToBottom by remember {
-        derivedStateOf {
-            listState.firstVisibleItemIndex > 0
-        }
-    }
-
-    // Disable auto-scroll when user scrolls to older messages.
-    LaunchedEffect(showJumpToBottom) {
-        if (showJumpToBottom) {
-            autoScrollEnabled = false
-        }
-    }
 
     val messageCount = uiState.messages.size
 
-    // Scroll to bottom when NEW messages arrive (from SSE/streaming),
-    // but NOT when loading older messages (user is scrolled up reading history).
+    // Scroll to bottom when new messages arrive
     LaunchedEffect(messageCount) {
-        if (messageCount > 0 && autoScrollEnabled && !uiState.isLoadingOlder) {
+        if (messageCount > 0 && autoScrollEnabled) {
             listState.scrollToItem(0)
         }
     }
 
-    // Streaming follow: track item 0's SIZE to detect content growth.
-    // Only compensate when viewport was at the bottom before this growth tick.
-    // Distinguish user-scroll (size unchanged, offset != 0) from content growth.
-    LaunchedEffect(autoScrollEnabled) {
-        if (!autoScrollEnabled) return@LaunchedEffect
-        var previousSize = 0
-        var wasAtBottom = false
+    // Detect user scrolling up → disable auto-scroll
+    LaunchedEffect(Unit) {
         snapshotFlow {
-            val item0 = listState.layoutInfo.visibleItemsInfo
-                .firstOrNull { it.index == 0 }
-            if (item0 != null) item0.size to item0.offset else 0 to 0
-        }.collect { (size, offset) ->
-            if (previousSize > 0) {
-                if (size > previousSize && wasAtBottom) {
-                    // Content grew while at bottom → compensate
-                    listState.scroll { scrollBy(-(size - previousSize).toFloat()) }
-                } else if (size == previousSize && offset != 0) {
-                    // Content didn't grow, but offset moved → user scrolled up
-                    wasAtBottom = false
-                }
+            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+        }.collect { (index, offset) ->
+            if (index > 0 || offset > 50) {
+                autoScrollEnabled = false
             }
-            // User manually scrolled back to absolute bottom
-            if (offset == 0) {
-                wasAtBottom = true
-            }
-            previousSize = size
         }
     }
 
@@ -2593,7 +2561,7 @@ fun ChatScreen(
                                     }
                                 },
                                 modifier = Modifier
-                                    .align(Alignment.BottomEnd)
+                                    .align(Alignment.BottomCenter)
                                     .padding(bottom = 8.dp),
                               containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                               contentColor = MaterialTheme.colorScheme.onSurface
@@ -4103,9 +4071,7 @@ private fun AssistantMessageCard(
     onCopyText: (() -> Unit)? = null,
 ) {
     val isAmoled = isAmoledTheme()
-    val backgroundColor = Color.Transparent
     val textColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
-    val bubbleBorder: BorderStroke? = null
 
     val assistantMsg = chatMessage.message as? Message.Assistant
     val errorText = formatAssistantErrorMessage(assistantMsg?.error)
@@ -4120,28 +4086,14 @@ private fun AssistantMessageCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = if (isContinuation) 2.dp else 0.dp),
+            .padding(top = if (isContinuation) 0.dp else 0.dp),
         horizontalAlignment = Alignment.Start
     ) {
-        Surface(
-            shape = RoundedCornerShape(
-                topStart = 4.dp,
-                topEnd = 18.dp,
-                bottomStart = 18.dp,
-                bottomEnd = 18.dp
-            ),
-            color = backgroundColor,
-            border = bubbleBorder,
-            tonalElevation = if (isAmoled) 0.dp else 1.dp,
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(
-                    horizontal = if (compact) 10.dp else 16.dp,
-                    vertical = if (compact) 8.dp else 14.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp)
-            ) {
                 // "Response" header — only on the first of a consecutive sequence
                 if (!isContinuation) {
                     Row(
@@ -4234,7 +4186,6 @@ private fun AssistantMessageCard(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                    }
                 }
             }
         }
@@ -5054,59 +5005,111 @@ private fun ReasoningBlock(text: String, defaultExpanded: Boolean = false) {
     val hapticOn = LocalHapticFeedbackEnabled.current
     var expanded by remember { mutableStateOf(defaultExpanded) }
 
+    val accentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+    val containerColor = when {
+        isAmoled -> Color.Black
+        else -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)
+    }
+    val onSurfaceMuted = MaterialTheme.colorScheme.onSurface
+
+    // Pulse animation for the thinking dot
+    val infiniteTransition = rememberInfiniteTransition(label = "thinkingPulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes { durationMillis = 1200; 0.7f at 400; 0.4f at 800 },
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
+
     Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
-        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Gradient left accent bar — matchParentSize fills the Box height
             Box(
                 modifier = Modifier
-                    .width(3.dp)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.outlineVariant)
-            )
+                    .matchParentSize()
+                    .padding(end = 0.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(2.5.dp)
+                        .fillMaxHeight()
+                        .drawBehind {
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        accentColor,
+                                        accentColor.copy(alpha = 0.15f)
+                                    )
+                                )
+                            )
+                        }
+                )
+            }
 
             Column(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .fillMaxWidth()
                     .clickable { performHaptic(hapticView, hapticOn); expanded = !expanded }
+                    .padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)
             ) {
+                // Header row: dot + label + arrow
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(R.string.chat_status_thinking),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            letterSpacing = 0.6.sp,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Animated pulse dot
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .drawBehind {
+                                    drawCircle(color = accentColor.copy(alpha = pulseAlpha))
+                                }
+                        )
+                        Spacer(modifier = Modifier.width(7.dp))
+                        Text(
+                            text = stringResource(R.string.chat_status_thinking),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                letterSpacing = 0.8.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 10.5.sp
+                            ),
+                            color = onSurfaceMuted.copy(alpha = 0.45f)
+                        )
+                    }
+
                     Icon(
                         imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (expanded)
                             stringResource(R.string.chat_collapse)
                         else
                             stringResource(R.string.chat_expand),
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                        modifier = Modifier.size(18.dp),
+                        tint = onSurfaceMuted.copy(alpha = 0.3f)
                     )
                 }
 
+                // Expandable content
                 AnimatedVisibility(visible = expanded) {
                     Column {
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
                         Text(
                             text = text,
-                            style = MaterialTheme.typography.bodyMedium.copy(
+                            style = MaterialTheme.typography.bodySmall.copy(
                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                                lineHeight = 20.sp
+                                lineHeight = 19.sp,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0.15.sp
                             ),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            color = onSurfaceMuted.copy(alpha = 0.55f)
                         )
                     }
                 }
