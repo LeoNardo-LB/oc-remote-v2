@@ -4103,11 +4103,9 @@ private fun AssistantMessageCard(
     onCopyText: (() -> Unit)? = null,
 ) {
     val isAmoled = isAmoledTheme()
-    val backgroundColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceContainerHigh
+    val backgroundColor = Color.Transparent
     val textColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
-    val bubbleBorder = if (isAmoled) {
-        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
-    } else null
+    val bubbleBorder: BorderStroke? = null
 
     val assistantMsg = chatMessage.message as? Message.Assistant
     val errorText = formatAssistantErrorMessage(assistantMsg?.error)
