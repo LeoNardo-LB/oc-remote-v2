@@ -203,6 +203,9 @@ val LocalCompactMessages = compositionLocalOf { false }
 /** Whether tool cards are collapsed by default. */
 val LocalCollapseTools = compositionLocalOf { false }
 
+/** Whether reasoning blocks are expanded by default. */
+val LocalExpandReasoning = compositionLocalOf { false }
+
 /** Whether haptic feedback is enabled. */
 val LocalHapticFeedbackEnabled = compositionLocalOf { true }
 
@@ -933,6 +936,7 @@ fun ChatScreen(
     val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsState()
     val compactMessages by viewModel.compactMessages.collectAsState()
     val collapseTools by viewModel.collapseTools.collectAsState()
+    val expandReasoning by viewModel.expandReasoning.collectAsState()
     val hapticEnabled by viewModel.hapticFeedback.collectAsState()
     val keepScreenOn by viewModel.keepScreenOn.collectAsState()
     val compressImageAttachments by viewModel.compressImageAttachments.collectAsState()
@@ -1454,6 +1458,7 @@ fun ChatScreen(
         LocalCodeWordWrap provides codeWordWrap,
         LocalCompactMessages provides compactMessages,
         LocalCollapseTools provides collapseTools,
+        LocalExpandReasoning provides expandReasoning,
         LocalHapticFeedbackEnabled provides hapticEnabled,
         LocalImageSaveRequest provides requestSaveImage,
     ) {
@@ -4524,7 +4529,7 @@ private fun PartContent(
         }
         is Part.Reasoning -> {
             if (part.text.isNotBlank()) {
-                ReasoningBlock(text = part.text)
+                ReasoningBlock(text = part.text, defaultExpanded = LocalExpandReasoning.current)
             }
         }
         is Part.Tool -> {
@@ -5086,8 +5091,12 @@ private fun preserveRawHtmlPayload(markdown: String): String {
 }
 
 @Composable
-private fun ReasoningBlock(text: String) {
+private fun ReasoningBlock(text: String, defaultExpanded: Boolean = false) {
     val isAmoled = isAmoledTheme()
+    val hapticView = LocalView.current
+    val hapticOn = LocalHapticFeedbackEnabled.current
+    var expanded by remember { mutableStateOf(defaultExpanded) }
+
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
@@ -5095,32 +5104,55 @@ private fun ReasoningBlock(text: String) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-            // Left accent border
             Box(
                 modifier = Modifier
                     .width(3.dp)
                     .fillMaxHeight()
                     .background(MaterialTheme.colorScheme.outlineVariant)
             )
-            
-            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-                Text(
-                    text = stringResource(R.string.chat_status_thinking),
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        letterSpacing = 0.6.sp,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                        lineHeight = 20.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
+
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .clickable { performHaptic(hapticView, hapticOn); expanded = !expanded }
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.chat_status_thinking),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            letterSpacing = 0.6.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    )
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (expanded)
+                            stringResource(R.string.chat_collapse)
+                        else
+                            stringResource(R.string.chat_expand),
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                    )
+                }
+
+                AnimatedVisibility(visible = expanded) {
+                    Column {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                lineHeight = 20.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                }
             }
         }
     }

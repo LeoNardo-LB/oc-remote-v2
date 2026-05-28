@@ -35,6 +35,7 @@ class SettingsRepository @Inject constructor(
         private val AMOLED_DARK_KEY = booleanPreferencesKey("amoled_dark")
         private val COMPACT_MESSAGES_KEY = booleanPreferencesKey("compact_messages")
         private val COLLAPSE_TOOLS_KEY = booleanPreferencesKey("collapse_tools")
+        private val EXPAND_REASONING_KEY = booleanPreferencesKey("expand_reasoning")
         private val HAPTIC_FEEDBACK_KEY = booleanPreferencesKey("haptic_feedback")
         private val RECONNECT_MODE_KEY = stringPreferencesKey("reconnect_mode")
         private val KEEP_SCREEN_ON_KEY = booleanPreferencesKey("keep_screen_on")
@@ -220,6 +221,19 @@ class SettingsRepository @Inject constructor(
     suspend fun setCollapseTools(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[COLLAPSE_TOOLS_KEY] = enabled
+        }
+    }
+
+    /**
+     * Whether reasoning blocks are expanded by default. Default: false (collapsed).
+     */
+    val expandReasoning: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[EXPAND_REASONING_KEY] ?: false
+    }
+
+    suspend fun setExpandReasoning(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[EXPAND_REASONING_KEY] = enabled
         }
     }
 

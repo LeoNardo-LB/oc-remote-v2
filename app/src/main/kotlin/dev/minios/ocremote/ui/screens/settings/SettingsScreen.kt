@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PhotoSizeSelectLarge
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.ScreenLockPortrait
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
@@ -72,6 +73,7 @@ fun SettingsScreen(
     val amoledDark by viewModel.amoledDark.collectAsState()
     val compactMessages by viewModel.compactMessages.collectAsState()
     val collapseTools by viewModel.collapseTools.collectAsState()
+    val expandReasoning by viewModel.expandReasoning.collectAsState()
     val hapticFeedback by viewModel.hapticFeedback.collectAsState()
     val reconnectMode by viewModel.reconnectMode.collectAsState()
     val keepScreenOn by viewModel.keepScreenOn.collectAsState()
@@ -275,6 +277,23 @@ fun SettingsScreen(
                     )
                 },
                 modifier = Modifier.clickable { viewModel.setCollapseTools(!collapseTools) }
+            )
+
+            // Expand reasoning by default
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_expand_reasoning)) },
+                supportingContent = { Text(stringResource(R.string.settings_expand_reasoning_desc)) },
+                leadingContent = {
+                    Icon(Icons.Default.Psychology, contentDescription = null)
+                },
+                trailingContent = {
+                    Switch(
+                        checked = expandReasoning,
+                        onCheckedChange = { viewModel.setExpandReasoning(it) },
+                        colors = switchColors
+                    )
+                },
+                modifier = Modifier.clickable { viewModel.setExpandReasoning(!expandReasoning) }
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))

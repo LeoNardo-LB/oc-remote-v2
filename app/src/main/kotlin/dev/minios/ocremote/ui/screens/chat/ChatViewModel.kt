@@ -193,6 +193,9 @@ class ChatViewModel @Inject constructor(
     val collapseTools = settingsRepository.collapseTools.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), false
     )
+    val expandReasoning = settingsRepository.expandReasoning.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+    )
     val hapticFeedback = settingsRepository.hapticFeedback.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), true
     )

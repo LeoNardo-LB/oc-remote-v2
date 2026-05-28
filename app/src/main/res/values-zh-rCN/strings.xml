@@ -265,6 +265,8 @@
     <string name="settings_compact_messages_desc">减少消息间距</string>
     <string name="settings_auto_expand_tools">工具结果自动展开</string>
     <string name="settings_auto_expand_tools_desc">默认展开工具卡片而非收起</string>
+    <string name="settings_expand_reasoning">自动展开推理内容</string>
+    <string name="settings_expand_reasoning_desc">默认展开思考过程；关闭后点击标题手动展开</string>
     <string name="settings_haptic_feedback">触觉反馈</string>
     <string name="settings_haptic_feedback_desc">发送和还原操作时震动</string>
     <string name="settings_reconnect_mode">重连模式</string>
