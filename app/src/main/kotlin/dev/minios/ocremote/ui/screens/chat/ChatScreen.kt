@@ -4950,23 +4950,35 @@ private class UniformColumnMeasurePolicy(
     ): MeasureResult {
         if (measurables.isEmpty()) return layout(0, 0) {}
 
-        // 1. Measure all cells with loose width (minWidth=0) to get natural sizes
+        // Phase 1: Measure all cells with loose width to discover natural sizes
         val looseConstraints = Constraints(
             minWidth = 0,
             maxWidth = constraints.maxWidth,
             minHeight = 0,
             maxHeight = constraints.maxHeight,
         )
-        val placeables = measurables.map { it.measure(looseConstraints) }
+        val naturalSizes = measurables.map { it.measure(looseConstraints) }
 
-        // 2. Compute per-column max width
+        // Compute per-column max width from natural sizes
         val colWidths = IntArray(columnCount) { 0 }
-        placeables.forEachIndexed { index, placeable ->
+        naturalSizes.forEachIndexed { index, placeable ->
             val col = index % columnCount
             colWidths[col] = maxOf(colWidths[col], placeable.width)
         }
 
-        // 3. Compute per-row max height
+        // Phase 2: Re-measure every cell with FIXED column width.
+        // This makes the cell composable's background fill the full column width
+        // instead of being constrained to the cell's natural text width.
+        val placeables = measurables.mapIndexed { index, measurable ->
+            val col = index % columnCount
+            val colConstraint = constraints.copy(
+                minWidth = colWidths[col],
+                maxWidth = colWidths[col],
+            )
+            measurable.measure(colConstraint)
+        }
+
+        // Compute per-row max height from the final placeables
         val actualRowCount = (placeables.size + columnCount - 1) / columnCount
         val rowHeights = IntArray(actualRowCount) { 0 }
         placeables.forEachIndexed { index, placeable ->
@@ -4974,11 +4986,11 @@ private class UniformColumnMeasurePolicy(
             rowHeights[row] = maxOf(rowHeights[row], placeable.height)
         }
 
-        // 4. Total dimensions
+        // Total dimensions
         val totalWidth = colWidths.sum()
         val totalHeight = rowHeights.sum()
 
-        // 5. Place in grid, center each cell vertically within its row
+        // Place in grid
         return layout(totalWidth, totalHeight) {
             var y = 0
             for (row in 0 until actualRowCount) {
