@@ -79,6 +79,7 @@ class ChatViewModelQueuedTest {
         every { settingsRepository.confirmBeforeSend } returns flowOf(false)
         every { settingsRepository.compactMessages } returns flowOf(false)
         every { settingsRepository.collapseTools } returns flowOf(false)
+        every { settingsRepository.expandReasoning } returns flowOf(false)
         every { settingsRepository.hapticFeedback } returns flowOf(true)
         every { settingsRepository.keepScreenOn } returns flowOf(false)
         every { settingsRepository.compressImageAttachments } returns flowOf(true)
