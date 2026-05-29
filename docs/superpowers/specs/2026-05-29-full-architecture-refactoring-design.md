@@ -1,9 +1,20 @@
 # Full Architecture Refactoring Design
 
+**目录**
+- [1. 概述](#1-概述)
+- [2. 现有架构诊断](#2-现有架构诊断)
+- [3. 目标架构](#3-目标架构)
+- [4. 各层详细设计](#4-各层详细设计)
+- [5. 统一错误处理](#5-统一错误处理)
+- [6. TDD 策略](#6-tdd-策略)
+- [7. 执行阶段](#7-执行阶段)
+- [8. 风险与缓解](#8-风险与缓解)
+- [9. 完成标准](#9-完成标准)
+
 ## 1. 概述
 
 ### 1.1 动机
-项目现有 42 个 Kotlin 文件（26,164 行），存在严重的架构问题：
+项目现有 42 个 Kotlin 文件（~24,000 行），存在严重的架构问题：
 - ChatScreen.kt 8,237 行（占项目 32%），80+ 组件/函数零组织
 - Domain 层只有裸数据类，无接口层、无用例层
 - ViewModel 直接依赖 data 层具体类，违反 DIP
@@ -27,12 +38,22 @@
 - Phase 4: 其余 Screen 模块（Home/Session/Settings/Server）
 - Phase 5: 共享组件库 + Navigation 重构 + 清理
 
+**Phase 依赖关系（DAG）：**
+```
+Phase 0 ──→ Phase 1 ──→ Phase 2 ──→ Phase 4 ──→ Phase 5
+                 │           │                    ↑
+                 └──→ Phase 3 ────────────────────┘
+
+硬依赖：Phase 1 完成 → Phase 2/3 可并行；Phase 2+3 完成 → Phase 4；Phase 4 完成 → Phase 5
+```
+
 ### 1.4 约束
-- 不设硬性行数上限，核心标准是"一个文件一个明确的职责"
+- 不设硬性行数上限，核心标准是"一个文件一个明确的职责"。ChatScreen.kt 作为拆分核心目标，指导预期 <400 行（非硬性约束）
 - 功能行为不变，重构后能力一致或更优
 - 每个 Phase 独立可验证，不能跳步
-- 编码前必须查询 context7 确认 API，禁止臆测
+- 编码前必须查询 Context7（MCP 工具，用于查询库/框架官方文档的 API 引用确认）验证 API 用法，禁止凭记忆臆测
 - 遵循项目现有代码风格
+- Domain 层（domain/）保持在现有 app module 内作为 package 隔离（不新建 Gradle module），通过代码规范和代码审查确保不引入 Android 依赖。未来视需要可独立为纯 Kotlin module。
 
 ## 2. 现有架构诊断
 
@@ -54,12 +75,14 @@
 | EventReducer.kt | 541 | 22.4 | ⚠️ |
 | SettingsRepository.kt | 526 | 19.0 | |
 
+> 注：行数为近似值，以实际代码为准
+
 ### 2.2 核心问题清单
 | 层 | 问题 | 违反原则 |
 |---|---|---|
 | UI | ChatScreen.kt 8,237行，80+组件零分区 | SRP |
 | UI | 共享组件仅 ProviderIcon.kt 一个 | DRY |
-| UI | PulsingDotsIndicator 在 ChatScreen 和 HomeScreen 各一份 | DRY |
+| UI | PulsingDotsIndicator 在 ChatScreen、SessionListScreen 和 HomeScreen 三处各一份 | DRY |
 | UI | NavGraph.kt 768行路由+深链接+导航逻辑混在一起 | SRP |
 | Data | OpenCodeApi.kt 1,290行 API接口+DTO+序列化器混在一起 | SRP |
 | Data | EventReducer.kt 541行 状态管理+事件分发+6种事件处理 | SRP, SoC |
@@ -89,6 +112,10 @@ dev.minios.ocremote/
 │   │   ├── ToolState.kt
 │   │   ├── SessionStatus.kt
 │   │   └── ServerConfig.kt
+│   │   ├── PermissionState.kt     (新增)
+│   │   ├── QuestionState.kt       (新增)
+│   │   ├── CreateSessionOpts.kt   (新增)
+│   │   └── AppSettings.kt         (新增)
 │   │
 │   ├── repository/               (新增: Repository 接口)
 │   │   ├── ChatRepository.kt
@@ -130,6 +157,7 @@ dev.minios.ocremote/
 │   │   │   ├── ChatRepositoryImpl.kt
 │   │   │   ├── SessionRepositoryImpl.kt
 │   │   │   └── ServerRepositoryImpl.kt
+│   │   │   └── SettingsRepositoryImpl.kt
 │   │   ├── EventReducer.kt       (瘦身: 仅状态容器)
 │   │   ├── EventDispatcher.kt    (新增: 从 EventReducer 拆出)
 │   │   ├── handler/              (新增: 事件处理器)
@@ -194,7 +222,7 @@ dev.minios.ocremote/
     │
     └── screens/
         ├── chat/
-        │   ├── ChatScreen.kt     (8237→~300行: 仅布局骨架)
+        │   ├── ChatScreen.kt     (仅布局骨架，指导预期 <400 行)
         │   ├── ChatViewModel.kt  (瘦身: 委托 UseCase)
         │   ├── ChatNavigation.kt
         │   ├── components/
@@ -300,13 +328,23 @@ dev.minios.ocremote/
 
 #### 4.1.1 Repository 接口
 
+**前置条件：新增 Domain Model 类型**
+
+以下接口引用的类型需要在 domain/model/ 中新建：
+- `PermissionState` — 权限状态（映射自 `SseEvent.PermissionAsked`，在 data/mapper 中转换）
+- `QuestionState` — 问题状态（映射自 `SseEvent.QuestionAsked`，在 data/mapper 中转换）
+- `CreateSessionOpts` — 创建会话参数（`data class CreateSessionOpts(val title: String? = null, val parentId: String? = null, val directory: String? = null)`）
+- `AppSettings` — 应用设置聚合（`data class AppSettings(...)` 聚合当前 SettingsRepository 的 30+ 独立 Flow 属性）
+
+这些类型在 Phase 1（Domain 层）中定义，使 domain 层不依赖 data 层的 SseEvent 等 DTO。
+
 **ChatRepository** — 聊天核心操作
 ```kotlin
 interface ChatRepository {
     fun getMessagesFlow(sessionId: String): Flow<List<MessageWithParts>>
     fun getPermissionsFlow(sessionId: String): Flow<List<PermissionState>>
     fun getQuestionsFlow(sessionId: String): Flow<List<QuestionState>>
-    suspend fun sendMessage(sessionId: String, parts: List<PromptPart>): Result<Message>
+    suspend fun sendMessage(sessionId: String, parts: List<Part>): Result<Message>
     suspend fun replyPermission(permissionId: String, reply: String): Result<Boolean>
     suspend fun replyQuestion(questionId: String, answer: String): Result<Boolean>
     fun getToolExpandedStates(): MutableMap<String, Boolean>
@@ -405,6 +443,24 @@ Handler 实现：
 - QuestionEventHandler — 问题请求/回复/拒绝
 - MiscEventHandler — Todo, Vcs, Project, Compacted
 
+**Hilt 多绑定配置示例：**
+```kotlin
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class HandlerModule {
+    @Binds @IntoSet
+    abstract fun bindSessionHandler(impl: SessionEventHandler): SseEventHandler
+    @Binds @IntoSet
+    abstract fun bindMessageHandler(impl: MessageEventHandler): SseEventHandler
+    @Binds @IntoSet
+    abstract fun bindPermissionHandler(impl: PermissionEventHandler): SseEventHandler
+    @Binds @IntoSet
+    abstract fun bindQuestionHandler(impl: QuestionEventHandler): SseEventHandler
+    @Binds @IntoSet
+    abstract fun bindMiscHandler(impl: MiscEventHandler): SseEventHandler
+}
+```
+
 #### 4.2.3 Mapper 层
 
 ```kotlin
@@ -420,16 +476,16 @@ object SessionMapper {
 
 OpenCodeConnectionService.kt (907行) 拆为：
 
-**OpenCodeConnectionService** (瘦身) — 仅 Service 生命周期编排
+#### OpenCodeConnectionService (瘦身) — 仅 Service 生命周期编排
 - onCreate / onStartCommand / onDestroy
 - 编排连接、通知、WakeLock
 
-**SseConnectionManager** — SSE 连接管理
+#### SseConnectionManager — SSE 连接管理
 - connect / disconnect / reconnect
 - 心跳 / 超时处理
 - 回调事件给 Service
 
-**AppNotificationManager** — 通知系统统一入口
+#### AppNotificationManager — 通知系统统一入口
 - 前台服务通知
 - 事件通知（permission / question / error）
 - 通知渠道管理
@@ -515,6 +571,8 @@ object ToolCardRegistry {
 - markdown/ — MarkdownContent, SimpleMarkdownTable
 - diff/ — DiffView, DiffChangesInline
 
+**与 chat 模块组件的关系：** `ui/components/` 存放通用抽象和跨 Screen 复用的组件，`ui/screens/chat/` 存放 Chat 特化实现。对于 ChatInputBar、MarkdownContent 等组件：若仅 Chat 使用则保留在 chat/ 下，共享组件库中的版本为通用抽象基类；若多 Screen 共用则提取到 components/ 并从 chat/ 中删除。
+
 #### 4.4.4 Navigation 重构
 
 NavGraph.kt (768行) 拆为：
@@ -598,34 +656,46 @@ Phase 0 续: Characterization Tests (行为捕获)
 
 ## 7. 执行阶段
 
-### Phase 0: 测试基础设施
+### 7.1 Phase 0: 测试基础设施
 - 修复 27 个 MockK 失败测试
 - 编写 Characterization Tests 覆盖核心行为
 - 验证全部 PASS
 
-### Phase 1: Domain 层
-- 定义 domain/repository/ 接口
-- 实现 domain/usecase/ 用例
-- 编写 UseCase 单元测试 (TDD)
+> Phase 0 首先运行测试并记录具体失败信息分类（MockK verify 失败 / 构造函数签名变更 / 依赖缺失），根据根因分类决定修复策略。若超过 20% 测试因根本性架构变更无法修复，允许标记为 @Disabled 并在重构后重写等价测试。
+
+### 7.2 Phase 1: Domain 层
+- 定义 domain/repository/ 接口（含新增 Domain Model 类型）
+- 新增 Domain Model 类型 (PermissionState, QuestionState, CreateSessionOpts, AppSettings)
+- 编写 UseCase 接口 + 失败的单元测试 (RED)
+- 实现 UseCase 使测试通过 (GREEN)
+- 重构优化 (REFACTOR)
 - 创建 DI Module 绑定
-- 验证编译通过
-
-### Phase 2: Chat 模块重构
-- 拆分 ChatScreen.kt 为组件树
-- 实现 ToolCardRegistry
-- 拆分 ChatViewModel (委托 UseCase)
-- 提取 terminal 子系统
-- 提取 util 辅助函数
-- 验证 UI 行为不变 + 测试全绿
-
-### Phase 3: 基础设施层
-- 拆分 OpenCodeApi (DTO/Serializer/Mapper)
-- 拆分 EventReducer (状态/分发/Handler)
-- 拆分 OpenCodeConnectionService (连接/通知)
-- 实现 Repository Impl
 - 验证编译通过 + 测试全绿
 
-### Phase 4: 其余 Screen 模块
+### 7.3 Phase 2: Chat 模块重构
+按以下顺序逐步提取，每步编译验证：
+1. 提取 terminal/ 子系统（~1200行）→ 编译验证
+2. 提取 util/ 辅助函数（ChatFormatters/ChatModifiers/ChatColors/MediaUtils，~400行）→ 编译验证
+3. 提取 markdown/ 渲染组件（MarkdownContent/SimpleMarkdownTable，~300行）→ 编译验证
+4. 提取 tools/ 工具卡片 + 实现 ToolCardRegistry（~2000行）→ 编译验证 + UI 验证
+5. 提取 dialog/ 对话框（ModelPickerDialog/ImagePreviewDialog/QuestionCard，~500行）→ 编译验证
+6. 提取 input/ 输入区（ChatInputBar/SlashCommandMenu/AttachmentPreview，~800行）→ 编译验证
+7. 提取 components/ 消息组件（ChatMessageBubble/AssistantMessageCard 等，~1500行）→ 编译验证 + UI 验证
+8. ChatViewModel 委托 UseCase（逐步替换直接 API 调用）→ 编译验证
+9. 最终 ChatScreen.kt 骨架化 → 全量 UI 验证 + 测试全绿
+
+### 7.4 Phase 3: 基础设施层
+按以下顺序操作：
+1. 新建 dto/ 目录结构，从 OpenCodeApi.kt 逐类提取 Request/Response DTO → 编译验证
+2. 新建 serializer/ 目录，提取自定义序列化器 → 编译验证
+3. 新建 mapper/ 目录，实现 DTO↔Domain 双向映射 → 单元测试验证
+4. 瘦身 OpenCodeApi.kt，仅保留 HTTP 接口定义 → 编译验证
+5. 从 EventReducer 提取 EventDispatcher + Handler（策略模式）→ 编译验证 + 测试全绿
+6. 从 OpenCodeConnectionService 提取 SseConnectionManager + AppNotificationManager → 编译验证
+7. 实现 Repository Impl（Chat/Session/Server/Settings）→ 编译验证 + 测试全绿
+8. 验证编译通过 + 全量回归
+
+### 7.5 Phase 4: 其余 Screen 模块
 - HomeScreen 拆分
 - SessionListScreen 拆分
 - SettingsScreen 拆分
@@ -633,7 +703,7 @@ Phase 0 续: Characterization Tests (行为捕获)
 - 去重共享组件 (PulsingDotsIndicator 等)
 - 验证 UI 行为不变
 
-### Phase 5: 共享组件库 + Navigation + 清理
+### 7.6 Phase 5: 共享组件库 + Navigation + 清理
 - 建立 ui/components/ 共享组件库
 - 拆分 NavGraph (deeplink / routes)
 - 清理未使用的代码
@@ -649,6 +719,9 @@ Phase 0 续: Characterization Tests (行为捕获)
 | 性能回退 | 每个 Phase 后做 release build + 手动测试 |
 | 测试维护成本高 | 测试只验证公共 API 行为，不测实现细节 |
 | 重构范围蔓延 | 严格分 Phase，每个 Phase 有明确的完成标准 |
+| Phase 执行失败 | 每个 Phase 在独立分支开发，内部设 checkpoint commit，失败回退到上一个 checkpoint |
+| 编译中断策略 | 采用"提取一个类→编译验证→提交"微循环，禁止提交编译失败的代码 |
+| ToolCardRegistry fallback | resolve() 返回 null 时渲染 UnknownToolCard（显示 tool name + 原始 JSON），确保不白屏 |
 
 ## 9. 完成标准
 
@@ -661,10 +734,22 @@ Phase 0 续: Characterization Tests (行为捕获)
 
 整体完成标准：
 1. 所有 6 个 Phase 完成
-2. ChatScreen.kt 不超过 400 行
-3. 每个文件单一职责
+2. ChatScreen.kt 拆分为职责单一的骨架文件（指导预期 <400 行，以职责完整性为准）
+3. 每个文件可一句话说清职责（文件名即职责摘要），不含跨领域混合逻辑
 4. ViewModel 不直接依赖 data 层具体类
 5. 新增工具卡片只需注册一行
 6. 所有测试通过（原有 + 新增）
-7. APK 大小不显著增长
-8. 功能行为与重构前一致
+7. Release APK 大小增长不超过重构前版本的 5%
+8. 功能行为与重构前一致或更优（Characterization Tests 全绿 + 核心功能手动验证）
+
+**核心功能验证 Checklist（每个涉及 UI 的 Phase 使用）：**
+- [ ] 发送文本消息→消息显示正确
+- [ ] 工具卡片展开/折叠正常
+- [ ] 终端输出实时滚动
+- [ ] 权限请求弹窗出现且回复生效
+- [ ] 问题弹窗出现且回答生效
+- [ ] Markdown 渲染（代码块/表格/列表）
+- [ ] 图片附件预览
+- [ ] Model Picker 切换
+- [ ] 会话切换/创建/删除
+- [ ] 服务器连接/断开
