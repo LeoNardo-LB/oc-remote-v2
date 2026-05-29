@@ -200,6 +200,39 @@ import dev.minios.ocremote.ui.screens.chat.terminal.applyTerminalModifiers
 import dev.minios.ocremote.ui.screens.chat.terminal.applyTermuxFnBindings
 import dev.minios.ocremote.ui.screens.chat.terminal.FnBindingResult
 import dev.minios.ocremote.ui.screens.chat.terminal.ctrlTransform
+import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
+import dev.minios.ocremote.ui.screens.chat.util.toolOutputContainerColor
+import dev.minios.ocremote.ui.screens.chat.util.agentColor
+import dev.minios.ocremote.ui.screens.chat.util.agentColorCycle
+import dev.minios.ocremote.ui.screens.chat.util.QueuedBadgeColor
+import dev.minios.ocremote.ui.screens.chat.util.QueuedBadgeTextColor
+import dev.minios.ocremote.ui.screens.chat.util.formatTokenCount
+import dev.minios.ocremote.ui.screens.chat.util.formatAssistantErrorMessage
+import dev.minios.ocremote.ui.screens.chat.util.formatFileSize
+import dev.minios.ocremote.ui.screens.chat.util.formatDuration
+import dev.minios.ocremote.ui.screens.chat.util.resolveStepsStatus
+import dev.minios.ocremote.ui.screens.chat.util.resolveUserCommandLabel
+import dev.minios.ocremote.ui.screens.chat.util.performHaptic
+import dev.minios.ocremote.ui.screens.chat.util.codeHorizontalScroll
+import dev.minios.ocremote.ui.screens.chat.util.consumeBoundaryFling
+import dev.minios.ocremote.ui.screens.chat.util.LocalChatFontSize
+import dev.minios.ocremote.ui.screens.chat.util.LocalCodeWordWrap
+import dev.minios.ocremote.ui.screens.chat.util.LocalCompactMessages
+import dev.minios.ocremote.ui.screens.chat.util.LocalCollapseTools
+import dev.minios.ocremote.ui.screens.chat.util.LocalExpandReasoning
+import dev.minios.ocremote.ui.screens.chat.util.LocalHapticFeedbackEnabled
+import dev.minios.ocremote.ui.screens.chat.util.LocalImageSaveRequest
+import dev.minios.ocremote.ui.screens.chat.util.LocalToolExpandedStates
+import dev.minios.ocremote.ui.screens.chat.util.LocalOnToggleToolExpanded
+import dev.minios.ocremote.ui.screens.chat.util.ImageAttachment
+import dev.minios.ocremote.ui.screens.chat.util.PreparedAttachment
+import dev.minios.ocremote.ui.screens.chat.util.AttachmentComparison
+import dev.minios.ocremote.ui.screens.chat.util.decodeDataUrlBytes
+import dev.minios.ocremote.ui.screens.chat.util.decodePartFileBytes
+import dev.minios.ocremote.ui.screens.chat.util.extensionForMime
+import dev.minios.ocremote.ui.screens.chat.util.imageThumbnailModel
+import dev.minios.ocremote.ui.screens.chat.util.estimateVisionTokens
+import dev.minios.ocremote.ui.screens.chat.util.buildAttachmentFromUri
 
 
 /**
@@ -207,133 +240,18 @@ import dev.minios.ocremote.ui.screens.chat.terminal.ctrlTransform
  * Shows messages with streaming text rendered via mikepenz markdown renderer.
  */
 
-// ============ Chat Settings via CompositionLocal ============
-
-/** Chat font size setting: "small", "medium", "large". */
-val LocalChatFontSize = compositionLocalOf { "medium" }
-
-/** Whether code blocks use word wrap instead of horizontal scroll. */
-val LocalCodeWordWrap = compositionLocalOf { true }
-
-/** Whether compact message spacing is enabled. */
-val LocalCompactMessages = compositionLocalOf { false }
-
-/** Whether tool cards are collapsed by default. */
-val LocalCollapseTools = compositionLocalOf { false }
-
-/** Whether reasoning blocks are expanded by default. */
-val LocalExpandReasoning = compositionLocalOf { false }
-
-/** Whether haptic feedback is enabled. */
-val LocalHapticFeedbackEnabled = compositionLocalOf { true }
-
-/** Image save request callback available to image preview composables. */
-val LocalImageSaveRequest = compositionLocalOf<(ByteArray, String, String?) -> Unit> { { _, _, _ -> } }
-
-/** Persisted expand/collapse state for tool cards, keyed by Part.Tool.id or Part.Patch.id. */
-val LocalToolExpandedStates = compositionLocalOf<Map<String, Boolean>> { emptyMap() }
-
-/** Callback to toggle a tool card's expanded state by its part id. */
-val LocalOnToggleToolExpanded = compositionLocalOf<(String) -> Unit> { { } }
+// CompositionLocals moved to util/ChatCompositionLocals.kt
 
 
-@Composable
-private fun isAmoledTheme(): Boolean {
-    val colors = MaterialTheme.colorScheme
-    return colors.background == Color.Black && colors.surface == Color.Black
-}
+// isAmoledTheme & toolOutputContainerColor moved to util/ChatColors.kt
 
-@Composable
-private fun toolOutputContainerColor(isAmoled: Boolean): Color {
-    return when {
-        isAmoled -> Color.Black
-        isSystemInDarkTheme() -> MaterialTheme.colorScheme.secondaryContainer
-        else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.82f)
-    }
-}
+// performHaptic moved to util/ChatModifiers.kt
 
-/**
- * Perform a light haptic tick if haptic feedback is enabled.
- * Call from composable context or from a click lambda that has access to a View.
- */
-@Suppress("DEPRECATION")
-private fun performHaptic(view: android.view.View, enabled: Boolean) {
-    if (enabled) {
-        view.performHapticFeedback(
-            android.view.HapticFeedbackConstants.CLOCK_TICK,
-            android.view.HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING or
-                    android.view.HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
-        )
-    }
-}
+// agentColorCycle, QueuedBadgeColor, QueuedBadgeTextColor, agentColor moved to util/ChatColors.kt
 
-/**
- * Agent color matching the TUI's opencode theme.
- * Color cycle: secondary, accent, success, warning, primary, error, info
- * (same order as TUI's local.tsx color array).
- */
-private val agentColorCycle = listOf(
-    Color(0xFF5C9CF5), // secondary — build (blue)
-    Color(0xFF9D7CD8), // accent — plan (purple)
-    Color(0xFF7FD88F), // success (green)
-    Color(0xFFF5A742), // warning (orange)
-    Color(0xFFFAB283), // primary (peach)
-    Color(0xFFE06C75), // error (red)
-    Color(0xFF56B6C2)  // info (cyan)
-)
+// codeHorizontalScroll moved to util/ChatModifiers.kt
 
-/** QUEUED badge colors */
-private val QueuedBadgeColor = Color(0xFFFFD700)      // Gold background
-private val QueuedBadgeTextColor = Color(0xFF1A1A1A)  // Dark text on gold
-
-private fun agentColor(agentName: String, agents: List<AgentInfo> = emptyList()): Color {
-    val index = agents.indexOfFirst { it.name == agentName }
-    return if (index >= 0) {
-        agentColorCycle[index % agentColorCycle.size]
-    } else {
-        agentColorCycle[0]
-    }
-}
-
-/**
- * Conditionally applies horizontalScroll for code blocks.
- * When word wrap is enabled, no horizontal scroll is applied.
- */
-@Composable
-private fun Modifier.codeHorizontalScroll(): Modifier {
-    return if (!LocalCodeWordWrap.current) {
-        this.horizontalScroll(rememberScrollState())
-    } else {
-        this
-    }
-}
-
-/**
- * Prevents nested-scroll inertia from propagating to the parent when the child
- * scrollable reaches its boundary.  Uses conditional consume (方案B): only
- * absorbs remaining fling velocity when [ScrollState.canScrollForward] or
- * [ScrollState.canScrollBackward] is false.
- */
-@Composable
-private fun Modifier.consumeBoundaryFling(scrollState: ScrollState): Modifier {
-    val connection = remember(scrollState) {
-        object : NestedScrollConnection {
-            override suspend fun onPostFling(
-                consumed: Velocity,
-                available: Velocity
-            ): Velocity {
-                val atBottom = !scrollState.canScrollForward
-                val atTop = !scrollState.canScrollBackward
-                return if ((atBottom && available.y < 0f) || (atTop && available.y > 0f)) {
-                    available
-                } else {
-                    Velocity.Zero
-                }
-            }
-        }
-    }
-    return this.nestedScroll(connection)
-}
+// consumeBoundaryFling moved to util/ChatModifiers.kt
 
 /**
  * Slash command definition for the suggestion popup.
@@ -479,19 +397,7 @@ private fun BreathingCircleIndicator(
 }
 
 /** Format a token count to a human-readable string (e.g., 1.2k, 45.3k, 1.2M). */
-private fun formatTokenCount(count: Int): String {
-    return when {
-        count >= 1_000_000 -> String.format("%.1fM", count / 1_000_000.0)
-        count >= 1_000 -> String.format("%.1fk", count / 1_000.0)
-        else -> count.toString()
-    }
-}
-
-private fun formatAssistantErrorMessage(error: Message.Assistant.ErrorInfo?): String? {
-    if (error == null) return null
-    val raw = error.message.ifBlank { error.name }
-    return raw.ifBlank { null }
-}
+// formatTokenCount & formatAssistantErrorMessage moved to util/ChatFormatters.kt
 
 private enum class HtmlErrorViewMode {
     Page,
@@ -732,13 +638,10 @@ private fun buildPromptParts(
     return parts
 }
 
-/** An image attachment ready to send. */
-private data class ImageAttachment(
-    val uri: Uri,
-    val mime: String,
-    val filename: String,
-    val dataUrl: String // "data:<mime>;base64,..."
-)
+// ImageAttachment, ImageSaveRequest, PreparedAttachment, AttachmentComparison,
+// decodeDataUrlBytes, decodePartFileBytes, extensionForMime, imageThumbnailModel,
+// estimateVisionTokens, formatFileSize, buildAttachmentFromUri
+// moved to util/MediaUtils.kt and util/ChatFormatters.kt
 
 private data class ImageSaveRequest(
     val bytes: ByteArray,
@@ -746,184 +649,7 @@ private data class ImageSaveRequest(
     val filename: String,
 )
 
-private fun decodeDataUrlBytes(dataUrl: String): ByteArray? {
-    val encoded = dataUrl.substringAfter(',', missingDelimiterValue = "")
-    if (encoded.isBlank()) return null
-    return try {
-        Base64.decode(encoded, Base64.DEFAULT)
-    } catch (_: Exception) {
-        null
-    }
-}
 
-private fun decodePartFileBytes(file: Part.File): ByteArray? {
-    val url = file.url ?: return null
-    val encoded = if (url.contains(',')) url.substringAfter(',') else url
-    if (encoded.isBlank()) return null
-    return try {
-        Base64.decode(encoded, Base64.DEFAULT)
-    } catch (_: Exception) {
-        null
-    }
-}
-
-private fun extensionForMime(mime: String): String {
-    return when (mime.lowercase()) {
-        "image/jpeg", "image/jpg" -> "jpg"
-        "image/png" -> "png"
-        "image/webp" -> "webp"
-        "image/gif" -> "gif"
-        else -> "img"
-    }
-}
-
-private fun imageThumbnailModel(attachment: ImageAttachment): Any {
-    if (attachment.uri.scheme.equals("data", ignoreCase = true)) {
-        val encoded = attachment.dataUrl.substringAfter(',', missingDelimiterValue = "")
-        if (encoded.isNotBlank()) {
-            return try {
-                Base64.decode(encoded, Base64.DEFAULT)
-            } catch (_: Exception) {
-                attachment.dataUrl
-            }
-        }
-    }
-    return attachment.uri
-}
-
-private data class PreparedAttachment(
-    val attachment: ImageAttachment,
-    val comparison: AttachmentComparison? = null
-)
-
-private data class AttachmentComparison(
-    val originalBytes: Int,
-    val optimizedBytes: Int,
-    val originalEstimatedTokens: Int,
-    val optimizedEstimatedTokens: Int
-)
-
-private fun estimateVisionTokens(width: Int, height: Int): Int {
-    if (width <= 0 || height <= 0) return 0
-    return ((width.toLong() * height.toLong()) / 750.0).toInt()
-}
-
-private fun formatFileSize(bytes: Int): String {
-    val value = bytes.toDouble()
-    return when {
-        value >= 1024.0 * 1024.0 -> String.format("%.2f MB", value / (1024.0 * 1024.0))
-        value >= 1024.0 -> String.format("%.1f KB", value / 1024.0)
-        else -> "$bytes B"
-    }
-}
-
-private suspend fun buildAttachmentFromUri(
-    contentResolver: android.content.ContentResolver,
-    uri: Uri,
-    compressImages: Boolean,
-    maxLongSidePx: Int = 1440,
-    webpQuality: Int = 60
-): PreparedAttachment? = withContext(Dispatchers.IO) {
-    val mimeType = contentResolver.getType(uri) ?: "image/png"
-    val acceptedTypes = setOf("image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf")
-    if (mimeType !in acceptedTypes) return@withContext null
-
-    val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@withContext null
-    val originalFilename = uri.lastPathSegment?.substringAfterLast('/') ?: "image.png"
-
-    val shouldOptimize = compressImages && (mimeType == "image/png" || mimeType == "image/jpeg")
-    if (!shouldOptimize) {
-        val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        return@withContext PreparedAttachment(
-            attachment = ImageAttachment(
-                uri = uri,
-                mime = mimeType,
-                filename = originalFilename,
-                dataUrl = "data:$mimeType;base64,$base64"
-            )
-        )
-    }
-
-    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-    if (bitmap == null) {
-        val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        return@withContext PreparedAttachment(
-            attachment = ImageAttachment(
-                uri = uri,
-                mime = mimeType,
-                filename = originalFilename,
-                dataUrl = "data:$mimeType;base64,$base64"
-            )
-        )
-    }
-
-    val srcWidth = bitmap.width
-    val srcHeight = bitmap.height
-    val longSide = maxOf(srcWidth, srcHeight)
-    val resizeEnabled = maxLongSidePx > 0
-    val scale = if (resizeEnabled && longSide > maxLongSidePx) {
-        maxLongSidePx.toFloat() / longSide.toFloat()
-    } else {
-        1f
-    }
-    val outWidth = (srcWidth * scale).toInt().coerceAtLeast(1)
-    val outHeight = (srcHeight * scale).toInt().coerceAtLeast(1)
-    val resizedBitmap = if (scale < 1f) Bitmap.createScaledBitmap(bitmap, outWidth, outHeight, true) else bitmap
-
-    val output = java.io.ByteArrayOutputStream()
-    @Suppress("DEPRECATION")
-    val format = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        Bitmap.CompressFormat.WEBP_LOSSY
-    } else {
-        Bitmap.CompressFormat.WEBP
-    }
-    val compressed = resizedBitmap.compress(format, webpQuality.coerceIn(1, 100), output)
-    if (resizedBitmap !== bitmap) {
-        resizedBitmap.recycle()
-    }
-    bitmap.recycle()
-
-    if (!compressed) {
-        val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        return@withContext PreparedAttachment(
-            attachment = ImageAttachment(
-                uri = uri,
-                mime = mimeType,
-                filename = originalFilename,
-                dataUrl = "data:$mimeType;base64,$base64"
-            )
-        )
-    }
-
-    val webpBytes = output.toByteArray()
-    if (scale >= 0.999f && webpBytes.size >= bytes.size) {
-        val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        return@withContext PreparedAttachment(
-            attachment = ImageAttachment(
-                uri = uri,
-                mime = mimeType,
-                filename = originalFilename,
-                dataUrl = "data:$mimeType;base64,$base64"
-            )
-        )
-    }
-    val base64 = Base64.encodeToString(webpBytes, Base64.NO_WRAP)
-    val optimizedFilename = originalFilename.substringBeforeLast('.', originalFilename) + ".webp"
-    return@withContext PreparedAttachment(
-        attachment = ImageAttachment(
-            uri = uri,
-            mime = "image/webp",
-            filename = optimizedFilename,
-            dataUrl = "data:image/webp;base64,$base64"
-        ),
-        comparison = AttachmentComparison(
-            originalBytes = bytes.size,
-            optimizedBytes = webpBytes.size,
-            originalEstimatedTokens = estimateVisionTokens(srcWidth, srcHeight),
-            optimizedEstimatedTokens = estimateVisionTokens(outWidth, outHeight)
-        )
-    )
-}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -3130,52 +2856,7 @@ private fun ModelPickerDialog(
 }
 
 
-/**
- * Determine the "status text" for a group of step parts (like WebUI).
- * E.g., "Making edits", "Running commands", "Searching codebase", "Thinking"
- */
-@Composable
-private fun resolveStepsStatus(stepParts: List<Part>): String {
-    val toolParts = stepParts.filterIsInstance<Part.Tool>()
-    val hasRunning = toolParts.any { it.state is ToolState.Running }
-    if (!hasRunning && toolParts.all { it.state is ToolState.Completed || it.state is ToolState.Error }) {
-        // All done — summarize
-        val editCount = toolParts.count { it.tool in listOf("edit", "write", "apply_patch", "multiedit") }
-        val bashCount = toolParts.count { it.tool == "bash" }
-        val searchCount = toolParts.count { it.tool in listOf("glob", "grep", "read", "list", "listDirectory") }
-        return when {
-            editCount > 0 && bashCount == 0 && searchCount == 0 -> {
-                if (editCount == 1) 
-                    stringResource(R.string.chat_status_edits, editCount)
-                else 
-                    stringResource(R.string.chat_status_edits_plural, editCount)
-            }
-            bashCount > 0 && editCount == 0 && searchCount == 0 -> {
-                if (bashCount == 1)
-                    stringResource(R.string.chat_status_commands, bashCount)
-                else
-                    stringResource(R.string.chat_status_commands_plural, bashCount)
-            }
-            else -> {
-                if (toolParts.size == 1)
-                    stringResource(R.string.chat_status_steps, toolParts.size)
-                else
-                    stringResource(R.string.chat_status_steps_plural, toolParts.size)
-            }
-        }
-    }
-    // Currently running — describe what's happening
-    val runningTool = toolParts.lastOrNull { it.state is ToolState.Running }
-    return when (runningTool?.tool) {
-        "edit", "write", "multiedit" -> stringResource(R.string.chat_status_making_edits)
-        "bash" -> stringResource(R.string.chat_status_running_commands)
-        "read", "glob", "grep", "list", "listDirectory" -> stringResource(R.string.chat_status_searching)
-        "webfetch" -> stringResource(R.string.chat_status_fetching_url)
-        "task" -> stringResource(R.string.chat_status_running_subagent)
-        "todowrite" -> stringResource(R.string.chat_status_updating_tasks)
-        else -> stringResource(R.string.chat_status_thinking)
-    }
-}
+// resolveStepsStatus moved to util/ChatFormatters.kt
 
 // isBubbleRenderablePart and filterRenderableParts are defined in ChatParts.kt.
 
@@ -3444,13 +3125,7 @@ private fun ChatMessageBubble(
 }
 
 /** Format millisecond duration to human-readable string (e.g., "12.3s", "1.5m"). */
-private fun formatDuration(ms: Long): String {
-    return when {
-        ms < 1000 -> "${ms}ms"
-        ms < 60000 -> "%.1fs".format(ms / 1000.0)
-        else -> "%.1fm".format(ms / 60000.0)
-    }
-}
+// formatDuration moved to util/ChatFormatters.kt
 
 /**
  * Renders a SINGLE assistant message with its parts interleaved.
@@ -3816,50 +3491,7 @@ private fun AssistantTurnBubble(
 
 // isBubbleRenderablePart moved to ChatParts.kt for testability
 
-@Composable
-private fun resolveUserCommandLabel(parts: List<Part>): String? {
-    val subtaskParts = parts.filterIsInstance<Part.Subtask>()
-
-    val commandFromSubtask = subtaskParts
-        .firstNotNullOfOrNull { it.command }
-        ?.removePrefix("/")
-        ?.trim()
-        ?.lowercase()
-
-    val commandFromText = parts
-        .filterIsInstance<Part.Text>()
-        .firstNotNullOfOrNull { textPart ->
-            val text = textPart.text.trim()
-            if (!text.startsWith("/")) return@firstNotNullOfOrNull null
-            text.removePrefix("/").substringBefore(' ').trim().lowercase().takeIf { it.isNotBlank() }
-        }
-
-    val inferredReviewFromPrompt = subtaskParts.any { subtask ->
-        val prompt = subtask.prompt.lowercase()
-        val description = subtask.description?.lowercase().orEmpty()
-        "review changes" in prompt || "review" in description
-    }
-
-    val command = commandFromSubtask ?: commandFromText ?: if (inferredReviewFromPrompt) "review" else null
-
-    return when (command) {
-        "review" -> stringResource(R.string.menu_review_changes)
-        null -> {
-            val hasNonRenderableOnly = parts.any { part ->
-                part !is Part.Text &&
-                        part !is Part.Reasoning &&
-                        part !is Part.Patch &&
-                        part !is Part.File &&
-                        part !is Part.Permission &&
-                        part !is Part.Question &&
-                        part !is Part.Abort &&
-                        part !is Part.Retry
-            }
-            if (hasNonRenderableOnly) stringResource(R.string.chat_tool_running_command) else null
-        }
-        else -> stringResource(R.string.chat_tool_running_command)
-    }
-}
+// resolveUserCommandLabel moved to util/ChatFormatters.kt
 
 /**
  * Banner shown when messages have been reverted.
