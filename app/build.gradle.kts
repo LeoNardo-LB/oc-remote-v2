@@ -17,8 +17,8 @@ android {
         applicationId = "dev.minios.ocremote"
         minSdk = 26
         targetSdk = 35
-        versionCode = 267
-        versionName = "2.0.0-beta.67"
+        versionCode = 268
+        versionName = "2.0.0-dev.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -43,14 +43,28 @@ android {
         buildTypes.getByName("release").signingConfig = signingConfigs.getByName("release")
     }
 
+    flavorDimensions += "channel"
+
+    productFlavors {
+        create("dev") {
+            dimension = "channel"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            manifestPlaceholders["appLabel"] = "OC Remote Dev"
+        }
+        create("beta") {
+            dimension = "channel"
+        }
+    }
+
     buildTypes {
         debug {
-            applicationIdSuffix = ".v2"
             manifestPlaceholders["appLabel"] = "OC Remote v2"
         }
         release {
             manifestPlaceholders["appLabel"] = "@string/app_name"
             isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
