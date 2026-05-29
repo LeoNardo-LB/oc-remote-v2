@@ -4648,9 +4648,12 @@ private fun PartContent(
                 val reasoningDuration = part.time?.let { t ->
                     t.end?.let { end -> end - t.start }
                 }
+                val toolExpandedStates = LocalToolExpandedStates.current
+                val onToggleToolExpanded = LocalOnToggleToolExpanded.current
                 ReasoningBlock(
                     text = part.text,
-                    defaultExpanded = LocalExpandReasoning.current,
+                    isExpanded = toolExpandedStates[part.id] ?: LocalExpandReasoning.current,
+                    onToggleExpand = { onToggleToolExpanded(part.id) },
                     durationMs = reasoningDuration
                 )
             }
@@ -5242,11 +5245,11 @@ private fun preserveRawHtmlPayload(markdown: String): String {
 }
 
 @Composable
-private fun ReasoningBlock(text: String, defaultExpanded: Boolean = false, durationMs: Long? = null) {
+private fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleExpand: () -> Unit = {}, durationMs: Long? = null) {
     val isAmoled = isAmoledTheme()
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
-    var expanded by remember { mutableStateOf(defaultExpanded) }
+    val expanded = isExpanded
 
     val accentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
     val containerColor = when {
@@ -5309,7 +5312,7 @@ private fun ReasoningBlock(text: String, defaultExpanded: Boolean = false, durat
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { performHaptic(hapticView, hapticOn); expanded = !expanded }
+                    .clickable { performHaptic(hapticView, hapticOn); onToggleExpand() }
                     .padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)
             ) {
                 Row(
