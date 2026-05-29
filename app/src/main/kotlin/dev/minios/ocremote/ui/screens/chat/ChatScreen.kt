@@ -162,6 +162,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.drop
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -967,6 +968,19 @@ fun ChatScreen(
     val density = LocalDensity.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
     var terminalOverlayHeightPx by remember { mutableStateOf(0) }
+
+    // Dismiss keyboard on scroll (hide-only, never show)
+    var lastScrollIndex by remember { mutableIntStateOf(listState.firstVisibleItemIndex) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .drop(1)  // skip initial state to avoid false trigger on composition
+            .collect { index ->
+                if (index != lastScrollIndex) {
+                    keyboardController?.hide()
+                    lastScrollIndex = index
+                }
+            }
+    }
 
     // @ file mention state
     val fileSearchResults by viewModel.fileSearchResults.collectAsState()
@@ -2376,11 +2390,10 @@ fun ChatScreen(
                           Box(
                               modifier = Modifier.fillMaxSize()
                           ) {
-                                 LazyColumn(
-                                      state = listState,
-                                      modifier = Modifier.fillMaxSize()
-                                          .imeNestedScroll()
-                                          .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
+                                  LazyColumn(
+                                       state = listState,
+                                       modifier = Modifier.fillMaxSize()
+                                           .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
                                       contentPadding = PaddingValues(
                                           start = 12.dp,
                                           top = 8.dp,
@@ -2630,10 +2643,9 @@ fun ChatScreen(
                        } else {
                             // Sub-session (no input bar): just LazyColumn + FAB
                             Box(modifier = Modifier.fillMaxSize()) {
-                                LazyColumn(
+                                 LazyColumn(
                                   state = listState,
                                   modifier = Modifier.fillMaxSize()
-                                      .imeNestedScroll()
                                       .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
                                   contentPadding = PaddingValues(
                                       horizontal = 12.dp,
