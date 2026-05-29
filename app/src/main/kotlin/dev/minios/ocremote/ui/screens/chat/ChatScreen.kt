@@ -5292,6 +5292,14 @@ private fun ToolCallCard(
     val hapticOn = LocalHapticFeedbackEnabled.current
     val expanded = isExpanded
 
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
+        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
+        tonalElevation = if (isAmoled) 0.dp else 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
             // Header row — always clickable to allow expand/collapse in any state
             Row(
                 modifier = Modifier
@@ -5317,7 +5325,6 @@ private fun ToolCallCard(
                         tint = if (tool.state is ToolState.Error) stateColor else toolDisplay.iconTint ?: stateColor
                     )
                     if (tool.tool == "task") {
-                        // Task tool: keep 2-line layout
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = toolDisplay.title,
@@ -5336,9 +5343,8 @@ private fun ToolCallCard(
                             }
                         }
                     } else {
-                        // Other tools: single line
                         val displayText = if (toolDisplay.subtitle != null && toolDisplay.subtitle != toolDisplay.title) {
-                            "${toolDisplay.title} ${toolDisplay.subtitle}"
+                            "${toolDisplay.title} · ${toolDisplay.subtitle}"
                         } else {
                             toolDisplay.title
                         }
@@ -5351,13 +5357,8 @@ private fun ToolCallCard(
                         )
                     }
                 }
-                // Expand indicator
                 if (tool.state is ToolState.Running) {
-                    PulsingDotsIndicator(
-                        dotSize = 5.dp,
-                        dotSpacing = 3.dp,
-                        color = stateColor
-                    )
+                    PulsingDotsIndicator(dotSize = 5.dp, dotSpacing = 3.dp, color = stateColor)
                 } else {
                     Icon(
                         imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -5368,15 +5369,11 @@ private fun ToolCallCard(
                 }
             }
 
-            // Expandable details
-            AnimatedVisibility(
-                visible = expanded,
-            ) {
+            AnimatedVisibility(visible = expanded) {
                 Column(
                     modifier = Modifier.padding(top = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Show input parameters
                     if (input.isNotEmpty()) {
                         val inputText = input.entries
                             .filter { (_, v) -> v.toString().length <= 500 }
@@ -5392,18 +5389,12 @@ private fun ToolCallCard(
                             ) {
                                 Text(
                                     text = inputText.take(2000),
-                                    style = CodeTypography.copy(
-                                        fontSize = 11.sp,
-                                        color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                                    ),
-                                    modifier = Modifier
-                                        .padding(8.dp)
-                                        .codeHorizontalScroll()
+                                    style = CodeTypography.copy(fontSize = 11.sp, color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)),
+                                    modifier = Modifier.padding(8.dp).codeHorizontalScroll()
                                 )
                             }
                         }
                     }
-
                     val output = when (val s = tool.state) {
                         is ToolState.Completed -> s.output
                         is ToolState.Error -> s.error
@@ -5418,18 +5409,15 @@ private fun ToolCallCard(
                         ) {
                             Text(
                                 text = output.take(3000),
-                                style = CodeTypography.copy(
-                                    fontSize = 11.sp,
-                                    color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer
-                                ),
-                                modifier = Modifier
-                                    .padding(8.dp)
-                                    .codeHorizontalScroll()
+                                style = CodeTypography.copy(fontSize = 11.sp, color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer),
+                                modifier = Modifier.padding(8.dp).codeHorizontalScroll()
                             )
                         }
                     }
                 }
             }
+        }
+    }
 }
 
 /**
@@ -6520,6 +6508,14 @@ private fun TodoListCard(
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
 
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
+        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
+        tonalElevation = if (isAmoled) 0.dp else 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
             // Header row
             Row(
                 modifier = Modifier
@@ -6566,9 +6562,7 @@ private fun TodoListCard(
             }
 
             // Todo items
-            AnimatedVisibility(
-                visible = expanded,
-            ) {
+            AnimatedVisibility(visible = expanded) {
                 Column(
                     modifier = Modifier.padding(top = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -6578,6 +6572,8 @@ private fun TodoListCard(
                     }
                 }
             }
+        }
+    }
 }
 
 private data class TodoItem(
@@ -6637,6 +6633,14 @@ private fun PatchCard(
     val hapticOn = LocalHapticFeedbackEnabled.current
     val expanded = isExpanded
 
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
+        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
+        tonalElevation = if (isAmoled) 0.dp else 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
             // Header row
             Row(
                 modifier = Modifier
@@ -6673,9 +6677,7 @@ private fun PatchCard(
             }
 
             // Expanded file list
-            AnimatedVisibility(
-                visible = expanded,
-            ) {
+            AnimatedVisibility(visible = expanded) {
                 Column(
                     modifier = Modifier.padding(top = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -6694,6 +6696,8 @@ private fun PatchCard(
                     }
                 }
             }
+        }
+    }
 }
 
 /**
