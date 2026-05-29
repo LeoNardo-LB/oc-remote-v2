@@ -1,0 +1,209 @@
+package dev.minios.ocremote.ui.screens.chat.markdown
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.dp
+import com.mikepenz.markdown.annotator.annotatorSettings
+import com.mikepenz.markdown.annotator.buildMarkdownAnnotatedString
+import com.mikepenz.markdown.compose.elements.material.MarkdownBasicText
+import org.intellij.markdown.ast.ASTNode
+import org.intellij.markdown.flavours.gfm.GFMElementTypes.HEADER as GFMHeader
+import org.intellij.markdown.flavours.gfm.GFMElementTypes.ROW as GFMRow
+import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL as GFMCell
+
+/** Data class representing a parsed table row from the AST. */
+private data class TableRow(
+    val isHeader: Boolean,
+    val rowIndex: Int,
+    val cells: List<ASTNode>,
+)
+
+/**
+ * Table component — uniform column widths driven by the widest cell content.
+ *
+ * Uses a custom [Layout] with [MeasurePolicy] to measure all cells in a
+ * single pass, compute per-column max widths, and place them on a uniform
+ * grid.  Horizontal scroll is enabled when the table exceeds the parent width.
+ */
+@Composable
+internal fun SimpleMarkdownTable(
+    content: String,
+    tableNode: ASTNode,
+    style: TextStyle,
+) {
+    val headerBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+    val rowBgOdd = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
+    val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+    val pad = 10.dp
+    val shape = RoundedCornerShape(6.dp)
+    val border = BorderStroke(1.dp, dividerColor)
+    val annotator = annotatorSettings()
+
+    val columnCount = remember(tableNode) {
+        tableNode.children.maxOfOrNull { child ->
+            when (child.type) {
+                GFMHeader, GFMRow -> child.children.count { it.type == GFMCell }
+                else -> 0
+            }
+        } ?: 0
+    }
+    if (columnCount == 0) return
+
+    // Collect structured row data from AST
+    val rows = remember(tableNode, content) {
+        val list = mutableListOf<TableRow>()
+        var rowIdx = 0
+        tableNode.children.forEach { child ->
+            when (child.type) {
+                GFMHeader -> {
+                    val cells = child.children.filter { it.type == GFMCell }
+                    list.add(TableRow(isHeader = true, rowIndex = -1, cells = cells))
+                }
+                GFMRow -> {
+                    val cells = child.children.filter { it.type == GFMCell }
+                    list.add(TableRow(isHeader = false, rowIndex = rowIdx, cells = cells))
+                    rowIdx++
+                }
+            }
+        }
+        list
+    }
+
+    val rowCount = rows.size
+    val scrollState = rememberScrollState()
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(scrollState)
+            .border(border, shape)
+            .clip(shape)
+    ) {
+        val cellContent: @Composable () -> Unit = {
+            rows.forEachIndexed { rowIdx, row ->
+                val cellCount = minOf(row.cells.size, columnCount)
+                repeat(cellCount) { colIdx ->
+                    val cell = row.cells[colIdx]
+                    val isLastCol = colIdx == cellCount - 1
+                    val cellStyle = if (row.isHeader) {
+                        style.copy(fontWeight = FontWeight.SemiBold)
+                    } else {
+                        style
+                    }
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                when {
+                                    row.isHeader -> headerBg
+                                    row.rowIndex % 2 == 1 -> rowBgOdd
+                                    else -> Color.Transparent
+                                }
+                            )
+                            .then(
+                                if (!isLastCol) Modifier.drawBehind {
+                                    drawLine(
+                                        dividerColor,
+                                        Offset(size.width, 0f),
+                                        Offset(size.width, size.height),
+                                        strokeWidth = 1f
+                                    )
+                                } else Modifier
+                            )
+                            .padding(horizontal = pad, vertical = if (row.isHeader) 8.dp else 6.dp)
+                    ) {
+                        MarkdownBasicText(
+                            text = content.buildMarkdownAnnotatedString(
+                                textNode = cell,
+                                style = cellStyle,
+                                annotatorSettings = annotator,
+                            ),
+                            style = cellStyle,
+                        )
+                    }
+                }
+            }
+        }
+
+        // SubcomposeLayout enables two-pass measurement so cell backgrounds fill
+        // the full column width without violating Compose's "measure once" rule.
+        SubcomposeLayout { constraints ->
+            if (rows.isEmpty()) return@SubcomposeLayout layout(0, 0) {}
+
+            // Phase 1: probe pass — measure with loose width to discover natural sizes
+            val looseConstraints = Constraints(
+                minWidth = 0,
+                maxWidth = constraints.maxWidth,
+                minHeight = 0,
+                maxHeight = constraints.maxHeight,
+            )
+            val probeMeasurables = subcompose("probe", cellContent)
+            val probePlaceables = probeMeasurables.map { it.measure(looseConstraints) }
+
+            // Compute per-column max width from probe results
+            val colWidths = IntArray(columnCount) { 0 }
+            probePlaceables.forEachIndexed { index, placeable ->
+                val col = index % columnCount
+                colWidths[col] = maxOf(colWidths[col], placeable.width)
+            }
+
+            // Phase 2: final pass — subcompose again and measure with exact column width
+            val finalMeasurables = subcompose("final", cellContent)
+            val finalPlaceables = finalMeasurables.mapIndexed { index, measurable ->
+                val col = index % columnCount
+                val colConstraint = Constraints(
+                    minWidth = colWidths[col],
+                    maxWidth = colWidths[col],
+                    minHeight = 0,
+                    maxHeight = constraints.maxHeight,
+                )
+                measurable.measure(colConstraint)
+            }
+
+            // Compute per-row max height
+            val actualRowCount = rows.size
+            val rowHeights = IntArray(actualRowCount) { 0 }
+            finalPlaceables.forEachIndexed { index, placeable ->
+                val row = index / columnCount
+                rowHeights[row] = maxOf(rowHeights[row], placeable.height)
+            }
+
+            val totalWidth = colWidths.sum()
+            val totalHeight = rowHeights.sum()
+
+            layout(totalWidth, totalHeight) {
+                var y = 0
+                for (row in 0 until actualRowCount) {
+                    var x = 0
+                    for (col in 0 until columnCount) {
+                        val idx = row * columnCount + col
+                        if (idx < finalPlaceables.size) {
+                            val p = finalPlaceables[idx]
+                            p.placeRelative(x, y)
+                        }
+                        x += colWidths[col]
+                    }
+                    y += rowHeights[row]
+                }
+            }
+        }
+    }
+}
