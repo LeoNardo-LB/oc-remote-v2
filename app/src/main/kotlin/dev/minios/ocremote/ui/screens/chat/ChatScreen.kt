@@ -6246,17 +6246,15 @@ private fun SearchToolCard(
         else -> null
     }
 
-    val title = when (tool.tool) {
-        "glob" -> serverTitle?.takeIf { it.isNotBlank() } ?: stringResource(R.string.tool_find_files)
-        "grep" -> serverTitle?.takeIf { it.isNotBlank() } ?: stringResource(R.string.tool_search_code)
-        else -> serverTitle?.takeIf { it.isNotBlank() } ?: tool.tool
+    val baseTitle = when (tool.tool) {
+        "glob" -> stringResource(R.string.tool_find_files)
+        "grep" -> stringResource(R.string.tool_search_code)
+        else -> tool.tool.replace("_", " ").replaceFirstChar { it.uppercase() }
     }
-
-    // Build args display
-    val argsText = buildList {
-        pattern?.let { add("pattern=$it") }
-        include?.let { add("include=$it") }
-    }.takeIf { it.isNotEmpty() }?.joinToString(", ", "[", "]")
+    val patternShort = pattern?.let {
+        if (it.length > 40) it.take(37) + "..." else it
+    }
+    val title = if (patternShort != null) "$baseTitle · $patternShort" else baseTitle
 
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
