@@ -35,7 +35,7 @@ import dev.minios.ocremote.data.repository.SettingsRepository
 import dev.minios.ocremote.domain.model.ServerConfig
 import dev.minios.ocremote.domain.model.Session
 import dev.minios.ocremote.ui.screens.chat.ChatScreen
-import dev.minios.ocremote.ui.screens.home.HomeScreen
+import dev.minios.ocremote.ui.screens.home.HomeRoute
 import dev.minios.ocremote.ui.screens.about.AboutScreen
 import dev.minios.ocremote.ui.screens.sessions.SessionListScreen
 import dev.minios.ocremote.ui.screens.settings.SettingsScreen
@@ -237,7 +237,7 @@ fun NavGraph(
     ) {
         // ============ Home Screen ============
         composable(Screen.Home.route) {
-            HomeScreen(
+            HomeRoute(
                 onNavigateToSessions = { serverUrl, username, password, serverName, serverId ->
                     navController.navigate(
                         Screen.SessionList.createRoute(serverUrl, username, password, serverName, serverId)

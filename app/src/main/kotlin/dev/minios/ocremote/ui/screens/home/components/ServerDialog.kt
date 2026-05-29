@@ -1,4 +1,4 @@
-package dev.minios.ocremote.ui.screens.home
+package dev.minios.ocremote.ui.screens.home.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
@@ -75,7 +75,7 @@ private fun deriveServerNameFromUrl(normalizedUrl: String): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServerDialog(
+internal fun ServerDialog(
     server: ServerConfig?,
     onDismiss: () -> Unit,
     onSave: (name: String, url: String, username: String, password: String, autoConnect: Boolean) -> Unit

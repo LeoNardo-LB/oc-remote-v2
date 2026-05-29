@@ -17,8 +17,10 @@ import dev.minios.ocremote.data.api.OpenCodeApi
 import dev.minios.ocremote.data.api.ServerConnection
 import dev.minios.ocremote.data.repository.LocalServerManager
 import dev.minios.ocremote.data.repository.ServerRepository
-import dev.minios.ocremote.data.repository.SettingsRepository
+import dev.minios.ocremote.domain.model.AppSettings
 import dev.minios.ocremote.domain.model.ServerConfig
+import dev.minios.ocremote.domain.usecase.GetSettingsFlowUseCase
+import dev.minios.ocremote.domain.usecase.UpdateSettingsUseCase
 import dev.minios.ocremote.service.OpenCodeConnectionService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -84,11 +86,15 @@ class HomeViewModel @Inject constructor(
     private val serverRepository: ServerRepository,
     private val api: OpenCodeApi,
     private val localServerManager: LocalServerManager,
-    private val settingsRepository: SettingsRepository,
+    private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
+    private val updateSettingsUseCase: UpdateSettingsUseCase,
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    /** Snapshot of current settings, updated from [GetSettingsFlowUseCase] flow. */
+    private var currentSettings: AppSettings = AppSettings()
 
     private var serviceBinder: OpenCodeConnectionService.LocalBinder? = null
     private var sseObserverJob: Job? = null
@@ -119,61 +125,24 @@ class HomeViewModel @Inject constructor(
 
     private fun observeSettings() {
         viewModelScope.launch {
-            settingsRepository.showLocalRuntime.collect { enabled ->
-                _uiState.update { it.copy(showLocalRuntime = enabled) }
-            }
-        }
-        viewModelScope.launch {
-            settingsRepository.localProxyEnabled.collect { enabled ->
-                _uiState.update { it.copy(localProxyEnabled = enabled) }
-            }
-        }
-        viewModelScope.launch {
-            settingsRepository.localProxyUrl.collect { url ->
-                _uiState.update { it.copy(localProxyUrl = url) }
-            }
-        }
-        viewModelScope.launch {
-            settingsRepository.localProxyNoProxy.collect { value ->
-                _uiState.update { it.copy(localProxyNoProxy = value) }
-            }
-        }
-        viewModelScope.launch {
-            settingsRepository.localServerAllowLan.collect { enabled ->
-                _uiState.update { it.copy(localServerAllowLan = enabled) }
-            }
-        }
-        viewModelScope.launch {
-            settingsRepository.localServerUsername.collect { value ->
-                _uiState.update { it.copy(localServerUsername = value) }
-            }
-        }
-        viewModelScope.launch {
-            settingsRepository.localServerPassword.collect { value ->
-                _uiState.update { it.copy(localServerPassword = value) }
-            }
-        }
-        viewModelScope.launch {
-            settingsRepository.localServerRunInBackground.collect { enabled ->
+            getSettingsFlowUseCase().collect { settings ->
+                currentSettings = settings
                 _uiState.update { state ->
                     state.copy(
-                        localServerRunInBackground = enabled,
-                        localServerAutoStart = if (enabled) state.localServerAutoStart else false,
+                        showLocalRuntime = settings.showLocalRuntime,
+                        localProxyEnabled = settings.localProxyEnabled,
+                        localProxyUrl = settings.localProxyUrl,
+                        localProxyNoProxy = settings.localProxyNoProxy.ifEmpty {
+                            LocalServerManager.DEFAULT_NO_PROXY_LIST
+                        },
+                        localServerAllowLan = settings.localServerAllowLan,
+                        localServerUsername = settings.localServerUsername,
+                        localServerPassword = settings.localServerPassword,
+                        localServerRunInBackground = settings.localServerRunInBackground,
+                        localServerAutoStart = settings.localServerAutoStart,
+                        localServerStartupTimeoutSec = settings.localServerStartupTimeoutSec,
                     )
                 }
-                if (!enabled) {
-                    settingsRepository.setLocalServerAutoStart(false)
-                }
-            }
-        }
-        viewModelScope.launch {
-            settingsRepository.localServerAutoStart.collect { enabled ->
-                _uiState.update { it.copy(localServerAutoStart = enabled) }
-            }
-        }
-        viewModelScope.launch {
-            settingsRepository.localServerStartupTimeoutSec.collect { seconds ->
-                _uiState.update { it.copy(localServerStartupTimeoutSec = seconds) }
             }
         }
     }
@@ -418,7 +387,7 @@ class HomeViewModel @Inject constructor(
             )
             if (healthy) {
                 // Server is running — mark setup as done (in case flag was never set)
-                settingsRepository.setLocalSetupCompleted(true)
+                updateSettingsUseCase(currentSettings.copy(localSetupCompleted = true))
                 _uiState.update {
                     it.copy(
                         termuxInstalled = true,
@@ -440,7 +409,7 @@ class HomeViewModel @Inject constructor(
             }
 
             // Server not healthy — check if setup was ever completed
-            val setupDone = settingsRepository.localSetupCompleted.first()
+            val setupDone = currentSettings.localSetupCompleted
             _uiState.update {
                 it.copy(
                     termuxInstalled = true,
@@ -453,8 +422,8 @@ class HomeViewModel @Inject constructor(
             }
 
             if (setupDone && !localAutoStartTriggered &&
-                settingsRepository.localServerRunInBackground.first() &&
-                settingsRepository.localServerAutoStart.first()
+                currentSettings.localServerRunInBackground &&
+                currentSettings.localServerAutoStart
             ) {
                 localAutoStartTriggered = true
                 startLocalServer(getApplication())
@@ -515,7 +484,7 @@ class HomeViewModel @Inject constructor(
             if (startResult.isFailure) {
                 val errorInfo = mapLocalRuntimeError(startResult.exceptionOrNull()?.message)
                 if (errorInfo.status == LocalRuntimeStatus.NeedsSetup) {
-                    settingsRepository.setLocalSetupCompleted(false)
+                    updateSettingsUseCase(currentSettings.copy(localSetupCompleted = false))
                 }
                 _uiState.update {
                     it.copy(
@@ -551,7 +520,7 @@ class HomeViewModel @Inject constructor(
                 return@launch
             }
 
-            settingsRepository.setLocalSetupCompleted(true)
+            updateSettingsUseCase(currentSettings.copy(localSetupCompleted = true))
             val localServer = ensureLocalServerExists()
             _uiState.update {
                 it.copy(
@@ -631,63 +600,71 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    // ── Settings setters via UpdateSettingsUseCase ──
+
     fun setLocalProxyEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setLocalProxyEnabled(enabled)
+            updateSettingsUseCase(currentSettings.copy(localProxyEnabled = enabled))
         }
     }
 
     fun setLocalProxyUrl(url: String) {
         viewModelScope.launch {
-            settingsRepository.setLocalProxyUrl(url)
+            updateSettingsUseCase(currentSettings.copy(localProxyUrl = url))
         }
     }
 
     fun setLocalProxyNoProxy(value: String) {
         viewModelScope.launch {
-            settingsRepository.setLocalProxyNoProxy(value)
+            updateSettingsUseCase(currentSettings.copy(localProxyNoProxy = value))
         }
     }
 
     fun setLocalServerAllowLan(enabled: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setLocalServerAllowLan(enabled)
+            updateSettingsUseCase(currentSettings.copy(localServerAllowLan = enabled))
         }
     }
 
     fun setLocalServerUsername(value: String) {
         viewModelScope.launch {
-            settingsRepository.setLocalServerUsername(value)
+            updateSettingsUseCase(currentSettings.copy(localServerUsername = value))
         }
     }
 
     fun setLocalServerPassword(value: String) {
         viewModelScope.launch {
-            settingsRepository.setLocalServerPassword(value)
+            updateSettingsUseCase(currentSettings.copy(localServerPassword = value))
         }
     }
 
     fun setLocalServerRunInBackground(enabled: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setLocalServerRunInBackground(enabled)
-            if (!enabled) {
-                settingsRepository.setLocalServerAutoStart(false)
-            }
+            updateSettingsUseCase(
+                currentSettings.copy(
+                    localServerRunInBackground = enabled,
+                    localServerAutoStart = if (!enabled) false else currentSettings.localServerAutoStart,
+                )
+            )
         }
     }
 
     fun setLocalServerAutoStart(enabled: Boolean) {
         viewModelScope.launch {
-            val runInBackground = settingsRepository.localServerRunInBackground.first()
-            settingsRepository.setLocalServerAutoStart(enabled && runInBackground)
+            val canEnable = enabled && currentSettings.localServerRunInBackground
+            updateSettingsUseCase(
+                currentSettings.copy(localServerAutoStart = canEnable)
+            )
         }
     }
 
     fun setLocalServerStartupTimeoutSec(value: Int) {
         viewModelScope.launch {
-            settingsRepository.setLocalServerStartupTimeoutSec(value)
+            updateSettingsUseCase(currentSettings.copy(localServerStartupTimeoutSec = value))
         }
     }
+
+    // ── Private helpers ──
 
     private suspend fun waitForLocalServerReady(
         timeoutMs: Long = 30000L,
