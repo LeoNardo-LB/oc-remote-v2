@@ -3,57 +3,36 @@ package dev.minios.ocremote.ui.navigation
 import android.net.Uri
 import android.util.Log
 import dev.minios.ocremote.BuildConfig
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import dev.minios.ocremote.R
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import dev.minios.ocremote.SessionDeepLink
 import dev.minios.ocremote.data.repository.EventDispatcher
 import dev.minios.ocremote.data.repository.ServerRepository
 import dev.minios.ocremote.data.repository.SettingsRepository
-import dev.minios.ocremote.domain.model.ServerConfig
-import dev.minios.ocremote.domain.model.Session
+import dev.minios.ocremote.ui.navigation.routes.*
+import dev.minios.ocremote.ui.screens.about.AboutScreen
 import dev.minios.ocremote.ui.screens.chat.ChatScreen
 import dev.minios.ocremote.ui.screens.home.HomeRoute
-import dev.minios.ocremote.ui.screens.about.AboutScreen
 import dev.minios.ocremote.ui.screens.sessions.SessionListRoute
-import dev.minios.ocremote.ui.screens.settings.SettingsRoute
 import dev.minios.ocremote.ui.screens.server.ServerModelFilterRoute
 import dev.minios.ocremote.ui.screens.server.ServerProvidersRoute
 import dev.minios.ocremote.ui.screens.server.ServerSettingsRoute
+import dev.minios.ocremote.ui.screens.settings.SettingsRoute
 import dev.minios.ocremote.ui.screens.webview.WebViewScreen
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.firstOrNull
 import java.net.URLDecoder
-import java.text.SimpleDateFormat
-import java.util.*
 
 private const val TAG = "NavGraph"
 
 /**
- * Main navigation graph for the app
+ * Main navigation graph for the app.
+ * Route patterns, arguments, and parameter extraction are delegated to
+ * Nav objects in [dev.minios.ocremote.ui.navigation.routes].
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Composable
@@ -65,10 +44,10 @@ fun NavGraph(
     eventDispatcher: EventDispatcher
 ) {
     val navController = rememberNavController()
-    
+
     // Use native UI by default (WebView is legacy)
     val useNativeUi = true
-    
+
     // Flow to tell the *existing* WebView to navigate to a new URL
     // (used when deep-link arrives while WebView is already on screen)
     val webViewNavigateFlow = remember { MutableSharedFlow<String>(extraBufferCapacity = 1) }
@@ -79,8 +58,8 @@ fun NavGraph(
     // Target session that should receive the shared images (null = not yet chosen)
     var pendingShareSessionId by remember { mutableStateOf<String?>(null) }
     // Data for the picker dialog
-    var sharePickerServers by remember { mutableStateOf<List<ServerConfig>>(emptyList()) }
-    var sharePickerSessions by remember { mutableStateOf<List<Session>>(emptyList()) }
+    var sharePickerServers by remember { mutableStateOf<List<dev.minios.ocremote.domain.model.ServerConfig>>(emptyList()) }
+    var sharePickerSessions by remember { mutableStateOf<List<dev.minios.ocremote.domain.model.Session>>(emptyList()) }
     var sharePickerServerSessions by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
 
     // Listen for shared images
@@ -124,7 +103,7 @@ fun NavGraph(
             onSelectSession = { server, session ->
                 showSharePicker = false
                 pendingShareSessionId = session.id
-                val route = Screen.Chat.createRoute(
+                val route = ChatNav.createRoute(
                     serverUrl = server.url,
                     username = server.username,
                     password = server.password ?: "",
@@ -139,7 +118,7 @@ fun NavGraph(
                 showSharePicker = false
                 // Navigate to session list — user can create a new session there.
                 // Images remain in the flow and will be consumed when ChatScreen opens.
-                val route = Screen.SessionList.createRoute(
+                val route = SessionListNav.createRoute(
                     serverUrl = server.url,
                     username = server.username,
                     password = server.password ?: "",
@@ -163,11 +142,9 @@ fun NavGraph(
             deepLinkFlow.resetReplayCache()
             val currentRoute = navController.currentDestination?.route
             if (BuildConfig.DEBUG) Log.d(TAG, "Deep-link received: sessionPath=${deepLink.sessionPath}, sessionId=${deepLink.sessionId}, currentRoute=$currentRoute, useNativeUi=$useNativeUi")
-            
+
             if (useNativeUi) {
                 // ---- Native UI path ----
-                // Deep-links carry a sessionPath like /L2hvbWUv.../session/<sessionId>
-                // Extract the sessionId from the path if present, fall back to raw sessionId
                 val sessionId = deepLink.sessionPath
                     .trimEnd('/')
                     .substringAfterLast("/session/", "")
@@ -175,13 +152,12 @@ fun NavGraph(
                     ?: deepLink.sessionId.takeIf { it.isNotBlank() }
 
                 if (sessionId != null) {
-                    // Navigate directly into the chat for this session
-                    val route = Screen.Chat.createRoute(
+                    val route = ChatNav.createRoute(
                         serverUrl = deepLink.serverUrl,
                         username = deepLink.username,
                         password = deepLink.password,
                         serverName = deepLink.serverName,
-                        serverId = "", // not available from deep-link; ViewModel handles it
+                        serverId = "",
                         sessionId = sessionId
                     )
                     val currentSessionId = navController.currentBackStackEntry
@@ -189,35 +165,27 @@ fun NavGraph(
                         ?.getString("sessionId")
                         ?.let { URLDecoder.decode(it, "UTF-8") }
 
-                    Log.i(
-                        TAG,
-                        "Deep-link → native Chat: targetSession=$sessionId currentSession=$currentSessionId"
-                    )
+                    Log.i(TAG, "Deep-link → native Chat: targetSession=$sessionId currentSession=$currentSessionId")
 
                     if (currentRoute?.startsWith("chat") == true && currentSessionId != sessionId) {
-                        // Replace current chat screen when switching sessions from notification.
-                        // launchSingleTop alone can keep the same top chat destination and skip
-                        // visible transition to a different session.
                         navController.popBackStack()
                         navController.navigate(route)
                     } else {
                         navController.navigate(route) { launchSingleTop = true }
                     }
                 } else {
-                    // No specific session — open session list (placeholder; the
-                    // user can also just stay on Home if preferred)
                     Log.i(TAG, "Deep-link has no sessionId, ignoring native path")
                 }
             } else {
                 // ---- WebView path (legacy) ----
                 val isWebViewOnScreen = currentRoute?.startsWith("webview") == true
-                
+
                 if (isWebViewOnScreen && deepLink.sessionPath.isNotBlank()) {
                     val newUrl = deepLink.serverUrl.trimEnd('/') + deepLink.sessionPath
                     Log.i(TAG, "WebView already on screen, navigating in-place to: $newUrl")
                     webViewNavigateFlow.tryEmit(newUrl)
                 } else {
-                    val route = Screen.WebView.createRoute(
+                    val route = WebViewNav.createRoute(
                         serverUrl = deepLink.serverUrl,
                         username = deepLink.username,
                         password = deepLink.password,
@@ -230,35 +198,35 @@ fun NavGraph(
             }
         }
     }
-    
+
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route
     ) {
         // ============ Home Screen ============
-        composable(Screen.Home.route) {
+        composable(HomeNav.route) {
             HomeRoute(
                 onNavigateToSessions = { serverUrl, username, password, serverName, serverId ->
                     navController.navigate(
-                        Screen.SessionList.createRoute(serverUrl, username, password, serverName, serverId)
+                        SessionListNav.createRoute(serverUrl, username, password, serverName, serverId)
                     )
                 },
                 onNavigateToServerSettings = { serverUrl, username, password, serverName, serverId ->
                     navController.navigate(
-                        Screen.ServerSettings.createRoute(serverUrl, username, password, serverName, serverId)
+                        ServerSettingsNav.createRoute(serverUrl, username, password, serverName, serverId)
                     )
                 },
                 onNavigateToSettings = {
-                    navController.navigate(Screen.Settings.route)
+                    navController.navigate(SettingsNav.route)
                 },
                 onNavigateToAbout = {
-                    navController.navigate(Screen.About.route)
+                    navController.navigate(AboutNav.route)
                 }
             )
         }
-        
+
         // ============ Settings Screen ============
-        composable(Screen.Settings.route) {
+        composable(SettingsNav.route) {
             SettingsRoute(
                 onNavigateBack = {
                     navController.popBackStack()
@@ -266,72 +234,53 @@ fun NavGraph(
             )
         }
 
+        // ============ Server Settings Screen ============
         composable(
-            route = "server_settings?serverUrl={serverUrl}&username={username}&password={password}&serverName={serverName}&serverId={serverId}",
-            arguments = listOf(
-                navArgument("serverUrl") { type = NavType.StringType },
-                navArgument("username") { type = NavType.StringType },
-                navArgument("password") { type = NavType.StringType },
-                navArgument("serverName") { type = NavType.StringType },
-                navArgument("serverId") { type = NavType.StringType },
-            )
-        ) {
-            val serverUrl = URLDecoder.decode(it.arguments?.getString("serverUrl") ?: "", "UTF-8")
-            val username = URLDecoder.decode(it.arguments?.getString("username") ?: "", "UTF-8")
-            val password = URLDecoder.decode(it.arguments?.getString("password") ?: "", "UTF-8")
-            val serverName = URLDecoder.decode(it.arguments?.getString("serverName") ?: "", "UTF-8")
-            val serverId = URLDecoder.decode(it.arguments?.getString("serverId") ?: "", "UTF-8")
+            route = ServerSettingsNav.routePattern,
+            arguments = ServerSettingsNav.navArguments
+        ) { entry ->
+            val params = ServerSettingsNav.fromEntry(entry)
             ServerSettingsRoute(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToProviders = {
                     navController.navigate(
-                        Screen.ServerProviders.createRoute(
-                            serverUrl = serverUrl,
-                            username = username,
-                            password = password,
-                            serverName = serverName,
-                            serverId = serverId
+                        ServerProvidersNav.createRoute(
+                            serverUrl = params.server.serverUrl,
+                            username = params.server.username,
+                            password = params.server.password,
+                            serverName = params.server.serverName,
+                            serverId = params.server.serverId
                         )
                     )
                 },
                 onNavigateToModelFilter = {
                     navController.navigate(
-                        Screen.ServerModelFilter.createRoute(
-                            serverUrl = serverUrl,
-                            username = username,
-                            password = password,
-                            serverName = serverName,
-                            serverId = serverId
+                        ServerModelFilterNav.createRoute(
+                            serverUrl = params.server.serverUrl,
+                            username = params.server.username,
+                            password = params.server.password,
+                            serverName = params.server.serverName,
+                            serverId = params.server.serverId
                         )
                     )
                 }
             )
         }
 
+        // ============ Server Providers Screen ============
         composable(
-            route = "server_providers?serverUrl={serverUrl}&username={username}&password={password}&serverName={serverName}&serverId={serverId}",
-            arguments = listOf(
-                navArgument("serverUrl") { type = NavType.StringType },
-                navArgument("username") { type = NavType.StringType },
-                navArgument("password") { type = NavType.StringType },
-                navArgument("serverName") { type = NavType.StringType },
-                navArgument("serverId") { type = NavType.StringType },
-            )
+            route = ServerProvidersNav.routePattern,
+            arguments = ServerProvidersNav.navArguments
         ) {
             ServerProvidersRoute(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
 
+        // ============ Server Model Filter Screen ============
         composable(
-            route = "server_model_filter?serverUrl={serverUrl}&username={username}&password={password}&serverName={serverName}&serverId={serverId}",
-            arguments = listOf(
-                navArgument("serverUrl") { type = NavType.StringType },
-                navArgument("username") { type = NavType.StringType },
-                navArgument("password") { type = NavType.StringType },
-                navArgument("serverName") { type = NavType.StringType },
-                navArgument("serverId") { type = NavType.StringType },
-            )
+            route = ServerModelFilterNav.routePattern,
+            arguments = ServerModelFilterNav.navArguments
         ) {
             ServerModelFilterRoute(
                 onNavigateBack = { navController.popBackStack() }
@@ -339,62 +288,27 @@ fun NavGraph(
         }
 
         // ============ About Screen ============
-        composable(Screen.About.route) {
+        composable(AboutNav.route) {
             AboutScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
             )
         }
-        
+
         // ============ WebView Screen (legacy) ============
         composable(
-            route = "webview?serverUrl={serverUrl}&username={username}&password={password}&serverName={serverName}&initialPath={initialPath}",
-            arguments = listOf(
-                navArgument("serverUrl") { 
-                    type = NavType.StringType
-                    nullable = false
-                },
-                navArgument("username") { 
-                    type = NavType.StringType
-                    nullable = false
-                },
-                navArgument("password") { 
-                    type = NavType.StringType
-                    nullable = false
-                },
-                navArgument("serverName") { 
-                    type = NavType.StringType
-                    nullable = false
-                },
-                navArgument("initialPath") {
-                    type = NavType.StringType
-                    defaultValue = ""
-                }
-            )
-        ) { backStackEntry ->
-            val serverUrl = URLDecoder.decode(
-                backStackEntry.arguments?.getString("serverUrl") ?: "", "UTF-8"
-            )
-            val username = URLDecoder.decode(
-                backStackEntry.arguments?.getString("username") ?: "", "UTF-8"
-            )
-            val password = URLDecoder.decode(
-                backStackEntry.arguments?.getString("password") ?: "", "UTF-8"
-            )
-            val serverName = URLDecoder.decode(
-                backStackEntry.arguments?.getString("serverName") ?: "", "UTF-8"
-            )
-            val initialPath = URLDecoder.decode(
-                backStackEntry.arguments?.getString("initialPath") ?: "", "UTF-8"
-            )
-            
+            route = WebViewNav.routePattern,
+            arguments = WebViewNav.navArguments
+        ) { entry ->
+            val params = WebViewNav.fromEntry(entry)
+
             WebViewScreen(
-                serverUrl = serverUrl,
-                username = username,
-                password = password,
-                serverName = serverName,
-                initialPath = initialPath,
+                serverUrl = params.serverUrl,
+                username = params.username,
+                password = params.password,
+                serverName = params.serverName,
+                initialPath = params.initialPath,
                 navigateUrlFlow = webViewNavigateFlow,
                 isDarkTheme = isSystemInDarkTheme(),
                 onNavigateBack = {
@@ -402,43 +316,23 @@ fun NavGraph(
                 }
             )
         }
-        
+
         // ============ Session List Screen (native) ============
         composable(
-            route = "sessions?serverUrl={serverUrl}&username={username}&password={password}&serverName={serverName}&serverId={serverId}",
-            arguments = listOf(
-                navArgument("serverUrl") { type = NavType.StringType },
-                navArgument("username") { type = NavType.StringType },
-                navArgument("password") { type = NavType.StringType },
-                navArgument("serverName") { type = NavType.StringType },
-                navArgument("serverId") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val serverUrl = URLDecoder.decode(
-                backStackEntry.arguments?.getString("serverUrl") ?: "", "UTF-8"
-            )
-            val username = URLDecoder.decode(
-                backStackEntry.arguments?.getString("username") ?: "", "UTF-8"
-            )
-            val password = URLDecoder.decode(
-                backStackEntry.arguments?.getString("password") ?: "", "UTF-8"
-            )
-            val serverName = URLDecoder.decode(
-                backStackEntry.arguments?.getString("serverName") ?: "", "UTF-8"
-            )
-            val serverId = URLDecoder.decode(
-                backStackEntry.arguments?.getString("serverId") ?: "", "UTF-8"
-            )
+            route = SessionListNav.routePattern,
+            arguments = SessionListNav.navArguments
+        ) { entry ->
+            val params = SessionListNav.fromEntry(entry)
 
             SessionListRoute(
                 onNavigateToChat = { sessionId, openTerminal ->
                     navController.navigate(
-                        Screen.Chat.createRoute(
-                            serverUrl = serverUrl,
-                            username = username,
-                            password = password,
-                            serverName = serverName,
-                            serverId = serverId,
+                        ChatNav.createRoute(
+                            serverUrl = params.server.serverUrl,
+                            username = params.server.username,
+                            password = params.server.password,
+                            serverName = params.server.serverName,
+                            serverId = params.server.serverId,
                             sessionId = sessionId,
                             openTerminal = openTerminal
                         )
@@ -449,89 +343,65 @@ fun NavGraph(
                 }
             )
         }
-        
+
         // ============ Chat Screen (native) ============
         composable(
-            route = "chat?serverUrl={serverUrl}&username={username}&password={password}&serverName={serverName}&serverId={serverId}&sessionId={sessionId}&openTerminal={openTerminal}",
-            arguments = listOf(
-                navArgument("serverUrl") { type = NavType.StringType },
-                navArgument("username") { type = NavType.StringType },
-                navArgument("password") { type = NavType.StringType },
-                navArgument("serverName") { type = NavType.StringType },
-                navArgument("serverId") { type = NavType.StringType },
-                navArgument("sessionId") { type = NavType.StringType },
-                navArgument("openTerminal") { type = NavType.BoolType; defaultValue = false }
-            )
-        ) { backStackEntry ->
-            val serverUrl = URLDecoder.decode(
-                backStackEntry.arguments?.getString("serverUrl") ?: "", "UTF-8"
-            )
-            val username = URLDecoder.decode(
-                backStackEntry.arguments?.getString("username") ?: "", "UTF-8"
-            )
-            val password = URLDecoder.decode(
-                backStackEntry.arguments?.getString("password") ?: "", "UTF-8"
-            )
-            val serverName = URLDecoder.decode(
-                backStackEntry.arguments?.getString("serverName") ?: "", "UTF-8"
-            )
-            val serverId = URLDecoder.decode(
-                backStackEntry.arguments?.getString("serverId") ?: "", "UTF-8"
-            )
-            val sessionId = URLDecoder.decode(
-                backStackEntry.arguments?.getString("sessionId") ?: "", "UTF-8"
-            )
-            val openTerminal = backStackEntry.arguments?.getBoolean("openTerminal") ?: false
+            route = ChatNav.routePattern,
+            arguments = ChatNav.navArguments
+        ) { entry ->
+            val params = ChatNav.fromEntry(entry)
 
             // Only pass shared images to the targeted session, then clear them
-            val imagesForThisSession = if (pendingShareSessionId == sessionId && pendingShareUris.isNotEmpty()) {
+            val imagesForThisSession = if (pendingShareSessionId == params.sessionId && pendingShareUris.isNotEmpty()) {
                 pendingShareUris
             } else {
                 emptyList()
             }
-            
+
             ChatScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
                 onNavigateToSession = { newSessionId ->
-                    val route = Screen.Chat.createRoute(
-                        serverUrl = serverUrl,
-                        username = username,
-                        password = password,
-                        serverName = serverName,
-                        serverId = serverId,
+                    val route = ChatNav.createRoute(
+                        serverUrl = params.server.serverUrl,
+                        username = params.server.username,
+                        password = params.server.password,
+                        serverName = params.server.serverName,
+                        serverId = params.server.serverId,
                         sessionId = newSessionId
                     )
                     navController.navigate(route) {
                         // Pop current chat so back goes to session list, not old session
-                        popUpTo("sessions?serverUrl={serverUrl}&username={username}&password={password}&serverName={serverName}&serverId={serverId}") {
+                        popUpTo(SessionListNav.routePattern) {
                             inclusive = false
                         }
                     }
                 },
                 onNavigateToChildSession = { childSessionId ->
-                    val route = Screen.Chat.createRoute(
-                        serverUrl = serverUrl, username = username, password = password,
-                        serverName = serverName, serverId = serverId, sessionId = childSessionId
+                    val route = ChatNav.createRoute(
+                        serverUrl = params.server.serverUrl,
+                        username = params.server.username,
+                        password = params.server.password,
+                        serverName = params.server.serverName,
+                        serverId = params.server.serverId,
+                        sessionId = childSessionId
                     )
-                    // 不用 launchSingleTop — 它会阻止同 destination 不同参数的导航
                     navController.navigate(route)
                 },
                 onOpenInWebView = {
-                    // Build the session path: /<base64url(directory)>/session/<sessionId>
-                    val session = eventDispatcher.sessions.value.find { it.id == sessionId }
+                    val session = eventDispatcher.sessions.value.find { it.id == params.sessionId }
                     val dir = session?.directory ?: ""
                     val encodedDir = android.util.Base64.encodeToString(
                         dir.toByteArray(Charsets.UTF_8),
                         android.util.Base64.NO_WRAP
                     ).replace('+', '-').replace('/', '_').replace("=", "")
-                    val sessionPath = "/$encodedDir/session/$sessionId"
-                    val route = Screen.WebView.createRoute(
-                        serverUrl = serverUrl,
-                        username = username,
-                        password = password,
-                        serverName = serverName,
+                    val sessionPath = "/$encodedDir/session/${params.sessionId}"
+                    val route = WebViewNav.createRoute(
+                        serverUrl = params.server.serverUrl,
+                        username = params.server.username,
+                        password = params.server.password,
+                        serverName = params.server.serverName,
                         initialPath = sessionPath
                     )
                     navController.navigate(route) { launchSingleTop = true }
@@ -541,227 +411,8 @@ fun NavGraph(
                     pendingShareUris = emptyList()
                     pendingShareSessionId = null
                 },
-                startInTerminalMode = openTerminal
+                startInTerminalMode = params.openTerminal
             )
-        }
-    }
-}
-
-/**
- * Dialog shown when images are shared into the app via ACTION_SEND.
- * Lists recent sessions from servers that have SSE data loaded,
- * grouped by server. User taps a session to open it with the shared image(s).
- */
-@Composable
-private fun ShareTargetPickerDialog(
-    servers: List<ServerConfig>,
-    sessions: List<Session>,
-    serverSessions: Map<String, Set<String>>,
-    imageCount: Int,
-    onSelectSession: (server: ServerConfig, session: Session) -> Unit,
-    onNewSession: (server: ServerConfig) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
-
-    // Build list of (server, session) pairs, sorted by most recently updated session
-    data class PickerItem(val server: ServerConfig, val session: Session)
-
-    val items = remember(servers, sessions, serverSessions) {
-        val result = mutableListOf<PickerItem>()
-        for (server in servers) {
-            val sessionIds = serverSessions[server.id] ?: continue
-            val serverSessionList = sessions
-                .filter { it.id in sessionIds && !it.isArchived && it.parentId == null }
-                .sortedByDescending { it.time.updated }
-                .take(15)
-            for (session in serverSessionList) {
-                result.add(PickerItem(server, session))
-            }
-        }
-        result.sortedByDescending { it.session.time.updated }
-    }
-
-    // Servers that have sessions loaded (for the "New session" option)
-    val activeServers = remember(servers, serverSessions) {
-        servers.filter { serverSessions.containsKey(it.id) }
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .fillMaxHeight(0.7f),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Header
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.share_send_image_to),
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = if (imageCount == 1) 
-                                stringResource(R.string.image_count_single)
-                            else 
-                                stringResource(R.string.image_count_multiple, imageCount),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
-                    }
-                }
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                )
-
-                if (items.isEmpty()) {
-                    // No connected servers / sessions
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.CloudOff,
-                                contentDescription = null,
-                                modifier = Modifier.size(40.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                            )
-                            Text(
-                                text = stringResource(R.string.share_no_connected_servers),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                            Text(
-                                text = stringResource(R.string.share_connect_first),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                            )
-                        }
-                    }
-                } else {
-                    // Session list
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentPadding = PaddingValues(vertical = 4.dp)
-                    ) {
-                        items(items, key = { "${it.server.id}/${it.session.id}" }) { item ->
-                            val projectName = item.session.directory
-                                .trimEnd('/')
-                                .substringAfterLast('/')
-                                .ifEmpty { null }
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onSelectSession(item.server, item.session) }
-                                    .padding(horizontal = 20.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.Chat,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    // Session title
-                                    Text(
-                                        text = item.session.title ?: stringResource(R.string.session_untitled),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    // Project + server info
-                                    val subtitle = buildString {
-                                        if (projectName != null) append(projectName)
-                                        if (activeServers.size > 1) {
-                                            if (isNotEmpty()) append(" · ")
-                                            append(item.server.displayName)
-                                        }
-                                    }
-                                    if (subtitle.isNotBlank()) {
-                                        Text(
-                                            text = subtitle,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                                // Date
-                                Text(
-                                    text = dateFormat.format(Date(item.session.time.updated)),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // "New session" buttons per active server
-                if (activeServers.isNotEmpty()) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                    )
-
-                    for (server in activeServers) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onNewSession(server) }
-                                .padding(horizontal = 20.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                            Text(
-                                text = if (activeServers.size > 1)
-                                    stringResource(R.string.sessions_new_on_server, server.displayName)
-                                else
-                                    stringResource(R.string.sessions_new_short),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }
