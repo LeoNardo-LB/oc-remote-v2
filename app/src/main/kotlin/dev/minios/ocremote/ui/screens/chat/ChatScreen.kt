@@ -4716,7 +4716,16 @@ private fun MarkdownContent(
     textColor: Color,
     isUser: Boolean
 ) {
-    val normalizedMarkdown = remember(markdown) { preserveRawHtmlPayload(markdown) }
+    val normalizedMarkdown = remember(markdown, isUser) {
+        val base = preserveRawHtmlPayload(markdown)
+        if (isUser) {
+            // User messages: single \n doesn't break in Markdown (soft break).
+            // Convert standalone \n to \n\n for paragraph breaks.
+            base.replace(Regex("(?<!\n)\n(?!\n)"), "\n\n")
+        } else {
+            base
+        }
+    }
 
     val isAmoled = isAmoledTheme()
 
