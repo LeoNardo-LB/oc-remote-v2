@@ -1,18 +1,37 @@
 package dev.minios.ocremote.domain.usecase
 
-import dev.minios.ocremote.domain.model.Message
-import dev.minios.ocremote.domain.model.Part
-import dev.minios.ocremote.domain.repository.ChatRepository
+import dev.minios.ocremote.data.api.ModelSelection
+import dev.minios.ocremote.data.api.OpenCodeApi
+import dev.minios.ocremote.data.api.PromptPart
+import dev.minios.ocremote.data.api.ServerConnection
 import javax.inject.Inject
 
 /**
- * Use case: send a message to a session.
- * Delegates to [ChatRepository.sendMessage].
+ * Use case: send messages to a session.
+ * Temporary shell — delegates to OpenCodeApi. Full impl with tests in Phase 4.
  */
 class SendMessageUseCase @Inject constructor(
-    private val chatRepository: ChatRepository
+    private val api: OpenCodeApi
 ) {
-    suspend operator fun invoke(sessionId: String, parts: List<Part>): Result<Message> {
-        return chatRepository.sendMessage(sessionId, parts)
+    // TODO: Phase 4 — replace api calls with ChatRepository methods
+
+    suspend fun sendPrompt(
+        conn: ServerConnection,
+        sessionId: String,
+        parts: List<PromptPart>,
+        model: ModelSelection?,
+        agent: String,
+        variant: String?,
+        directory: String?
+    ) {
+        api.promptAsync(
+            conn = conn,
+            sessionId = sessionId,
+            parts = parts,
+            model = model,
+            agent = agent,
+            variant = variant,
+            directory = directory
+        )
     }
 }

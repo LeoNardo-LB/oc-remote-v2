@@ -11,6 +11,7 @@ import dev.minios.ocremote.data.repository.SettingsRepository
 import dev.minios.ocremote.domain.model.Session
 import dev.minios.ocremote.domain.model.SseEvent
 import dev.minios.ocremote.domain.model.ToolRef
+import dev.minios.ocremote.domain.usecase.*
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -46,8 +47,17 @@ class ChatViewModelPermissionTest {
 
     private lateinit var eventReducer: EventReducer
     private lateinit var api: OpenCodeApi
-    private lateinit var draftRepository: DraftRepository
     private lateinit var settingsRepository: SettingsRepository
+    // UseCase mocks
+    private lateinit var sendMessageUseCase: SendMessageUseCase
+    private lateinit var manageSessionUseCase: ManageSessionUseCase
+    private lateinit var managePermissionUseCase: ManagePermissionUseCase
+    private lateinit var selectModelUseCase: SelectModelUseCase
+    private lateinit var manageAgentUseCase: ManageAgentUseCase
+    private lateinit var manageTerminalUseCase: ManageTerminalUseCase
+    private lateinit var draftUseCase: DraftUseCase
+    private lateinit var shareExportUseCase: ShareExportUseCase
+    private lateinit var undoRedoUseCase: UndoRedoUseCase
 
     private val testSessionId = "session-123"
     private val testServerId = "server-1"
@@ -68,10 +78,20 @@ class ChatViewModelPermissionTest {
 
         // Create fresh mocks per test to avoid stub ordering issues
         api = mockk(relaxed = true)
-        draftRepository = mockk(relaxed = true)
         settingsRepository = mockk()
 
-        every { draftRepository.getDraft(any()) } returns null
+        // Create UseCase mocks (all relaxed so unimportant methods don't need stubs)
+        sendMessageUseCase = mockk(relaxed = true)
+        manageSessionUseCase = mockk(relaxed = true)
+        managePermissionUseCase = mockk(relaxed = true)
+        selectModelUseCase = mockk(relaxed = true)
+        manageAgentUseCase = mockk(relaxed = true)
+        manageTerminalUseCase = mockk(relaxed = true)
+        draftUseCase = mockk(relaxed = true)
+        shareExportUseCase = mockk(relaxed = true)
+        undoRedoUseCase = mockk(relaxed = true)
+
+        every { draftUseCase.getDraft(any()) } returns null
 
         every { settingsRepository.hiddenModels(any()) } returns flowOf(emptySet())
         every { settingsRepository.terminalFontSize } returns flowOf(13f)
@@ -88,13 +108,13 @@ class ChatViewModelPermissionTest {
         every { settingsRepository.imageAttachmentMaxLongSide } returns flowOf(1440)
         every { settingsRepository.imageAttachmentWebpQuality } returns flowOf(60)
 
-        // Init block API stubs — defaults that tests can override
-        coEvery { api.getSession(any(), any()) } returns createTestSession()
-        coEvery { api.listMessages(any(), any(), any()) } returns emptyList()
-        coEvery { api.listPendingQuestions(any(), any()) } returns emptyList()
-        coEvery { api.getProviders(any()) } returns ProvidersResponse(emptyList())
-        coEvery { api.listAgents(any()) } returns emptyList()
-        coEvery { api.listCommands(any()) } returns emptyList()
+        // Init block stubs — defaults that tests can override
+        coEvery { manageSessionUseCase.getSession(any(), any()) } returns createTestSession()
+        coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns emptyList()
+        coEvery { managePermissionUseCase.listPendingQuestions(any(), any()) } returns emptyList()
+        coEvery { selectModelUseCase.loadProviders(any()) } returns ProvidersResponse(emptyList())
+        coEvery { manageAgentUseCase.loadAgents(any()) } returns emptyList()
+        coEvery { manageAgentUseCase.loadCommands(any()) } returns emptyList()
         // NOTE: listPendingPermissions is NOT set here — each test sets its own stub
     }
 
@@ -119,9 +139,17 @@ class ChatViewModelPermissionTest {
         return ChatViewModel(
             savedStateHandle = savedState,
             eventReducer = eventReducer,
-            api = api,
-            draftRepository = draftRepository,
-            settingsRepository = settingsRepository
+            sendMessageUseCase = sendMessageUseCase,
+            manageSessionUseCase = manageSessionUseCase,
+            managePermissionUseCase = managePermissionUseCase,
+            selectModelUseCase = selectModelUseCase,
+            manageAgentUseCase = manageAgentUseCase,
+            manageTerminalUseCase = manageTerminalUseCase,
+            draftUseCase = draftUseCase,
+            shareExportUseCase = shareExportUseCase,
+            undoRedoUseCase = undoRedoUseCase,
+            settingsRepository = settingsRepository,
+            api = api
         )
     }
 
@@ -159,16 +187,16 @@ class ChatViewModelPermissionTest {
 
     @Test
     fun `init block executes — getSession API is called`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns emptyList()
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns emptyList()
         createViewModel()
-        coVerify { api.getSession(any(), testSessionId) }
+        coVerify { manageSessionUseCase.getSession(any(), testSessionId) }
     }
 
     @Test
     fun `init block executes — permissions API is called`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns emptyList()
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns emptyList()
         createViewModel()
-        coVerify { api.listPendingPermissions(any(), any()) }
+        coVerify { managePermissionUseCase.listPendingPermissions(any(), any()) }
     }
 
     @Test
@@ -193,7 +221,7 @@ class ChatViewModelPermissionTest {
             metadata = mapOf("key" to JsonPrimitive("value")),
             always = listOf("pattern1")
         )
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(permRequest)
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(permRequest)
 
         val vm = createViewModel()
 
@@ -211,7 +239,7 @@ class ChatViewModelPermissionTest {
     fun `loadPendingPermissions filters by session ID`() = runTest {
         val perm1 = createTestPermissionRequest(id = "p1", sessionId = testSessionId)
         val perm2 = createTestPermissionRequest(id = "p2", sessionId = "other-session")
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(perm1, perm2)
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(perm1, perm2)
 
         val vm = createViewModel()
 
@@ -223,7 +251,7 @@ class ChatViewModelPermissionTest {
 
     @Test
     fun `loadPendingPermissions empty result — no permissions stored`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns emptyList()
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns emptyList()
 
         val vm = createViewModel()
 
@@ -232,7 +260,7 @@ class ChatViewModelPermissionTest {
 
     @Test
     fun `loadPendingPermissions maps metadata`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(
                 id = "pm",
                 metadata = mapOf(
@@ -254,7 +282,7 @@ class ChatViewModelPermissionTest {
 
     @Test
     fun `loadPendingPermissions maps always field`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "p-no", always = emptyList()),
             createTestPermissionRequest(id = "p-yes", always = listOf("pattern"))
         )
@@ -269,7 +297,7 @@ class ChatViewModelPermissionTest {
 
     @Test
     fun `loadPendingPermissions API exception does not crash`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } throws RuntimeException("err")
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } throws RuntimeException("err")
 
         createViewModel() // Should not throw
 
@@ -278,7 +306,7 @@ class ChatViewModelPermissionTest {
 
     @Test
     fun `loadPendingPermissions maps tool ref`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "pt", tool = ToolRef(messageId = "m1", callId = "c1"))
         )
 
@@ -296,10 +324,10 @@ class ChatViewModelPermissionTest {
 
     @Test
     fun `replyToPermission calls API and removes permission`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "perm-reply")
         )
-        coEvery { api.replyToPermission(any(), any(), any(), any(), any()) } returns true
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any()) } returns true
 
         val vm = createViewModel()
         assertEquals("Precondition: 1 permission loaded",
@@ -307,46 +335,46 @@ class ChatViewModelPermissionTest {
 
         vm.replyToPermission("perm-reply", "once")
 
-        coVerify { api.replyToPermission(any(), "perm-reply", "once", any(), any()) }
+        coVerify { managePermissionUseCase.replyToPermission(any(), "perm-reply", "once", any()) }
         assertTrue(eventReducer.permissions.value[testSessionId].isNullOrEmpty())
     }
 
     @Test
     fun `replyToPermission with reply=always`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "pa")
         )
-        coEvery { api.replyToPermission(any(), any(), any(), any(), any()) } returns true
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any()) } returns true
 
         val vm = createViewModel()
 
         vm.replyToPermission("pa", "always")
 
-        coVerify { api.replyToPermission(any(), "pa", "always", any(), any()) }
+        coVerify { managePermissionUseCase.replyToPermission(any(), "pa", "always", any()) }
         assertTrue(eventReducer.permissions.value[testSessionId].isNullOrEmpty())
     }
 
     @Test
     fun `replyToPermission with reply=reject`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "pr")
         )
-        coEvery { api.replyToPermission(any(), any(), any(), any(), any()) } returns true
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any()) } returns true
 
         val vm = createViewModel()
 
         vm.replyToPermission("pr", "reject")
 
-        coVerify { api.replyToPermission(any(), "pr", "reject", any(), any()) }
+        coVerify { managePermissionUseCase.replyToPermission(any(), "pr", "reject", any()) }
         assertTrue(eventReducer.permissions.value[testSessionId].isNullOrEmpty())
     }
 
     @Test
     fun `replyToPermission does NOT remove when API returns false`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "pf")
         )
-        coEvery { api.replyToPermission(any(), any(), any(), any(), any()) } returns false
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any()) } returns false
 
         val vm = createViewModel()
 
@@ -357,11 +385,11 @@ class ChatViewModelPermissionTest {
 
     @Test
     fun `replyToPermission spares other permissions`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "p1", permission = "bash"),
             createTestPermissionRequest(id = "p2", permission = "write")
         )
-        coEvery { api.replyToPermission(any(), "p1", any(), any(), any()) } returns true
+        coEvery { managePermissionUseCase.replyToPermission(any(), "p1", any(), any()) } returns true
 
         val vm = createViewModel()
 
@@ -375,10 +403,10 @@ class ChatViewModelPermissionTest {
 
     @Test
     fun `replyToPermission API exception keeps permission`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "pe")
         )
-        coEvery { api.replyToPermission(any(), any(), any(), any(), any()) } throws RuntimeException("err")
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any()) } throws RuntimeException("err")
 
         val vm = createViewModel()
 
@@ -393,7 +421,7 @@ class ChatViewModelPermissionTest {
 
     @Test
     fun `multi-session — only current session permissions loaded into EventReducer`() = runTest {
-        coEvery { api.listPendingPermissions(any(), any()) } returns listOf(
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "p1", sessionId = testSessionId),
             createTestPermissionRequest(id = "p2", sessionId = "session-456")
         )

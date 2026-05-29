@@ -1,69 +1,58 @@
 package dev.minios.ocremote.domain.usecase
 
-import dev.minios.ocremote.domain.model.Message
-import dev.minios.ocremote.domain.model.Part
-import dev.minios.ocremote.domain.model.TimeInfo
-import dev.minios.ocremote.domain.repository.ChatRepository
+import dev.minios.ocremote.data.api.ModelSelection
+import dev.minios.ocremote.data.api.OpenCodeApi
+import dev.minios.ocremote.data.api.PromptPart
+import dev.minios.ocremote.data.api.ServerConnection
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SendMessageUseCaseTest {
 
-    private val chatRepository: ChatRepository = mockk()
-    private val useCase = SendMessageUseCase(chatRepository)
+    private val api: OpenCodeApi = mockk()
+    private val useCase = SendMessageUseCase(api)
+    private val conn = ServerConnection.from("http://localhost:8080")
 
     @Test
-    fun `invoke returns message on success`() = runTest {
-        val sessionId = "session-1"
-        val parts = listOf(
-            Part.Text(
-                id = "p1",
-                sessionId = sessionId,
-                messageId = "m1",
-                text = "Hello"
+    fun `sendPrompt delegates to api`() = runTest {
+        val parts = listOf(PromptPart(type = "text", text = "Hello"))
+        coEvery { api.promptAsync(any(), any(), any(), any(), any(), any(), any()) } returns Unit
+
+        useCase.sendPrompt(
+            conn = conn,
+            sessionId = "s1",
+            parts = parts,
+            model = null,
+            agent = "build",
+            variant = null,
+            directory = null
+        )
+
+        coVerify { api.promptAsync(any(), "s1", parts, null, "build", null, null) }
+    }
+
+    @Test
+    fun `sendPrompt propagates exception`() = runTest {
+        val parts = listOf(PromptPart(type = "text", text = "Hello"))
+        coEvery { api.promptAsync(any(), any(), any(), any(), any(), any(), any()) } throws RuntimeException("Network error")
+
+        var caught = false
+        try {
+            useCase.sendPrompt(
+                conn = conn,
+                sessionId = "s1",
+                parts = parts,
+                model = ModelSelection("p1", "m1"),
+                agent = "build",
+                variant = null,
+                directory = null
             )
-        )
-        val expectedMessage = Message.User(
-            id = "m1",
-            sessionId = sessionId,
-            time = TimeInfo(created = 1000L)
-        )
-        coEvery { chatRepository.sendMessage(sessionId, parts) } returns Result.success(expectedMessage)
-
-        val result = useCase(sessionId, parts)
-
-        assertTrue(result.isSuccess)
-        assertEquals(expectedMessage, result.getOrNull())
-    }
-
-    @Test
-    fun `invoke returns failure when repository fails`() = runTest {
-        val sessionId = "session-1"
-        val parts = emptyList<Part>()
-        val exception = RuntimeException("Network error")
-        coEvery { chatRepository.sendMessage(sessionId, parts) } returns Result.failure(exception)
-
-        val result = useCase(sessionId, parts)
-
-        assertTrue(result.isFailure)
-        assertEquals("Network error", result.exceptionOrNull()?.message)
-    }
-
-    @Test
-    fun `invoke propagates repository exception`() = runTest {
-        val sessionId = "session-2"
-        val parts = emptyList<Part>()
-        coEvery { chatRepository.sendMessage(sessionId, parts) } returns Result.failure(
-            IllegalStateException("Session not found")
-        )
-
-        val result = useCase(sessionId, parts)
-
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is IllegalStateException)
+        } catch (e: RuntimeException) {
+            caught = true
+        }
+        assert(caught)
     }
 }

@@ -17,10 +17,12 @@ import dev.minios.ocremote.data.api.OpenCodeApi
 import dev.minios.ocremote.data.api.PromptPart
 import dev.minios.ocremote.data.api.ProviderInfo
 import dev.minios.ocremote.data.api.ServerConnection
+import dev.minios.ocremote.data.repository.Draft
 import dev.minios.ocremote.data.repository.DraftRepository
 import dev.minios.ocremote.data.repository.EventReducer
 import dev.minios.ocremote.data.repository.SettingsRepository
 import dev.minios.ocremote.domain.model.*
+import dev.minios.ocremote.domain.usecase.*
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -106,9 +108,18 @@ data class ChatMessage(
 class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val eventReducer: EventReducer,
-    private val api: OpenCodeApi,
-    private val draftRepository: DraftRepository,
-    private val settingsRepository: SettingsRepository
+    private val sendMessageUseCase: SendMessageUseCase,
+    private val manageSessionUseCase: ManageSessionUseCase,
+    private val managePermissionUseCase: ManagePermissionUseCase,
+    private val selectModelUseCase: SelectModelUseCase,
+    private val manageAgentUseCase: ManageAgentUseCase,
+    private val manageTerminalUseCase: ManageTerminalUseCase,
+    private val draftUseCase: DraftUseCase,
+    private val shareExportUseCase: ShareExportUseCase,
+    private val undoRedoUseCase: UndoRedoUseCase,
+    private val settingsRepository: SettingsRepository,
+    // OpenCodeApi still needed for ServerTerminalRegistry (terminal subsystem)
+    private val api: OpenCodeApi
 ) : ViewModel() {
 
     private val serverUrl: String = URLDecoder.decode(
@@ -477,7 +488,7 @@ class ChatViewModel @Inject constructor(
 
     init {
         // Restore draft from disk
-        val draft = draftRepository.getDraft(sessionId)
+        val draft = draftUseCase.getDraft(sessionId)
         if (draft != null) {
             _draftText.value = draft.text
             _draftAttachmentUris.value = draft.imageUris
@@ -529,7 +540,7 @@ class ChatViewModel @Inject constructor(
     /** Load the session info to get its directory for correct project context. */
     private suspend fun loadSession() {
         try {
-            val session = api.getSession(conn, sessionId)
+            val session = manageSessionUseCase.getSession(conn, sessionId)
             if (session.directory.isNotBlank()) {
                 sessionDirectory = session.directory
                 if (BuildConfig.DEBUG) Log.d(TAG, "Session directory: ${session.directory}")
@@ -553,7 +564,7 @@ class ChatViewModel @Inject constructor(
             _error.value = null
             try {
                 // Load messages with current limit
-                val messages = api.listMessages(conn, sessionId, limit = currentMessageLimit)
+                val messages = manageSessionUseCase.listMessages(conn, sessionId, limit = currentMessageLimit)
                 eventReducer.setMessages(sessionId, messages)
                 _hasOlderMessages.value = messages.size >= currentMessageLimit
 
@@ -566,7 +577,7 @@ class ChatViewModel @Inject constructor(
                     Log.w(TAG, "OOM loading messages, retrying with smaller limit")
                     currentMessageLimit = (currentMessageLimit / 2).coerceAtLeast(10)
                     try {
-                        val messages = api.listMessages(conn, sessionId, limit = currentMessageLimit)
+                        val messages = manageSessionUseCase.listMessages(conn, sessionId, limit = currentMessageLimit)
                         eventReducer.mergeMessages(sessionId, messages)
                         _hasOlderMessages.value = messages.size >= currentMessageLimit
                         if (BuildConfig.DEBUG) Log.d(TAG, "Retry succeeded: loaded ${messages.size} messages (limit=$currentMessageLimit)")
@@ -603,7 +614,7 @@ class ChatViewModel @Inject constructor(
             _isLoadingOlder.value = true
             currentMessageLimit = currentMessageLimit * 2
             try {
-                val messages = api.listMessages(conn, sessionId, limit = currentMessageLimit)
+                val messages = manageSessionUseCase.listMessages(conn, sessionId, limit = currentMessageLimit)
                 eventReducer.mergeMessages(sessionId, messages)
                 _hasOlderMessages.value = messages.size >= currentMessageLimit
 
@@ -626,7 +637,7 @@ class ChatViewModel @Inject constructor(
      */
     private suspend fun loadPendingQuestions() {
         try {
-            val allQuestions = api.listPendingQuestions(conn, directory = sessionDirectory)
+            val allQuestions = managePermissionUseCase.listPendingQuestions(conn, directory = sessionDirectory)
             if (BuildConfig.DEBUG) Log.d(TAG, "loadPendingQuestions: ${allQuestions.size} total pending (directory=$sessionDirectory), filtering for session $sessionId")
             val sessionQuestions = allQuestions
                 .filter { it.sessionId == sessionId }
@@ -665,7 +676,7 @@ class ChatViewModel @Inject constructor(
     /** Load pending permissions from the server REST API on session open (REST recovery). */
     private suspend fun loadPendingPermissions() {
         try {
-            val allPermissions = api.listPendingPermissions(conn, directory = sessionDirectory)
+            val allPermissions = managePermissionUseCase.listPendingPermissions(conn, directory = sessionDirectory)
             if (BuildConfig.DEBUG) Log.d(TAG, "loadPendingPermissions: ${allPermissions.size} total pending (directory=$sessionDirectory), filtering for session $sessionId")
             val sessionPermissions = allPermissions
                 .filter { it.sessionId == sessionId }
@@ -702,7 +713,7 @@ class ChatViewModel @Inject constructor(
     private fun loadProviders() {
         viewModelScope.launch {
             try {
-                val response = api.getProviders(conn)
+                val response = selectModelUseCase.loadProviders(conn)
                 _allProviders.value = response.providers
                 applyProviderFilter()
                 _defaultModels.value = response.default
@@ -731,7 +742,7 @@ class ChatViewModel @Inject constructor(
     private fun loadAgents() {
         viewModelScope.launch {
             try {
-                val agents = api.listAgents(conn)
+                val agents = manageAgentUseCase.loadAgents(conn)
                 _agents.value = agents
                 if (BuildConfig.DEBUG) Log.d(TAG, "Loaded ${agents.size} agents: ${agents.map { it.name }}")
             } catch (e: Exception) {
@@ -747,7 +758,7 @@ class ChatViewModel @Inject constructor(
     private fun loadCommands() {
         viewModelScope.launch {
             try {
-                val commands = api.listCommands(conn)
+                val commands = manageAgentUseCase.loadCommands(conn)
                 _commands.value = commands
                 if (BuildConfig.DEBUG) Log.d(TAG, "Loaded ${commands.size} commands: ${commands.map { it.name }}")
             } catch (e: Exception) {
@@ -797,7 +808,7 @@ class ChatViewModel @Inject constructor(
             // Show recent/top files immediately with no debounce
             fileSearchJob = viewModelScope.launch {
                 try {
-                    val results = api.findFiles(
+                    val results = manageAgentUseCase.searchFiles(
                         conn = conn,
                         query = "",
                         dirs = "true",
@@ -815,7 +826,7 @@ class ChatViewModel @Inject constructor(
         fileSearchJob = viewModelScope.launch {
             delay(150) // debounce
             try {
-                val results = api.findFiles(
+                val results = manageAgentUseCase.searchFiles(
                     conn = conn,
                     query = query,
                     dirs = "true",
@@ -876,20 +887,20 @@ class ChatViewModel @Inject constructor(
     fun clearDraft() {
         _draftText.value = ""
         _draftAttachmentUris.value = emptyList()
-        draftRepository.clearDraft(sessionId)
+        draftUseCase.clearDraft(sessionId)
     }
 
     /** Persist current draft to disk. */
     private fun saveDraft() {
         val agentPair = _selectedAgent.value
-        val draft = dev.minios.ocremote.data.repository.Draft(
+        val draft = Draft(
             text = _draftText.value,
             imageUris = _draftAttachmentUris.value,
             confirmedFilePaths = _confirmedFilePaths.value.toList(),
             selectedAgent = agentPair.first.takeIf { agentPair.second },
             selectedVariant = _selectedVariant.value
         )
-        draftRepository.saveDraft(sessionId, draft)
+        draftUseCase.saveDraft(sessionId, draft)
     }
 
     override fun onCleared() {
@@ -929,7 +940,7 @@ class ChatViewModel @Inject constructor(
                     )
                 } else null
 
-                api.promptAsync(
+                sendMessageUseCase.sendPrompt(
                     conn = conn,
                     sessionId = sessionId,
                     parts = parts,
@@ -956,7 +967,7 @@ class ChatViewModel @Inject constructor(
     fun replyToPermission(requestId: String, reply: String) {
         viewModelScope.launch {
             try {
-                val success = api.replyToPermission(
+                val success = managePermissionUseCase.replyToPermission(
                     conn = conn,
                     requestId = requestId,
                     reply = reply,
@@ -976,7 +987,7 @@ class ChatViewModel @Inject constructor(
     fun abortSession() {
         viewModelScope.launch {
             try {
-                api.abortSession(conn, sessionId, directory = sessionDirectory)
+                manageSessionUseCase.abortSession(conn, sessionId, directory = sessionDirectory)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Aborted session $sessionId")
                 // Optimistically update session status to Idle so UI reflects change immediately
                 eventReducer.updateSessionStatus(sessionId, SessionStatus.Idle)
@@ -994,7 +1005,7 @@ class ChatViewModel @Inject constructor(
     fun replyToQuestion(requestId: String, answers: List<List<String>>) {
         viewModelScope.launch {
             try {
-                val success = api.replyToQuestion(
+                val success = managePermissionUseCase.replyToQuestion(
                     conn = conn,
                     requestId = requestId,
                     answers = answers,
@@ -1016,7 +1027,7 @@ class ChatViewModel @Inject constructor(
     fun rejectQuestion(requestId: String) {
         viewModelScope.launch {
             try {
-                val success = api.rejectQuestion(conn = conn, requestId = requestId, directory = sessionDirectory)
+                val success = managePermissionUseCase.rejectQuestion(conn = conn, requestId = requestId, directory = sessionDirectory)
                 if (success) {
                     // Optimistically remove the question card
                     eventReducer.removeQuestion(requestId)
@@ -1033,7 +1044,7 @@ class ChatViewModel @Inject constructor(
     fun shareSession(onResult: (String?) -> Unit) {
         viewModelScope.launch {
             try {
-                val session = api.shareSession(conn, sessionId)
+                val session = shareExportUseCase.shareSession(conn, sessionId)
                 val url = session.share?.url
                 if (BuildConfig.DEBUG) Log.d(TAG, "Shared session $sessionId: $url")
                 onResult(url)
@@ -1047,7 +1058,7 @@ class ChatViewModel @Inject constructor(
     fun unshareSession(onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                api.unshareSession(conn, sessionId)
+                shareExportUseCase.unshareSession(conn, sessionId)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Unshared session $sessionId")
                 onResult(true)
             } catch (e: Exception) {
@@ -1069,7 +1080,7 @@ class ChatViewModel @Inject constructor(
                     onResult(false)
                     return@launch
                 }
-                api.summarizeSession(conn, sessionId, providerId, modelId)
+                shareExportUseCase.compactSession(conn, sessionId, providerId, modelId)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Compacted session $sessionId")
                 onResult(true)
             } catch (e: Exception) {
@@ -1117,7 +1128,7 @@ class ChatViewModel @Inject constructor(
 
                 var lastNotifyTime = 0L
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    api.exportSessionToStream(conn, sessionId, outputStream) { bytesWritten ->
+                    shareExportUseCase.exportSessionToStream(conn, sessionId, outputStream) { bytesWritten ->
                         val now = System.currentTimeMillis()
                         if (now - lastNotifyTime > 500) { // throttle to 2 updates/sec
                             lastNotifyTime = now
@@ -1154,7 +1165,7 @@ class ChatViewModel @Inject constructor(
                     onResult(false)
                     return@launch
                 }
-                api.revertSession(conn, sessionId, lastUser.message.id)
+                undoRedoUseCase.revertSession(conn, sessionId, lastUser.message.id)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Reverted session $sessionId to message ${lastUser.message.id}")
                 // Restore the user message text to the input field
                 restoreRevertedDraft(extractRevertedDraft(lastUser))
@@ -1170,7 +1181,7 @@ class ChatViewModel @Inject constructor(
     fun revertMessage(messageId: String, revertedText: String? = null, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                api.revertSession(conn, sessionId, messageId)
+                undoRedoUseCase.revertSession(conn, sessionId, messageId)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Reverted session $sessionId to message $messageId")
                 val targetMessage = uiState.value.messages
                     .firstOrNull { it.message.id == messageId && it.isUser }
@@ -1213,7 +1224,7 @@ class ChatViewModel @Inject constructor(
     fun redoMessage(onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                api.unrevertSession(conn, sessionId)
+                undoRedoUseCase.unrevertSession(conn, sessionId)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Unreverted session $sessionId")
                 onResult(true)
             } catch (e: Exception) {
@@ -1227,7 +1238,7 @@ class ChatViewModel @Inject constructor(
     fun forkSession(onResult: (Session?) -> Unit) {
         viewModelScope.launch {
             try {
-                val session = api.forkSession(conn, sessionId)
+                val session = manageSessionUseCase.forkSession(conn, sessionId)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Forked session $sessionId -> ${session.id}")
                 onResult(session)
             } catch (e: Exception) {
@@ -1241,7 +1252,7 @@ class ChatViewModel @Inject constructor(
     fun renameSession(title: String, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                api.updateSession(conn, sessionId, title)
+                manageSessionUseCase.renameSession(conn, sessionId, title)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Renamed session $sessionId to $title")
                 onResult(true)
             } catch (e: Exception) {
@@ -1279,7 +1290,7 @@ class ChatViewModel @Inject constructor(
                     arguments
                 }
 
-                val ok = api.executeCommand(
+                val ok = manageTerminalUseCase.executeCommand(
                     conn = conn,
                     sessionId = sessionId,
                     command = normalizedCommand,
@@ -1315,7 +1326,7 @@ class ChatViewModel @Inject constructor(
                         modelId = _selectedModelId.value!!
                     )
                 } else null
-                val ok = api.runShellCommand(
+                val ok = manageTerminalUseCase.runShellCommand(
                     conn = conn,
                     sessionId = sessionId,
                     command = trimmed,
@@ -1386,7 +1397,7 @@ class ChatViewModel @Inject constructor(
     fun createNewSession(onResult: (Session?) -> Unit) {
         viewModelScope.launch {
             try {
-                val session = api.createSession(conn, directory = sessionDirectory)
+                val session = manageSessionUseCase.createSession(conn, directory = sessionDirectory)
                 eventReducer.setSessions(serverId, listOf(session))
                 if (BuildConfig.DEBUG) Log.d(TAG, "Created new session: ${session.id}")
                 onResult(session)

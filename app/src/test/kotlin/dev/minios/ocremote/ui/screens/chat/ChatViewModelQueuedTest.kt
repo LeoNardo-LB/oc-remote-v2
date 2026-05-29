@@ -3,10 +3,10 @@ package dev.minios.ocremote.ui.screens.chat
 import android.util.Log
 import dev.minios.ocremote.data.api.OpenCodeApi
 import dev.minios.ocremote.data.api.ProvidersResponse
-import dev.minios.ocremote.data.repository.DraftRepository
 import dev.minios.ocremote.data.repository.EventReducer
 import dev.minios.ocremote.data.repository.SettingsRepository
 import dev.minios.ocremote.domain.model.*
+import dev.minios.ocremote.domain.usecase.*
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -46,9 +46,19 @@ class ChatViewModelQueuedTest {
 
     private lateinit var eventReducer: EventReducer
     private val api: OpenCodeApi = mockk(relaxed = true)
-    private val draftRepository: DraftRepository = mockk(relaxed = true)
     private val settingsRepository: SettingsRepository = mockk()
     private val testDispatcher = UnconfinedTestDispatcher()
+
+    // UseCase mocks
+    private val sendMessageUseCase: SendMessageUseCase = mockk(relaxed = true)
+    private val manageSessionUseCase: ManageSessionUseCase = mockk(relaxed = true)
+    private val managePermissionUseCase: ManagePermissionUseCase = mockk(relaxed = true)
+    private val selectModelUseCase: SelectModelUseCase = mockk(relaxed = true)
+    private val manageAgentUseCase: ManageAgentUseCase = mockk(relaxed = true)
+    private val manageTerminalUseCase: ManageTerminalUseCase = mockk(relaxed = true)
+    private val draftUseCase: DraftUseCase = mockk(relaxed = true)
+    private val shareExportUseCase: ShareExportUseCase = mockk(relaxed = true)
+    private val undoRedoUseCase: UndoRedoUseCase = mockk(relaxed = true)
 
     private val testSessionId = "test-session-1"
     private val testServerId = "test-server-1"
@@ -68,7 +78,7 @@ class ChatViewModelQueuedTest {
         every { Log.i(any(), any()) } returns 0
 
         // Draft stubs
-        every { draftRepository.getDraft(any()) } returns null
+        every { draftUseCase.getDraft(any()) } returns null
 
         // Settings stubs (must stub all Flow properties)
         every { settingsRepository.hiddenModels(any()) } returns flowOf(emptySet())
@@ -86,14 +96,14 @@ class ChatViewModelQueuedTest {
         every { settingsRepository.imageAttachmentMaxLongSide } returns flowOf(1440)
         every { settingsRepository.imageAttachmentWebpQuality } returns flowOf(60)
 
-        // API stubs — defaults
-        coEvery { api.getSession(any(), any()) } returns createTestSession()
-        coEvery { api.listMessages(any(), any(), any()) } returns emptyList()
-        coEvery { api.listPendingQuestions(any(), any()) } returns emptyList()
-        coEvery { api.listPendingPermissions(any(), any()) } returns emptyList()
-        coEvery { api.getProviders(any()) } returns ProvidersResponse(emptyList())
-        coEvery { api.listAgents(any()) } returns emptyList()
-        coEvery { api.listCommands(any()) } returns emptyList()
+        // UseCase stubs — defaults
+        coEvery { manageSessionUseCase.getSession(any(), any()) } returns createTestSession()
+        coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns emptyList()
+        coEvery { managePermissionUseCase.listPendingQuestions(any(), any()) } returns emptyList()
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns emptyList()
+        coEvery { selectModelUseCase.loadProviders(any()) } returns ProvidersResponse(emptyList())
+        coEvery { manageAgentUseCase.loadAgents(any()) } returns emptyList()
+        coEvery { manageAgentUseCase.loadCommands(any()) } returns emptyList()
     }
 
     @After
@@ -166,9 +176,17 @@ class ChatViewModelQueuedTest {
         return ChatViewModel(
             savedStateHandle = savedState,
             eventReducer = eventReducer,
-            api = api,
-            draftRepository = draftRepository,
-            settingsRepository = settingsRepository
+            sendMessageUseCase = sendMessageUseCase,
+            manageSessionUseCase = manageSessionUseCase,
+            managePermissionUseCase = managePermissionUseCase,
+            selectModelUseCase = selectModelUseCase,
+            manageAgentUseCase = manageAgentUseCase,
+            manageTerminalUseCase = manageTerminalUseCase,
+            draftUseCase = draftUseCase,
+            shareExportUseCase = shareExportUseCase,
+            undoRedoUseCase = undoRedoUseCase,
+            settingsRepository = settingsRepository,
+            api = api
         )
     }
 
@@ -189,14 +207,14 @@ class ChatViewModelQueuedTest {
     }
 
     /**
-     * Configure api.listMessages to return the given messages as MessageWithParts,
+     * Configure manageSessionUseCase.listMessages to return the given messages as MessageWithParts,
      * so that the VM's init loadMessages() will populate them into EventReducer.
      */
     private fun stubMessages(vararg messages: Pair<Message, List<Part>>) {
         val messageWithParts = messages.map { (msg, parts) ->
             MessageWithParts(info = msg, parts = parts)
         }
-        coEvery { api.listMessages(any(), any(), any()) } returns messageWithParts
+        coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns messageWithParts
     }
 
     /**
@@ -344,7 +362,7 @@ class ChatViewModelQueuedTest {
 
     @Test
     fun sessionParentId_null_whenSessionHasNoParent() = runTest {
-        coEvery { api.getSession(any(), any()) } returns createTestSession(parentId = null)
+        coEvery { manageSessionUseCase.getSession(any(), any()) } returns createTestSession(parentId = null)
         setSession(createTestSession(parentId = null))
 
         val vm = createViewModel()
@@ -357,7 +375,7 @@ class ChatViewModelQueuedTest {
 
     @Test
     fun sessionParentId_set_whenSessionHasParent() = runTest {
-        coEvery { api.getSession(any(), any()) } returns createTestSession(parentId = "parent-session-1")
+        coEvery { manageSessionUseCase.getSession(any(), any()) } returns createTestSession(parentId = "parent-session-1")
         setSession(createTestSession(parentId = "parent-session-1"))
 
         val vm = createViewModel()
@@ -479,7 +497,7 @@ class ChatViewModelQueuedTest {
     fun queuedAndParentId_workTogether_inSubSession() = runTest {
         // Sub-session scenario: session has parentId, pending assistant + queued messages
         val session = createTestSession(parentId = "parent-1")
-        coEvery { api.getSession(any(), any()) } returns session
+        coEvery { manageSessionUseCase.getSession(any(), any()) } returns session
         setSession(session)
 
         stubMessages(

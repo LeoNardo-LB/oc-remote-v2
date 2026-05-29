@@ -1,20 +1,32 @@
 package dev.minios.ocremote.domain.usecase
 
-import dev.minios.ocremote.domain.model.PermissionState
-import dev.minios.ocremote.domain.repository.ChatRepository
-import kotlinx.coroutines.flow.Flow
+import dev.minios.ocremote.data.api.OpenCodeApi
+import dev.minios.ocremote.data.api.PermissionRequest
+import dev.minios.ocremote.data.api.QuestionRequest
+import dev.minios.ocremote.data.api.ServerConnection
 import javax.inject.Inject
 
 /**
- * Use case: manage permission requests (observe + reply).
- * Used by Phase 2 ChatViewModel.
+ * Use case: manage permission and question requests (reply, reject, list pending).
+ * Temporary shell — delegates to OpenCodeApi. Full impl with tests in Phase 4.
  */
 class ManagePermissionUseCase @Inject constructor(
-    private val chatRepository: ChatRepository
+    private val api: OpenCodeApi
 ) {
-    fun getPermissionsFlow(sessionId: String): Flow<List<PermissionState>> =
-        chatRepository.getPermissionsFlow(sessionId)
+    // TODO: Phase 4 — replace api calls with ChatRepository methods
 
-    suspend fun replyPermission(permissionId: String, reply: String): Result<Boolean> =
-        chatRepository.replyPermission(permissionId, reply)
+    suspend fun listPendingPermissions(conn: ServerConnection, directory: String?): List<PermissionRequest> =
+        api.listPendingPermissions(conn, directory)
+
+    suspend fun replyToPermission(conn: ServerConnection, requestId: String, reply: String, directory: String?): Boolean =
+        api.replyToPermission(conn, requestId, reply, directory)
+
+    suspend fun listPendingQuestions(conn: ServerConnection, directory: String?): List<QuestionRequest> =
+        api.listPendingQuestions(conn, directory)
+
+    suspend fun replyToQuestion(conn: ServerConnection, requestId: String, answers: List<List<String>>, directory: String?): Boolean =
+        api.replyToQuestion(conn, requestId, answers, directory)
+
+    suspend fun rejectQuestion(conn: ServerConnection, requestId: String, directory: String?): Boolean =
+        api.rejectQuestion(conn, requestId, directory)
 }
