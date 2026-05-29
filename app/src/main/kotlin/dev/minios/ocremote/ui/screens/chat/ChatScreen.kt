@@ -6132,8 +6132,13 @@ private fun ReadToolCard(
                         modifier = Modifier.size(16.dp),
                         tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                     )
+                    val displayText = if (shortPath.isNotBlank()) {
+                        "${stringResource(R.string.tool_read)} · $shortPath"
+                    } else {
+                        stringResource(R.string.tool_read)
+                    }
                     Text(
-                        text = stringResource(R.string.tool_read),
+                        text = displayText,
                         style = MaterialTheme.typography.labelMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
