@@ -8,6 +8,7 @@ import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.utils.io.*
+import io.ktor.utils.io.ClosedReadChannelException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.*
@@ -16,6 +17,42 @@ import javax.inject.Singleton
 
 private const val TAG = "SseClient"
 private const val HEARTBEAT_TIMEOUT_MS = 40_000L
+
+/**
+ * 读取原始字节直到遇到 \n，不做 UTF-8 解码。
+ * 返回 null 表示 channel 已关闭且无更多数据。
+ * 兼容 CRLF：跳过 \r 字节。
+ */
+private suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
+    val result = mutableListOf<Byte>()
+    try {
+        while (true) {
+            val b = readByte()
+            if (b == '\n'.code.toByte()) break
+            if (b == '\r'.code.toByte()) continue  // 兼容 CRLF
+            result.add(b)
+        }
+    } catch (e: ClosedReadChannelException) {
+        if (result.isEmpty()) return null
+    }
+    return result
+}
+
+/**
+ * 将 byte 块列表拼接为完整字节数组，然后一次性 UTF-8 解码。
+ */
+private fun buildStringFromBytes(chunks: List<List<Byte>>): String {
+    val totalSize = chunks.sumOf { it.size }
+    if (totalSize == 0) return ""
+    val array = ByteArray(totalSize)
+    var pos = 0
+    for (chunk in chunks) {
+        for (b in chunk) {
+            array[pos++] = b
+        }
+    }
+    return array.toString(Charsets.UTF_8)
+}
 
 /**
  * SSE (Server-Sent Events) Client
@@ -67,7 +104,7 @@ class SseClient @Inject constructor(
 
             val channel = response.bodyAsChannel()
             var lastHeartbeat = System.currentTimeMillis()
-            var buffer = ""
+            val buffer = mutableListOf<List<Byte>>()
             var eventCount = 0
 
             Log.i(TAG, "SSE stream opened, reading events...")
@@ -78,12 +115,14 @@ class SseClient @Inject constructor(
                     break
                 }
 
-                val line = channel.readUTF8Line() ?: break
+                val lineBytes = channel.readRawLineBytes() ?: break
 
-                if (line.isEmpty()) {
-                    if (buffer.isNotEmpty()) {
+                if (lineBytes.isEmpty()) {
+                    // 空白行 = SSE event 边界 → 解码整个 buffer
+                    val data = buildStringFromBytes(buffer)
+                    if (data.isNotEmpty()) {
                         try {
-                            val event = parseEvent(buffer)
+                            val event = parseEvent(data)
                             if (event != null) {
                                 eventCount++
                                 if (event is SseEvent.ServerHeartbeat) {
@@ -95,14 +134,24 @@ class SseClient @Inject constructor(
                                 }
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "Parse error: ${buffer.take(200)}", e)
+                            Log.e(TAG, "Parse error: ${data.take(200)}", e)
                         }
-                        buffer = ""
+                        buffer.clear()
                     }
-                } else if (line.startsWith("data: ")) {
-                    buffer += line.substring(6)
-                } else if (line.startsWith("data:")) {
-                    buffer += line.substring(5)
+                } else {
+                    // data: 行 → 提取 payload 的原始字节
+                    val prefix = "data:".encodeToByteArray()
+                    var start = 0
+                    if (lineBytes.size >= prefix.size &&
+                        lineBytes.subList(0, prefix.size) == prefix.toList()) {
+                        start = prefix.size
+                        if (start < lineBytes.size && lineBytes[start] == ' '.code.toByte()) {
+                            start++  // 跳过 "data: " 中的空格
+                        }
+                    }
+                    if (start < lineBytes.size) {
+                        buffer.add(lineBytes.subList(start, lineBytes.size))
+                    }
                 }
             }
 
@@ -145,7 +194,7 @@ class SseClient @Inject constructor(
 
             val channel = response.bodyAsChannel()
             var lastHeartbeat = System.currentTimeMillis()
-            var buffer = ""
+            val buffer = mutableListOf<List<Byte>>()
             var eventCount = 0
 
             while (!channel.isClosedForRead) {
@@ -154,12 +203,14 @@ class SseClient @Inject constructor(
                     break
                 }
 
-                val line = channel.readUTF8Line() ?: break
+                val lineBytes = channel.readRawLineBytes() ?: break
 
-                if (line.isEmpty()) {
-                    if (buffer.isNotEmpty()) {
+                if (lineBytes.isEmpty()) {
+                    // 空白行 = SSE event 边界 → 解码整个 buffer
+                    val data = buildStringFromBytes(buffer)
+                    if (data.isNotEmpty()) {
                         try {
-                            val event = parseEvent(buffer)
+                            val event = parseEvent(data)
                             if (event != null) {
                                 eventCount++
                                 if (event is SseEvent.ServerHeartbeat) {
@@ -170,14 +221,24 @@ class SseClient @Inject constructor(
                                 }
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "Instance parse error: ${buffer.take(200)}", e)
+                            Log.e(TAG, "Instance parse error: ${data.take(200)}", e)
                         }
-                        buffer = ""
+                        buffer.clear()
                     }
-                } else if (line.startsWith("data: ")) {
-                    buffer += line.substring(6)
-                } else if (line.startsWith("data:")) {
-                    buffer += line.substring(5)
+                } else {
+                    // data: 行 → 提取 payload 的原始字节
+                    val prefix = "data:".encodeToByteArray()
+                    var start = 0
+                    if (lineBytes.size >= prefix.size &&
+                        lineBytes.subList(0, prefix.size) == prefix.toList()) {
+                        start = prefix.size
+                        if (start < lineBytes.size && lineBytes[start] == ' '.code.toByte()) {
+                            start++  // 跳过 "data: " 中的空格
+                        }
+                    }
+                    if (start < lineBytes.size) {
+                        buffer.add(lineBytes.subList(start, lineBytes.size))
+                    }
                 }
             }
 
