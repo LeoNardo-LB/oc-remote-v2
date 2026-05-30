@@ -1845,7 +1845,7 @@ Box {
                                     msg.isAssistant -> {
                                         val isContinuation = isAssistantContinuation.getOrElse(index) { false }
                                         val isTurnLast = uiState.messages.getOrNull(index)?.isAssistant == true &&
-                                                         uiState.messages.getOrNull(index + 1)?.isAssistant != true
+                                                         (index == 0 || uiState.messages.getOrNull(index - 1)?.isAssistant != true)
                                         val turnMessagesForMsg = turnGroups[index]
                                         AssistantMessageCard(
                                             chatMessage = msg,
@@ -2098,7 +2098,7 @@ Box {
                                            msg.isAssistant -> {
                                                 val isContinuation = isAssistantContinuation.getOrElse(index) { false }
                                                 val isTurnLast = uiState.messages.getOrNull(index)?.isAssistant == true &&
-                                                                 uiState.messages.getOrNull(index + 1)?.isAssistant != true
+                                                                 (index == 0 || uiState.messages.getOrNull(index - 1)?.isAssistant != true)
                                                 val turnMessagesForMsg = turnGroups[index]
                                                 AssistantMessageCard(
                                                     chatMessage = msg,
