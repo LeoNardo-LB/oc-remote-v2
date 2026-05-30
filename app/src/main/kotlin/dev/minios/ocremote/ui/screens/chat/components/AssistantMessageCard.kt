@@ -213,7 +213,7 @@ internal fun AssistantMessageCard(
                             }
                             if (totalInput > 0 || totalOutput > 0) {
                                 Text(
-                                    text = stringResource(R.string.chat_tokens_format, totalInput, totalOutput),
+                                    text = "↑$totalInput ↓$totalOutput",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
                                 )
@@ -225,27 +225,42 @@ internal fun AssistantMessageCard(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
                                 )
                             }
+                            if (onCopyText != null) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    Icons.Default.ContentCopy,
+                                    contentDescription = stringResource(R.string.chat_copy),
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clickable {
+                                            performHaptic(hapticView, hapticOn)
+                                            onCopyText()
+                                        },
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                )
+                            }
                         }
                     }
-                }
-
-                // Copy button (independent of stepFinishes)
-                if (isTurnLast && onCopyText != null) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Icon(
-                            Icons.Default.ContentCopy,
-                            contentDescription = stringResource(R.string.chat_copy),
-                            modifier = Modifier
-                                .size(14.dp)
-                                .clickable {
-                                    performHaptic(hapticView, hapticOn)
-                                    onCopyText()
-                                },
-                            tint = textColor.copy(alpha = 0.3f)
-                        )
+                    // Fallback: no stats but copy button needed
+                    if (!hasFooter && isTurnLast && onCopyText != null) {
+                        Spacer(modifier = Modifier.height(if (compact) 4.dp else 8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = stringResource(R.string.chat_copy),
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .clickable {
+                                        performHaptic(hapticView, hapticOn)
+                                        onCopyText()
+                                    },
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                            )
+                        }
                     }
                 }
 

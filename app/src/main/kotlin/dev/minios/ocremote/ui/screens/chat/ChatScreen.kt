@@ -1853,7 +1853,7 @@ Box {
                                             turnMessages = turnMessagesForMsg,
                                             onViewSubSession = navigateToChildSessionWithSave,
                                             onCopyText = {
-                                                val messages = turnMessagesForMsg ?: listOf(msg)
+                                                val messages = (turnMessagesForMsg ?: listOf(msg)).reversed()
                                                 val text = messages.flatMap { m ->
                                                     m.parts.filterIsInstance<Part.Text>().map { it.text }
                                                 }.joinToString("\n\n")
@@ -2106,7 +2106,7 @@ Box {
                                                     turnMessages = turnMessagesForMsg,
                                                     onViewSubSession = navigateToChildSessionWithSave,
                                                     onCopyText = {
-                                                        val messages = turnMessagesForMsg ?: listOf(msg)
+                                                        val messages = (turnMessagesForMsg ?: listOf(msg)).reversed()
                                                         val text = messages.flatMap { m ->
                                                             m.parts.filterIsInstance<Part.Text>().map { it.text }
                                                         }.joinToString("\n\n")
