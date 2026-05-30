@@ -114,4 +114,16 @@ class EventDispatcher @Inject constructor(
         questionHandler.clearForServer(sessionIds)
         miscHandler.clearForServer(sessionIds)
     }
+
+    // ============ State Correction ============
+
+    /**
+     * Force-mark all streaming messages in a session as completed.
+     * Used when REST fallback detects the server reports "idle" but
+     * the UI may still show "thinking" due to missed SSE events.
+     */
+    fun markSessionIdle(sessionId: String) {
+        messageHandler.markSessionIdle(sessionId)
+        sessionHandler.updateSessionStatus(sessionId, SessionStatus.Idle)
+    }
 }

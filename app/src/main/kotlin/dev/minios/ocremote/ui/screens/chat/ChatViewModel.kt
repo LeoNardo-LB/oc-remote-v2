@@ -607,6 +607,28 @@ class ChatViewModel @Inject constructor(
     }
 
     /**
+     * Query the OpenCode server for the actual session status and correct
+     * any UI state drift caused by missed SSE events.
+     *
+     * Triggered on:
+     * - Entering a session (LaunchedEffect(sessionId))
+     * - Resuming from background (DisposableEffect ON_RESUME)
+     */
+    fun syncSessionStatus() {
+        viewModelScope.launch {
+            val result = api.fetchSessionStatus(conn)
+            result.onSuccess { statuses ->
+                val statusInfo = statuses[sessionId]
+                if (statusInfo != null && statusInfo.type == "idle") {
+                    _isLoading.value = false
+                    eventDispatcher.markSessionIdle(sessionId)
+                }
+            }
+            // On failure: silently keep current UI state, rely on future SSE events
+        }
+    }
+
+    /**
      * Load older messages by doubling the current limit.
      */
     fun loadOlderMessages() {

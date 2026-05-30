@@ -132,4 +132,21 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
         _messages.value = emptyMap()
         _parts.value = emptyMap()
     }
+
+    /**
+     * Mark all incomplete assistant messages in a session as completed.
+     * Called when REST fallback detects server is idle but UI shows streaming.
+     */
+    fun markSessionIdle(sessionId: String) {
+        val current = _messages.value[sessionId] ?: return
+        val now = System.currentTimeMillis()
+        val updated = current.map { msg ->
+            if (msg is Message.Assistant && msg.time.completed == null) {
+                msg.copy(time = msg.time.copy(completed = now))
+            } else {
+                msg
+            }
+        }
+        _messages.value = _messages.value + (sessionId to updated)
+    }
 }
