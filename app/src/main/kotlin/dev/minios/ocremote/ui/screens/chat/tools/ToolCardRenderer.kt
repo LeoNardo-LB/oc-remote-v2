@@ -1,6 +1,8 @@
 package dev.minios.ocremote.ui.screens.chat.tools
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -152,7 +154,11 @@ internal fun ToolCallCard(
                 }
             }
 
-            AnimatedVisibility(visible = expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
                 val halfScreenHeight = halfScreenHeight()
                 val toolCardScrollState = rememberScrollState()
                 Box(

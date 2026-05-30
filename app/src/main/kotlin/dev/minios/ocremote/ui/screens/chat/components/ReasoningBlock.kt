@@ -1,6 +1,8 @@
 package dev.minios.ocremote.ui.screens.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -156,7 +158,11 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                 }
 
                 // Expandable content
-                AnimatedVisibility(visible = expanded) {
+                AnimatedVisibility(
+                    visible = expanded,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
                     Column {
                         Spacer(modifier = Modifier.height(6.dp))
                         val halfScreenHeight = halfScreenHeight()

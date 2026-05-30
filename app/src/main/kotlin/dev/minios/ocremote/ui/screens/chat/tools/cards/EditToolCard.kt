@@ -1,6 +1,8 @@
 ﻿package dev.minios.ocremote.ui.screens.chat.tools.cards
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -156,6 +158,8 @@ internal fun EditToolCard(
             // Expanded diff view
             AnimatedVisibility(
                 visible = expanded && hasContent,
+                enter = fadeIn(),
+                exit = fadeOut()
             ) {
                 val halfScreenHeight = halfScreenHeight()
                 val scrollState = rememberScrollState()
