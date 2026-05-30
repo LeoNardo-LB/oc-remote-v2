@@ -117,7 +117,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { performHaptic(hapticView, hapticOn); onToggleExpand() }
-                    .padding(start = 14.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)
+                    .padding(start = 12.dp, end = 10.dp, top = 8.dp, bottom = 8.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -137,7 +137,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                                     )
                                 }
                         )
-                        Spacer(modifier = Modifier.width(7.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
                         Text(
                             text = headerText,
                             style = MaterialTheme.typography.labelMedium,
@@ -159,7 +159,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                 // Expandable content
                 AnimatedVisibility(visible = expanded) {
                     Column {
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         val halfScreenHeight = LocalConfiguration.current.screenHeightDp.dp / 2
                         val reasoningScrollState = rememberScrollState()
                         Box(
