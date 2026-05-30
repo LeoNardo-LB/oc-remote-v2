@@ -225,22 +225,27 @@ internal fun AssistantMessageCard(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
                                 )
                             }
-                            // Footer copy button
-                            if (onCopyText != null) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    Icons.Default.ContentCopy,
-                                    contentDescription = stringResource(R.string.chat_copy),
-                                    modifier = Modifier
-                                        .size(14.dp)
-                                        .clickable {
-                                            performHaptic(hapticView, hapticOn)
-                                            onCopyText()
-                                        },
-                                    tint = textColor.copy(alpha = 0.3f)
-                                )
-                            }
                         }
+                    }
+                }
+
+                // Copy button (independent of stepFinishes)
+                if (isTurnLast && onCopyText != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = stringResource(R.string.chat_copy),
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clickable {
+                                    performHaptic(hapticView, hapticOn)
+                                    onCopyText()
+                                },
+                            tint = textColor.copy(alpha = 0.3f)
+                        )
                     }
                 }
 
