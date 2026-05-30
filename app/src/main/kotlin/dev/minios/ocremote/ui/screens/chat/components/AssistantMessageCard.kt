@@ -122,16 +122,6 @@ internal fun AssistantMessageCard(
                                 )
                             }
                         }
-                        if (onCopyText != null) {
-                            Icon(
-                                Icons.Default.ContentCopy,
-                                contentDescription = stringResource(R.string.chat_copy),
-                                modifier = Modifier
-                                    .size(15.dp)
-                                    .clickable { performHaptic(hapticView, hapticOn); onCopyText() },
-                                tint = textColor.copy(alpha = 0.3f)
-                            )
-                        }
                     }
                 }
 
