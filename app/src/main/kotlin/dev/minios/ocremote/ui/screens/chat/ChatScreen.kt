@@ -254,6 +254,12 @@ import dev.minios.ocremote.ui.screens.chat.components.RevertBanner
  */
 
 private suspend fun LazyListState.scrollToBottom() {
+    val lastIndex = layoutInfo.totalItemsCount - 1
+    if (lastIndex < 0) return
+    // Step 1: scrollToItem jumps to the last item (estimated offset, correct direction).
+    scrollToItem(lastIndex)
+    // Step 2: scrollBy(MAX) compensates for estimation error — at this point the target
+    // item is already in the measured range, so the pixel offset is precise.
     scroll { scrollBy(Float.MAX_VALUE) }
 }
 
