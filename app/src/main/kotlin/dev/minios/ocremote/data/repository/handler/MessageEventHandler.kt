@@ -148,5 +148,26 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
             }
         }
         _messages.value = _messages.value + (sessionId to updated)
+
+        // Mark all incomplete Reasoning parts with time.end
+        val messageIds = current.map { it.id }
+        var partsUpdated = _parts.value
+        for (msgId in messageIds) {
+            val msgParts = partsUpdated[msgId]
+            if (msgParts != null) {
+                val updatedParts = msgParts.map { part ->
+                    if (part is Part.Reasoning && part.time?.end == null) {
+                        part.copy(time = Part.Reasoning.Time(
+                            start = part.time?.start ?: now,
+                            end = now
+                        ))
+                    } else {
+                        part
+                    }
+                }
+                partsUpdated = partsUpdated + (msgId to updatedParts)
+            }
+        }
+        _parts.value = partsUpdated
     }
 }
