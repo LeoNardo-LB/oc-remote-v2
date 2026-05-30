@@ -150,6 +150,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -343,6 +344,12 @@ fun ChatScreen(
                     }
                 }
             }
+        } else {
+            // First entry (scrollRestoreVersion == 0): wait for layout then scroll to bottom.
+            // reverseLayout=false anchors at top, so we must explicitly scroll.
+            snapshotFlow { listState.layoutInfo.totalItemsCount }
+                .first { it > 0 }
+            listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
         }
     }
 
@@ -380,6 +387,12 @@ fun ChatScreen(
     val view = LocalView.current
     val density = LocalDensity.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
+    // Snapshot isAtBottom while IME is hidden — used to decide whether to
+    // auto-scroll when the keyboard appears (Bug 2: IME pushes viewport up).
+    var isAtBottomBeforeIme by remember { mutableStateOf(true) }
+    if (!imeVisible) {
+        isAtBottomBeforeIme = isAtBottom
+    }
     var terminalOverlayHeightPx by remember { mutableStateOf(0) }
 
     // Dismiss keyboard on scroll (hide-only, never show)
@@ -393,6 +406,19 @@ fun ChatScreen(
                     lastScrollIndex = index
                 }
             }
+    }
+
+    // Bug 2 fix: Scroll to bottom when IME appears.
+    // reverseLayout=false anchors LazyColumn at top; when the keyboard pushes the
+    // bottomBar up, the viewport shrinks from the bottom and latest messages are
+    // clipped. Counteract by scrolling to bottom if user was at bottom pre-IME.
+    LaunchedEffect(imeVisible) {
+        if (imeVisible && isAtBottomBeforeIme) {
+            delay(80) // let layout settle after IME resize
+            if (listState.layoutInfo.totalItemsCount > 0) {
+                listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
+            }
+        }
     }
 
     // @ file mention state
@@ -1128,6 +1154,7 @@ Box {
                     ChatInputBar(
                         textFieldValue = inputText,
                         onTextFieldValueChange = { newValue ->
+                            val wasEmpty = inputText.text.isEmpty()
                             val shouldAutoShell = !isShellMode && newValue.text.startsWith("!")
                             val normalizedValue = if (shouldAutoShell) {
                                 val stripped = newValue.text.drop(1).trimStart()
@@ -1146,6 +1173,18 @@ Box {
 
                             inputText = normalizedValue
                             viewModel.updateDraftText(normalizedValue.text)
+
+                            // Bug 3 fix: Scroll to bottom when user starts typing (first keystroke).
+                            // reverseLayout=false anchors at top; typing should auto-scroll to bottom
+                            // so the user can see the latest messages while composing.
+                            if (wasEmpty && normalizedValue.text.isNotEmpty()) {
+                                coroutineScope.launch {
+                                    if (listState.layoutInfo.totalItemsCount > 0) {
+                                        listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
+                                    }
+                                }
+                            }
+
                             if (isShellMode || shouldAutoShell) {
                                 viewModel.clearFileSearch()
                                 return@ChatInputBar
