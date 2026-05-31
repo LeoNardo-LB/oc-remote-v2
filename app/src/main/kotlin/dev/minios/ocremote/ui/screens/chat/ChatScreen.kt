@@ -255,43 +255,7 @@ import dev.minios.ocremote.ui.screens.chat.components.RevertBanner
 
 private const val TAG_SCROLL = "ChatScroll"
 
-/**
- * Instant jump to pixel bottom — mirrors web's `scrollTop = scrollHeight`.
- */
-private suspend fun LazyListState.jumpToBottom(label: String = "") {
-    val totalItems = layoutInfo.totalItemsCount
-    val lastIndex = totalItems - 1
-    if (lastIndex < 0) {
-        Log.w("CHAT_DEBUG", "[$label] jumpToBottom SKIP: no items")
-        return
-    }
-    val beforeFirst = firstVisibleItemIndex
-    val beforeOffset = firstVisibleItemScrollOffset
-    val canFwd = canScrollForward
-    Log.w("CHAT_DEBUG", "[$label] jumpToBottom START: items=$totalItems lastIndex=$lastIndex first=$beforeFirst offset=$beforeOffset canForward=$canFwd")
-    scrollToItem(lastIndex)
-    val afterFirst = firstVisibleItemIndex
-    val afterOffset = firstVisibleItemScrollOffset
-    val afterCanFwd = canScrollForward
-    Log.w("CHAT_DEBUG", "[$label] jumpToBottom after scrollToItem($lastIndex): first=$afterFirst offset=$afterOffset canForward=$afterCanFwd")
-    val scrollResult = scroll { scrollBy(100_000f) }
-    val finalFirst = firstVisibleItemIndex
-    val finalOffset = firstVisibleItemScrollOffset
-    val finalCanFwd = canScrollForward
-    Log.w("CHAT_DEBUG", "[$label] jumpToBottom DONE: scrollBy consumed=$scrollResult first=$finalFirst offset=$finalOffset canForward=$finalCanFwd")
-}
-
-/**
- * Animated scroll to bottom — used for FAB clicks and user-initiated actions.
- */
-private suspend fun LazyListState.animateScrollToBottom(label: String = "") {
-    val lastIndex = layoutInfo.totalItemsCount - 1
-    if (lastIndex < 0) return
-    Log.w("CHAT_DEBUG", "[$label] animateScrollToBottom: lastIndex=$lastIndex")
-    animateScrollToItem(lastIndex)
-    scroll { scrollBy(100_000f) }
-    Log.w("CHAT_DEBUG", "[$label] animateScrollToBottom DONE: canForward=${canScrollForward}")
-}
+// jumpToBottom / animateScrollToBottom removed — reverseLayout=true anchors at bottom natively.
 
 private data class ImageSaveRequest(
     val bytes: ByteArray,
@@ -333,41 +297,23 @@ fun ChatScreen(
     }
     val listState = rememberLazyListState()
 
-    // Detect if user is truly at the bottom — canScrollForward is the
-    // authoritative Compose API (updated after each measure pass); unlike
-    // checking visibleItemsInfo.last index, it correctly accounts for item
-    // heights and won't trigger when only the top of a tall last item is visible.
+    // Detect if user is truly at the bottom.
+    // reverseLayout=true: "at bottom" means newest messages visible = !canScrollBackward.
     val isAtBottom by remember {
         derivedStateOf {
             if (listState.layoutInfo.totalItemsCount == 0) true
-            else !listState.canScrollForward
+            else !listState.canScrollBackward
         }
     }
 
-    // Controls whether auto-scroll should follow content changes.
-    // Set to true on: first entry, send message, FAB click.
-    // Set to false ONLY when user physically drags the scroll thumb (isScrollInProgress).
-    // NOT set to false on LazyColumn relayout bounce (isAtBottom changing without user touch).
-    var shouldFollow by remember { mutableStateOf(true) }
-
-    // Detect genuine user scroll: only when isScrollInProgress (finger on screen).
-    // LazyColumn relayouts can change isAtBottom without user interaction — must ignore those.
-    LaunchedEffect(Unit) {
-        snapshotFlow { listState.isScrollInProgress to isAtBottom }
-            .collect { (scrolling, bottom) ->
-                if (scrolling && !bottom) {
-                    shouldFollow = false
-                    Log.d(TAG_SCROLL, "[shouldFollow] set false (user touch scroll)")
-                }
-            }
-    }
+    // shouldFollow removed — reverseLayout=true handles auto-follow natively.
 
     // Debug: log isAtBottom changes
     LaunchedEffect(Unit) {
         Log.w("CHAT_DEBUG", "=== ChatScreen LaunchedEffect(Unit) started === viewModel=${viewModel.sessionId} scrollVersion=${viewModel.scrollRestoreVersion}")
         snapshotFlow { isAtBottom }
             .collect { bottom ->
-                Log.w("CHAT_DEBUG", "[isAtBottom] changed to=$bottom items=${listState.layoutInfo.totalItemsCount} canForward=${listState.canScrollForward}")
+                Log.w("CHAT_DEBUG", "[isAtBottom] changed to=$bottom items=${listState.layoutInfo.totalItemsCount} canBackward=${listState.canScrollBackward}")
             }
     }
 
@@ -382,8 +328,7 @@ fun ChatScreen(
             val savedId = viewModel.savedMessageId
             if (savedId != null) {
                 // Reconstruct displayItems filtering to find the target's LazyColumn index.
-                // visibleItemsInfo only contains currently visible items — the target is
-                // almost never in range, so every restore degraded to "scroll to bottom".
+                // With reverseLayout=true + displayItems.reversed(), the adapter index differs.
                 val msgs = uiState.messages
                 var displayIndex = -1
                 var count = 0
@@ -406,22 +351,34 @@ fun ChatScreen(
                     }
                 }
                 if (displayIndex >= 0) {
-                    // displayItems is the first item group in the LazyColumn, so offset = 0
-                    listState.scrollToItem(displayIndex, viewModel.savedScrollOffset)
+                    // displayItems is reversed for reverseLayout; convert original index to reversed index.
+                    val totalCount = count // total matched items (approximate; recount for accuracy)
+                    // Recount total displayItems to compute reversed index
+                    var totalDisplay = 0
+                    for (i in msgs.indices) {
+                        val m = msgs[i]
+                        val inc = when {
+                            m.isUser -> true
+                            m.isAssistant -> msgs.getOrNull(i + 1)?.isAssistant != true
+                            else -> false
+                        }
+                        if (inc) totalDisplay++
+                    }
+                    val reversedIndex = totalDisplay - 1 - displayIndex
+                    // Account for auxiliary items declared before messages in reverseLayout
+                    val auxOffset = uiState.pendingQuestions.size + uiState.pendingPermissions.size + (if (uiState.revert != null) 1 else 0)
+                    listState.scrollToItem(reversedIndex + auxOffset, viewModel.savedScrollOffset)
+                    Log.w("CHAT_DEBUG", "[scrollRestore] restored to reversedIndex=$reversedIndex auxOffset=$auxOffset")
                 } else {
-                    // Fallback: scroll to bottom
-                    listState.jumpToBottom("restoreFallback")
+                    // Fallback: scroll to item 0 (newest, at bottom in reverseLayout)
+                    listState.scrollToItem(0)
+                    Log.w("CHAT_DEBUG", "[scrollRestore] fallback scrollToItem(0)")
                 }
             }
         } else {
-            // First entry (scrollRestoreVersion == 0): wait for layout then scroll to bottom.
-            // reverseLayout=false anchors at top, so we must explicitly scroll.
-            Log.w("CHAT_DEBUG", "[firstEntry] Waiting for items... current totalItemsCount=${listState.layoutInfo.totalItemsCount}")
-            val itemCount = snapshotFlow { listState.layoutInfo.totalItemsCount }
-                .first { it > 0 }
-            Log.w("CHAT_DEBUG", "[firstEntry] Items loaded: $itemCount, about to jumpToBottom")
-            listState.jumpToBottom("firstEntry")
-            Log.w("CHAT_DEBUG", "[firstEntry] jumpToBottom completed, canForward=${listState.canScrollForward}")
+            // First entry (scrollRestoreVersion == 0): reverseLayout=true anchors at bottom,
+            // so no explicit scroll is needed.
+            Log.w("CHAT_DEBUG", "[firstEntry] reverseLayout=true anchors at bottom, no scroll needed")
         }
     }
 
@@ -459,37 +416,24 @@ fun ChatScreen(
     val view = LocalView.current
     val density = LocalDensity.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
-    // Snapshot isAtBottom while IME is hidden — used to decide whether to
-    // auto-scroll when the keyboard appears (Bug 2: IME pushes viewport up).
-    var isAtBottomBeforeIme by remember { mutableStateOf(true) }
-    if (!imeVisible) {
-        isAtBottomBeforeIme = isAtBottom
-    }
+    // isAtBottomBeforeIme removed — reverseLayout=true handles IME natively.
     var terminalOverlayHeightPx by remember { mutableStateOf(0) }
 
-    // Dismiss keyboard on scroll (hide-only, never show)
+    // Dismiss keyboard only on genuine user scroll (isScrollInProgress),
+    // not on programmatic scrolls or layout changes.
     var lastScrollIndex by remember { mutableIntStateOf(listState.firstVisibleItemIndex) }
     LaunchedEffect(Unit) {
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .drop(1)  // skip initial state to avoid false trigger on composition
-            .collect { index ->
-                if (index != lastScrollIndex) {
+        snapshotFlow { listState.isScrollInProgress to listState.firstVisibleItemIndex }
+            .collect { (scrolling, index) ->
+                if (scrolling && index != lastScrollIndex) {
                     keyboardController?.hide()
                     lastScrollIndex = index
                 }
             }
     }
 
-    // Bug 2 fix: Scroll to bottom when IME appears.
-    // reverseLayout=false anchors LazyColumn at top; when the keyboard pushes the
-    // bottomBar up, the viewport shrinks from the bottom and latest messages are
-    // clipped. Counteract by scrolling to bottom if user was at bottom pre-IME.
-    LaunchedEffect(imeVisible) {
-        if (imeVisible && isAtBottomBeforeIme) {
-            delay(80) // let layout settle after IME resize
-            listState.jumpToBottom("imeVisible")
-        }
-    }
+    // IME scroll LaunchedEffect removed — reverseLayout=true anchors at bottom,
+    // keyboard push content naturally without explicit scroll.
 
     // @ file mention state
     val fileSearchResults by viewModel.fileSearchResults.collectAsState()
@@ -970,42 +914,8 @@ fun ChatScreen(
         }
     }
 
-    val messageCount = uiState.messages.size
-
-    // Auto-follow: content changes + shouldFollow → scroll to bottom.
-    // Uses a long-lived snapshotFlow instead of LaunchedEffect(key) to avoid
-    // cancellation races during rapid SSE token updates (the web equivalent is
-    // ResizeObserver → scrollToBottom in requestAnimationFrame).
-    // IMPORTANT: read uiState.messages INSIDE snapshotFlow lambda, not outside,
-    // because LaunchedEffect(Unit) captures outer vals at launch time.
-    // Also tracks canScrollForward to detect layout bounce-back after jumpToBottom.
-    LaunchedEffect(Unit) {
-        var lastHash = 0
-        var emitCount = 0
-        var lastCanForward = false
-        snapshotFlow {
-            val msgs = uiState.messages
-            var h = msgs.size
-            msgs.lastOrNull()?.parts?.forEach { h = 31 * h + it.hashCode() }
-            Triple(h, msgs.size, listState.canScrollForward)
-        }.collect { (hash, count, canForward) ->
-            emitCount++
-            val hashChanged = hash != lastHash
-            val bounced = !canForward != lastCanForward && canForward && lastHash != 0
-            if (hashChanged || bounced) {
-                val reason = if (hashChanged) "hash" else "bounce-fix"
-                val changed = lastHash
-                lastHash = hash
-                lastCanForward = canForward
-                Log.d(TAG_SCROLL, "[autoFollow] emit #$emitCount ($reason): hash $changed→$hash shouldFollow=$shouldFollow msgs=$count canFwd=$canForward")
-                if (shouldFollow && count > 0) {
-                    listState.jumpToBottom("autoFollow-$reason")
-                } else {
-                    Log.d(TAG_SCROLL, "[autoFollow] SKIP: shouldFollow=$shouldFollow msgs=$count")
-                }
-            }
-        }
-    }
+    // messageCount / autoFollow LaunchedEffect removed — reverseLayout=true handles
+    // auto-follow natively (new items appear at bottom, no programmatic scroll needed).
 
     CompositionLocalProvider(
         LocalChatFontSize provides chatFontSize,
@@ -1272,15 +1182,7 @@ Box {
                             inputText = normalizedValue
                             viewModel.updateDraftText(normalizedValue.text)
 
-                            // Bug 3 fix: Scroll to bottom when user starts typing (first keystroke).
-                            // reverseLayout=false anchors at top; typing should auto-scroll to bottom
-                            // so the user can see the latest messages while composing.
-                            if (wasEmpty && normalizedValue.text.isNotEmpty()) {
-                                shouldFollow = true
-                                coroutineScope.launch {
-                                    listState.jumpToBottom("firstTyping")
-                                }
-                            }
+                            // reverseLayout=true anchors at bottom; no explicit scroll needed when typing.
 
                             if (isShellMode || shouldAutoShell) {
                                 viewModel.clearFileSearch()
@@ -1382,11 +1284,7 @@ Box {
                                 viewModel.sendMessage(allParts, attachmentParts)
                                 inputText = TextFieldValue("")
                                 attachments.clear()
-                                // Scroll to bottom after sending
-                                shouldFollow = true
-                                coroutineScope.launch {
-                                    listState.jumpToBottom("afterSend")
-                                }
+                                // reverseLayout=true anchors at bottom; no explicit scroll needed after send.
                                 viewModel.clearConfirmedPaths()
                                 viewModel.clearFileSearch()
                                 viewModel.clearDraft()
@@ -1961,19 +1859,64 @@ Box {
                                            end = 12.dp,
                                           bottom = 8.dp
                                       ),
-                                       reverseLayout = false,
-                                       verticalArrangement = Arrangement.spacedBy(messageSpacing)
-                       ) {
-                           // reverseLayout=false: items declared first render at the TOP
-                           // Visual order (top→bottom): oldest msgs → newest msgs → revert → pending
+                                        reverseLayout = true,
+                                        verticalArrangement = Arrangement.spacedBy(messageSpacing)
+                        ) {
+                            // reverseLayout=true: items declared first render at the BOTTOM.
+                            // Visual order (top→bottom): oldest msgs → newest msgs → revert → pending.
+                            // Declaration order is bottom-up: pending (bottom) → messages (top).
 
-                             // Chat messages: oldest-first (displayItems is sorted oldest-first).
-                             // In reverseLayout=false, oldest at index 0 = top. Correct.
-                             itemsIndexed(
-                                displayItems,
-                                key = { _, item -> item.second.message.id },
-                                contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
-                            ) { _, (rawIndex, msg) ->
+                            // Pending questions (declared first = bottom-most visually)
+                            items(
+                                uiState.pendingQuestions.reversed(),
+                                key = { "question_${it.id}" }
+                            ) { question ->
+                                QuestionCard(
+                                    question = question,
+                                    onSubmit = { answers ->
+                                        viewModel.replyToQuestion(question.id, answers)
+                                    },
+                                    onReject = {
+                                        viewModel.rejectQuestion(question.id)
+                                    }
+                                )
+                            }
+
+                            // Pending permissions
+                            items(
+                                uiState.pendingPermissions.reversed(),
+                                key = { "perm_${it.id}" }
+                            ) { permission ->
+                                PermissionCard(
+                                    permission = permission,
+                                    onOnce = { viewModel.replyToPermission(permission.id, "once") },
+                                    onAlways = { viewModel.replyToPermission(permission.id, "always") },
+                                    onReject = { viewModel.replyToPermission(permission.id, "reject") }
+                                )
+                            }
+
+                           // Revert banner
+                           if (uiState.revert != null) {
+                               item(key = "revert_banner") {
+                                   RevertBanner(onRedo = {
+                                       viewModel.redoMessage { ok ->
+                                           coroutineScope.launch {
+                                               snackbarHostState.showSnackbar(
+                                                   if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
+                                               )
+                                           }
+                                       }
+                                   })
+                               }
+                           }
+
+                              // Chat messages: displayItems.reversed() so newest is at index 0 (bottom in reverseLayout).
+                              // Visual result: oldest at top, newest at bottom.
+                              itemsIndexed(
+                                 displayItems.reversed(),
+                                 key = { _, item -> item.second.message.id },
+                                 contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
+                             ) { _, (rawIndex, msg) ->
                                 when {
                                     msg.isAssistant -> {
                                         val turnMessagesForMsg = turnGroups[rawIndex] ?: listOf(msg)
@@ -2100,62 +2043,18 @@ Box {
                                     }
                                 }
                             }
-
-                           // Revert banner
-                           if (uiState.revert != null) {
-                               item(key = "revert_banner") {
-                                   RevertBanner(onRedo = {
-                                       viewModel.redoMessage { ok ->
-                                           coroutineScope.launch {
-                                               snackbarHostState.showSnackbar(
-                                                   if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
-                                               )
-                                           }
-                                       }
-                                   })
-                               }
-                           }
-
-                           // Pending permissions
-                           items(
-                               uiState.pendingPermissions,
-                               key = { "perm_${it.id}" }
-                           ) { permission ->
-                               PermissionCard(
-                                   permission = permission,
-                                   onOnce = { viewModel.replyToPermission(permission.id, "once") },
-                                   onAlways = { viewModel.replyToPermission(permission.id, "always") },
-                                   onReject = { viewModel.replyToPermission(permission.id, "reject") }
-                               )
-                           }
-
-                           // Pending questions (bottom-most)
-                           items(
-                               uiState.pendingQuestions,
-                               key = { "question_${it.id}" }
-                           ) { question ->
-                               QuestionCard(
-                                   question = question,
-                                   onSubmit = { answers ->
-                                       viewModel.replyToQuestion(question.id, answers)
-                                   },
-                                   onReject = {
-                                       viewModel.rejectQuestion(question.id)
-                                   }
-                               )
-                                    }
-                                }
+                                 }
                                   } // PullToRefreshBox
   
-                        // Scroll-to-bottom FAB
-                         if (!isAtBottom) {
-                                        SmallFloatingActionButton(
-                                            onClick = {
-                                                coroutineScope.launch {
-                                                    shouldFollow = true
-                                                    listState.animateScrollToBottom("fabClick")
-                                                }
-                                            },
+                         // Scroll-to-bottom FAB
+                          if (!isAtBottom) {
+                                         SmallFloatingActionButton(
+                                             onClick = {
+                                                 coroutineScope.launch {
+                                                     // reverseLayout=true: item 0 = bottom (newest messages)
+                                                     listState.animateScrollToItem(0)
+                                                 }
+                                             },
                                   modifier = Modifier
                                       .align(Alignment.BottomCenter)
                                       .padding(bottom = 8.dp),
@@ -2192,19 +2091,64 @@ Box {
                                       horizontal = 12.dp,
                                       vertical = 8.dp
                                   ),
-                                   reverseLayout = false,
-                                   verticalArrangement = Arrangement.spacedBy(messageSpacing)
-                                ) {
-                                    // reverseLayout=false: items declared first render at the TOP
-                                    // Visual order (top→bottom): oldest msgs → newest msgs → revert → pending
+                                    reverseLayout = true,
+                                    verticalArrangement = Arrangement.spacedBy(messageSpacing)
+                                 ) {
+                                     // reverseLayout=true: items declared first render at the BOTTOM.
+                                     // Visual order (top→bottom): oldest msgs → newest msgs → revert → pending.
+                                     // Declaration order is bottom-up: pending (bottom) → messages (top).
 
-                                    // Chat messages: oldest-first (displayItems is sorted oldest-first).
-                                    // In reverseLayout=false, oldest at index 0 = top. Correct.
-                                    itemsIndexed(
-                                      displayItems,
-                                      key = { _, item -> item.second.message.id },
-                                      contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
-                                  ) { _, (rawIndex, msg) ->
+                                     // Pending questions (declared first = bottom-most visually)
+                                     items(
+                                         uiState.pendingQuestions.reversed(),
+                                         key = { "question_${it.id}" }
+                                     ) { question ->
+                                         QuestionCard(
+                                             question = question,
+                                             onSubmit = { answers ->
+                                                 viewModel.replyToQuestion(question.id, answers)
+                                             },
+                                             onReject = {
+                                                 viewModel.rejectQuestion(question.id)
+                                             }
+                                         )
+                                     }
+
+                                     // Pending permissions
+                                     items(
+                                         uiState.pendingPermissions.reversed(),
+                                         key = { "perm_${it.id}" }
+                                     ) { permission ->
+                                         PermissionCard(
+                                             permission = permission,
+                                             onOnce = { viewModel.replyToPermission(permission.id, "once") },
+                                             onAlways = { viewModel.replyToPermission(permission.id, "always") },
+                                             onReject = { viewModel.replyToPermission(permission.id, "reject") }
+                                         )
+                                     }
+
+                                     // Revert banner
+                                     if (uiState.revert != null) {
+                                         item(key = "revert_banner") {
+                                             RevertBanner(onRedo = {
+                                                 viewModel.redoMessage { ok ->
+                                                     coroutineScope.launch {
+                                                         snackbarHostState.showSnackbar(
+                                                             if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
+                                                         )
+                                                     }
+                                                 }
+                                             })
+                                         }
+                                     }
+
+                                     // Chat messages: displayItems.reversed() so newest is at index 0 (bottom in reverseLayout).
+                                     // Visual result: oldest at top, newest at bottom.
+                                     itemsIndexed(
+                                       displayItems.reversed(),
+                                       key = { _, item -> item.second.message.id },
+                                       contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
+                                   ) { _, (rawIndex, msg) ->
                                       when {
                                             msg.isAssistant -> {
                                                 val turnMessagesForMsg = turnGroups[rawIndex] ?: listOf(msg)
@@ -2320,62 +2264,18 @@ Box {
                                                )
                                           }
                                       }
-                                  }
+                                   }
+                                 }
+                                   } // PullToRefreshBox
 
-                                   // Revert banner
-                                   if (uiState.revert != null) {
-                                       item(key = "revert_banner") {
-                                           RevertBanner(onRedo = {
-                                               viewModel.redoMessage { ok ->
+                             // Scroll-to-bottom FAB
+                                    if (!isAtBottom) {
+                                           SmallFloatingActionButton(
+                                              onClick = {
                                                    coroutineScope.launch {
-                                                       snackbarHostState.showSnackbar(
-                                                           if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
-                                                       )
+                                                       // reverseLayout=true: item 0 = bottom (newest messages)
+                                                       listState.animateScrollToItem(0)
                                                    }
-                                               }
-                                           })
-                                       }
-                                   }
-
-                                   // Pending permissions
-                                   items(
-                                       uiState.pendingPermissions,
-                                       key = { "perm_${it.id}" }
-                                   ) { permission ->
-                                       PermissionCard(
-                                           permission = permission,
-                                           onOnce = { viewModel.replyToPermission(permission.id, "once") },
-                                           onAlways = { viewModel.replyToPermission(permission.id, "always") },
-                                           onReject = { viewModel.replyToPermission(permission.id, "reject") }
-                                       )
-                                   }
-
-                                   // Pending questions (bottom-most)
-                                   items(
-                                       uiState.pendingQuestions,
-                                       key = { "question_${it.id}" }
-                                   ) { question ->
-                                       QuestionCard(
-                                           question = question,
-                                           onSubmit = { answers ->
-                                               viewModel.replyToQuestion(question.id, answers)
-                                           },
-                                           onReject = {
-                                               viewModel.rejectQuestion(question.id)
-                                           }
-                                       )
-                                    }
-                                }
-                                  } // PullToRefreshBox
-
-                            // Scroll-to-bottom FAB
-                                   if (!isAtBottom) {
-                                          SmallFloatingActionButton(
-                                             onClick = {
-                                                  coroutineScope.launch {
-                                                      shouldFollow = true
-                                                      listState.animateScrollToBottom("fabClick")
-                                                  }
                                               },
                                           modifier = Modifier
                                               .align(Alignment.BottomCenter)
