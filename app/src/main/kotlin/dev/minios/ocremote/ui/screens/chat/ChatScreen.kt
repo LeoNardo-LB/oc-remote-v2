@@ -914,13 +914,28 @@ fun ChatScreen(
         }
     }
 
+    // Track whether user is at bottom, updated only when manual scroll ends.
+    // This avoids the bug where isAtBottom and canScrollBackward are mutually exclusive.
+    // programmatic scrollToItem does NOT trigger isScrollInProgress, so this flag
+    // is only updated by genuine user interaction.
+    var userAtBottom by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { listState.isScrollInProgress }
+            .collect { scrolling ->
+                if (!scrolling) {
+                    // Scroll gesture ended — snapshot the bottom state
+                    userAtBottom = !listState.canScrollBackward
+                }
+            }
+    }
+
     // When message count increases (new message from send or QUEUE auto-submit),
     // scroll to absolute bottom if user is already at/near bottom.
     LaunchedEffect(Unit) {
         var lastCount = 0
         snapshotFlow { uiState.messages.size }
             .collect { count ->
-                if (count > lastCount && lastCount > 0 && isAtBottom) {
+                if (count > lastCount && lastCount > 0 && userAtBottom) {
                     // New messages appeared while user is at bottom → stay at bottom
                     listState.scrollToItem(0)
                     while (listState.canScrollBackward) {
@@ -932,9 +947,9 @@ fun ChatScreen(
     }
 
     // SSE auto-follow: when the last message content changes (streaming tokens)
-    // and user is exactly at bottom, scroll back to bottom.
-    // If user scrolled away even one pixel, do nothing — key anchoring keeps their position.
-    // This is the GetStream pattern: conditional scrollToItem(0) on content change.
+    // and user was at bottom before SSE started, scroll back to bottom.
+    // If user scrolled away even one pixel, userAtBottom=false → do nothing.
+    // Key anchoring keeps user's position when they've scrolled away.
     LaunchedEffect(Unit) {
         var lastHash = 0
         snapshotFlow {
@@ -945,9 +960,8 @@ fun ChatScreen(
         }.collect { hash ->
             val changed = hash != lastHash && lastHash != 0
             lastHash = hash
-            if (changed && isAtBottom && listState.canScrollBackward) {
-                // Content changed while at bottom but scroll drifted (key anchoring shifted index)
-                // → scroll back to item 0 (newest message at bottom in reverseLayout)
+            if (changed && userAtBottom) {
+                // User was at bottom, content changed → scroll back to bottom
                 listState.scrollToItem(0)
             }
         }
@@ -1321,6 +1335,7 @@ Box {
                                 inputText = TextFieldValue("")
                                 attachments.clear()
                                 // Scroll to bottom after sending: wait for new item to appear, then scroll
+                                userAtBottom = true
                                 coroutineScope.launch {
                                     val currentCount = listState.layoutInfo.totalItemsCount
                                     Log.w("CHAT_DEBUG", "[afterSend] waiting: currentCount=$currentCount canBackward=${listState.canScrollBackward}")
@@ -2100,6 +2115,7 @@ Box {
                           if (!isAtBottom) {
                                          SmallFloatingActionButton(
                                              onClick = {
+                                                 userAtBottom = true
                                                  coroutineScope.launch {
                                                      // reverseLayout=true: item 0 = bottom (newest messages)
                                                      listState.animateScrollToItem(0)
@@ -2318,10 +2334,11 @@ Box {
                                  }
                                    } // PullToRefreshBox
 
-                             // Scroll-to-bottom FAB
-                                    if (!isAtBottom) {
+                              // Scroll-to-bottom FAB
+                                     if (!isAtBottom) {
                                            SmallFloatingActionButton(
                                               onClick = {
+                                                   userAtBottom = true
                                                    coroutineScope.launch {
                                                        // reverseLayout=true: item 0 = bottom (newest messages)
                                                        listState.animateScrollToItem(0)
