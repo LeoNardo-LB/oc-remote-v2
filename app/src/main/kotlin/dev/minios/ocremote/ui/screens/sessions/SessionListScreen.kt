@@ -280,7 +280,6 @@ fun SessionListScreen(
                             items(uiState.sessions, key = { it.session.id }) { item ->
                                 SessionRow(
                                     item = item,
-                                    projectName = null,
                                     isSelectionMode = uiState.isSelectionMode,
                                     isSelected = item.session.id in uiState.selectedIds,
                                     onClick = {

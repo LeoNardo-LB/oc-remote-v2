@@ -1,21 +1,21 @@
 package dev.minios.ocremote.ui.screens.sessions.components
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,24 +23,32 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,12 +56,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.SessionStatus
-import dev.minios.ocremote.ui.components.AmoledDefaultBorder
+import dev.minios.ocremote.ui.components.AmoledSurface
 import dev.minios.ocremote.ui.components.indicators.PulsingDotsIndicator
 import dev.minios.ocremote.ui.screens.sessions.SessionItem
 import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.DiffAdded
 import dev.minios.ocremote.ui.theme.DiffRemoved
+import dev.minios.ocremote.ui.theme.ShapeTokens
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -62,271 +71,294 @@ import java.util.Locale
 @Composable
 internal fun SessionRow(
     item: SessionItem,
-    projectName: String? = null,
+    depth: Int = 0,
     isSelectionMode: Boolean,
     isSelected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onRename: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onCopyId: (String) -> Unit = {},
 ) {
     val isAmoled = isAmoledTheme()
     val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
-
     val addColor = DiffAdded
     val delColor = DiffRemoved
 
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { dismissValue ->
-            when (dismissValue) {
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    onRename()
-                    false // don't settle — snap back
-                }
-                SwipeToDismissBoxValue.EndToStart -> {
-                    onDelete()
-                    false
-                }
-                SwipeToDismissBoxValue.Settled -> false
-            }
-        },
-        positionalThreshold = { it * 0.3f }
-    )
+    var menuExpanded by remember { mutableStateOf(false) }
+    var showDetailsDialog by remember { mutableStateOf(false) }
 
-    val cardContent: @Composable () -> Unit = {
-        val containerColor = if (isSelected) {
-            if (isAmoled) {
-                Color.Black
-            } else {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-            }
-        } else {
-            if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceVariant
-        }
+    val pressedColor = if (isAmoled) {
+        MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.FAINT)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.FAINT)
+    }
 
-        val cardColors = CardDefaults.cardColors(containerColor = containerColor)
-
-        val cardBorder = when {
-            isSelected -> BorderStroke(
-                1.5.dp,
-                MaterialTheme.colorScheme.primary.copy(alpha = if (isAmoled) AlphaTokens.HIGH else AlphaTokens.MUTED)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
             )
-            isAmoled -> AmoledDefaultBorder
-            else -> null
+            .padding(start = minOf(depth * 16, 160).dp, end = 8.dp)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Selection checkbox
+        AnimatedVisibility(
+            visible = isSelectionMode,
+            enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
+            exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut()
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onClick() },
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
         }
 
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = onLongClick,
-                ),
-            colors = cardColors,
-            border = cardBorder
-        ) {
+        // Status dot
+        when (item.status) {
+            is SessionStatus.Busy -> {
+                PulsingDotsIndicator(
+                    dotSize = 6.dp,
+                    dotSpacing = 2.dp,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            is SessionStatus.Retry -> {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.error)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            else -> { /* Idle — no dot */ }
+        }
+
+        // Content column
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.session.title ?: stringResource(R.string.session_untitled),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                AnimatedVisibility(
-                    visible = isSelectionMode,
-                    enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
-                    exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = isSelected,
-                            onCheckedChange = { onClick() },
+                Text(
+                    text = dateFormat.format(Date(item.session.time.updated)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                )
+
+                // Status label
+                when (item.status) {
+                    is SessionStatus.Busy -> {
+                        Text(
+                            text = stringResource(R.string.sessions_working),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    is SessionStatus.Retry -> {
+                        Text(
+                            text = stringResource(R.string.sessions_retrying),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    else -> {}
+                }
+
+                // Diff summary
+                val summary = item.session.summary
+                if (summary != null && (summary.additions > 0 || summary.deletions > 0)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        if (summary.additions > 0) {
+                            Text(
+                                text = stringResource(R.string.session_changes_additions, summary.additions),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    color = addColor,
+                                ),
+                            )
+                        }
+                        if (summary.deletions > 0) {
+                            Text(
+                                text = stringResource(R.string.session_changes_deletions, summary.deletions),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    color = delColor,
+                                ),
+                            )
+                        }
                     }
                 }
-                // Content column
-                Column(modifier = Modifier.weight(1f)) {
-                    // Project name label
-                    if (!projectName.isNullOrBlank()) {
-                        Text(
-                            text = projectName,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM)
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                    }
+            }
+        }
 
-                    // Title
-                    Text(
-                        text = item.session.title ?: stringResource(R.string.session_untitled),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodyLarge
+        // Three-dot menu (hidden during selection mode)
+        if (!isSelectionMode) {
+            Box {
+                IconButton(
+                    onClick = { menuExpanded = true },
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    // Date + status + diff summary row
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = dateFormat.format(Date(item.session.time.updated)),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
-                        )
-
-                        // Status indicator
-                        when (item.status) {
-                            is SessionStatus.Busy -> {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    PulsingDotsIndicator(
-                                        dotSize = 4.dp,
-                                        dotSpacing = 2.dp,
-                                        color = MaterialTheme.colorScheme.tertiary
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.sessions_working),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.tertiary
-                                    )
-                                }
-                            }
-                            is SessionStatus.Retry -> {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.error)
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.sessions_retrying),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-                            else -> { /* Idle - no label */ }
-                        }
-
-                        // Diff summary (+N/-N)
-                        val summary = item.session.summary
-                        if (summary != null && (summary.additions > 0 || summary.deletions > 0)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                if (summary.additions > 0) {
-                                    Text(
-                                        text = stringResource(R.string.session_changes_additions, summary.additions),
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontFamily = FontFamily.Monospace,
-                                            fontSize = 11.sp,
-                                            color = addColor
-                                        )
-                                    )
-                                }
-                                if (summary.deletions > 0) {
-                                    Text(
-                                        text = stringResource(R.string.session_changes_deletions, summary.deletions),
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontFamily = FontFamily.Monospace,
-                                            fontSize = 11.sp,
-                                            color = delColor
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                    containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.session_rename)) },
+                        onClick = {
+                            menuExpanded = false
+                            onRename()
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.delete)) },
+                        onClick = {
+                            menuExpanded = false
+                            onDelete()
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_copy_session_id)) },
+                        onClick = {
+                            menuExpanded = false
+                            onCopyId(item.session.id)
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_view_details)) },
+                        onClick = {
+                            menuExpanded = false
+                            showDetailsDialog = true
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                    )
                 }
             }
         }
     }
 
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            val direction = dismissState.dismissDirection
+    // Details dialog
+    if (showDetailsDialog) {
+        SessionDetailsDialog(
+            item = item,
+            onDismiss = { showDetailsDialog = false },
+            isAmoled = isAmoled,
+        )
+    }
+}
 
-            // Rename background (swipe right)
-            val renameColor = MaterialTheme.colorScheme.primaryContainer
-            // Delete background (swipe left)
-            val deleteColor = MaterialTheme.colorScheme.errorContainer
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SessionDetailsDialog(
+    item: SessionItem,
+    onDismiss: () -> Unit,
+    isAmoled: Boolean,
+) {
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
 
-            val bgColor = when (direction) {
-                SwipeToDismissBoxValue.StartToEnd -> renameColor
-                SwipeToDismissBoxValue.EndToStart -> deleteColor
-                else -> Color.Transparent
-            }
-            val iconTint = when (direction) {
-                SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.onPrimaryContainer
-                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.onErrorContainer
-                else -> Color.Transparent
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CardDefaults.shape)
-                    .background(bgColor)
-                    .padding(horizontal = 20.dp),
-                contentAlignment = when (direction) {
-                    SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-                    else -> Alignment.CenterEnd
-                }
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        AmoledSurface(
+            isAmoledDark = isAmoled,
+            shape = ShapeTokens.largeMedium,
+            normalTonalElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                when (direction) {
-                    SwipeToDismissBoxValue.StartToEnd -> {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = stringResource(R.string.session_rename),
-                                tint = iconTint,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                stringResource(R.string.session_rename),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = iconTint
-                            )
-                        }
+                Text(
+                    text = item.session.title ?: stringResource(R.string.session_untitled),
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+                HorizontalDivider()
+                DetailRow(stringResource(R.string.session_details_id), item.session.id)
+                DetailRow(
+                    stringResource(R.string.session_details_status),
+                    when (item.status) {
+                        is SessionStatus.Busy -> stringResource(R.string.session_status_busy)
+                        is SessionStatus.Retry -> stringResource(R.string.session_status_retry)
+                        else -> stringResource(R.string.session_status_idle)
                     }
-                    SwipeToDismissBoxValue.EndToStart -> {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                stringResource(R.string.delete),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = iconTint
-                            )
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = stringResource(R.string.delete),
-                                tint = iconTint,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                    else -> {}
+                )
+                DetailRow(
+                    stringResource(R.string.session_details_created),
+                    dateFormat.format(Date(item.session.time.created))
+                )
+                DetailRow(
+                    stringResource(R.string.session_details_updated),
+                    dateFormat.format(Date(item.session.time.updated))
+                )
+                val summary = item.session.summary
+                if (summary != null) {
+                    DetailRow(
+                        "Diff",
+                        "+${summary.additions} -${summary.deletions} (${summary.files} files)"
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
                 }
             }
-        },
-        enableDismissFromStartToEnd = !isSelectionMode,
-        enableDismissFromEndToStart = !isSelectionMode
-    ) {
-        cardContent()
+        }
+    }
+}
+
+// Note: Same as DirectoryTreeNode.kt's DetailRow. File-private to avoid cross-file coupling.
+// If styling diverges, extract to shared file.
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
