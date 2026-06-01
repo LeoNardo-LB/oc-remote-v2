@@ -34,11 +34,22 @@ import javax.inject.Inject
 
 private const val TAG = "SessionListViewModel"
 
+enum class ListMode { PROJECTS, SESSIONS }
+
+data class ProjectGroup(
+    val directory: String,
+    val displayName: String,
+    val sessionCount: Int,
+    val lastUpdated: Long?,
+)
+
 data class SessionListUiState(
-    val sessionGroups: List<ProjectSessionGroup> = emptyList(),
-    val projects: List<Project> = emptyList(),
+    val mode: ListMode = ListMode.PROJECTS,
+    val projectGroups: List<ProjectGroup> = emptyList(),
+    val currentProject: ProjectGroup? = null,
+    val sessions: List<SessionItem> = emptyList(),
     val serverName: String = "",
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = false,
     val error: String? = null,
     val selectedIds: Set<String> = emptySet(),
     val isSelectionMode: Boolean = false,
