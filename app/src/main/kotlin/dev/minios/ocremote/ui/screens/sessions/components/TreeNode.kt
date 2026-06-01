@@ -51,8 +51,13 @@ fun buildTreeNodes(
     homeDir: String?,
     statuses: Map<String, SessionStatus> = emptyMap(),
 ): List<TreeNode> {
+    // 0. Normalize paths: Windows backslashes → forward slashes
+    val normalizePath: (String) -> String = { it.replace('\\', '/') }
+    val normalizedHomeDir = homeDir?.let { normalizePath(it) }
+    val normalizedExpandedPaths = expandedPaths.map { normalizePath(it) }.toSet()
+
     // 1. Collect all unique directory paths
-    val allPaths = sessions.map { it.directory }.filter { it.isNotBlank() }.toSet()
+    val allPaths = sessions.map { normalizePath(it.directory) }.filter { it.isNotBlank() }.toSet()
 
     // 2. Generate all ancestor segments
     val allSegments = mutableSetOf<String>()
@@ -69,7 +74,7 @@ fun buildTreeNodes(
     // 3. Build directory info map: path → (displayName, depth, childDirs, sessionCount, totalSessionCount)
     val dirInfo = mutableMapOf<String, DirInfo>()
     for (path in allSegments) {
-        val leaf = if (homeDir != null && path == homeDir.trimEnd('/')) {
+        val leaf = if (normalizedHomeDir != null && path == normalizedHomeDir.trimEnd('/')) {
             "~"
         } else {
             path.substringAfterLast('/')
@@ -81,10 +86,10 @@ fun buildTreeNodes(
         )
     }
 
-    // 4. Count sessions per directory (exact match)
+    // 4. Count sessions per directory (exact match, using normalized paths)
     val exactCount = mutableMapOf<String, Int>()
     for (session in sessions) {
-        val dir = session.directory
+        val dir = normalizePath(session.directory)
         if (dir.isNotBlank()) {
             exactCount[dir] = (exactCount[dir] ?: 0) + 1
         }
@@ -121,11 +126,11 @@ fun buildTreeNodes(
     }.sortedBy { it }
 
     for (rootPath in rootPaths) {
-        flattenSubtree(rootPath, allSegments, sessions, expandedPaths, exactCount, totalSessionCount, childDirs, dirInfo, homeDir, statuses, result)
+        flattenSubtree(rootPath, allSegments, sessions, normalizedExpandedPaths, exactCount, totalSessionCount, childDirs, dirInfo, normalizedHomeDir, statuses, result)
     }
 
     // Handle sessions with empty/blank/root directory (no tree node)
-    val noDirSessions = sessions.filter { it.directory.isBlank() || it.directory == "/" }
+    val noDirSessions = sessions.filter { normalizePath(it.directory).isBlank() || normalizePath(it.directory) == "/" }
     for (session in noDirSessions) {
         result.add(TreeNode.Session(
             id = session.id,
@@ -185,7 +190,7 @@ private fun flattenSubtree(
 
         // Sessions in this directory (exact match, sorted by updated desc)
         val dirSessions = sessions
-            .filter { it.directory == path }
+            .filter { it.directory.replace('\\', '/') == path }
             .sortedByDescending { it.time.updated }
 
         for (session in dirSessions) {
