@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import java.util.Locale
 
 @Composable
@@ -76,8 +77,7 @@ internal fun getImageMaxSideDisplayName(px: Int): String {
 
 @Composable
 internal fun amoledDialogModifier(): Modifier {
-    val isAmoledTheme = MaterialTheme.colorScheme.background == Color.Black &&
-        MaterialTheme.colorScheme.surface == Color.Black
+    val isAmoledTheme = LocalAmoledMode.current
     return if (isAmoledTheme) {
         Modifier.border(
             width = 1.dp,
@@ -91,7 +91,6 @@ internal fun amoledDialogModifier(): Modifier {
 
 @Composable
 internal fun amoledDialogContainerColor(): Color {
-    val isAmoledTheme = MaterialTheme.colorScheme.background == Color.Black &&
-        MaterialTheme.colorScheme.surface == Color.Black
+    val isAmoledTheme = LocalAmoledMode.current
     return if (isAmoledTheme) Color.Black else AlertDialogDefaults.containerColor
 }

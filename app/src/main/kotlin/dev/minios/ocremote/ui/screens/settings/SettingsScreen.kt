@@ -65,6 +65,7 @@ import dev.minios.ocremote.ui.screens.settings.components.getImageMaxSideDisplay
 import dev.minios.ocremote.ui.screens.settings.components.getLanguageDisplayName
 import dev.minios.ocremote.ui.screens.settings.components.getReconnectModeDisplayName
 import dev.minios.ocremote.ui.screens.settings.components.getThemeDisplayName
+import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import kotlin.math.roundToInt
 
 /**
@@ -118,8 +119,7 @@ fun SettingsScreen(
     var showImageQualityDialog by remember { mutableStateOf(false) }
     var showLocalLaunchOptionsDialog by remember { mutableStateOf(false) }
 
-    val isAmoledTheme = MaterialTheme.colorScheme.background == Color.Black &&
-        MaterialTheme.colorScheme.surface == Color.Black
+    val isAmoledTheme = LocalAmoledMode.current
     val switchColors = if (isAmoledTheme) {
         SwitchDefaults.colors(
             checkedThumbColor = MaterialTheme.colorScheme.primary,

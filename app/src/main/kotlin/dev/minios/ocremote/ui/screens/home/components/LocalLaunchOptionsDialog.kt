@@ -33,6 +33,7 @@ import androidx.compose.ui.window.DialogProperties
 import dev.minios.ocremote.R
 import dev.minios.ocremote.data.repository.LocalServerManager
 import dev.minios.ocremote.ui.components.AmoledDefaultBorder
+import dev.minios.ocremote.ui.theme.LocalAmoledMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +58,7 @@ internal fun LocalLaunchOptionsDialog(
     onAutoStartChange: (Boolean) -> Unit,
     onStartupTimeoutSecChange: (Int) -> Unit,
 ) {
-    val isAmoled = MaterialTheme.colorScheme.background == Color.Black && MaterialTheme.colorScheme.surface == Color.Black
+    val isAmoled = LocalAmoledMode.current
     val timeoutOptions = listOf(15, 30, 45, 60, 90, 120)
     var localServerUsername by remember(serverUsername) { mutableStateOf(serverUsername) }
     var localServerPassword by remember(serverPassword) { mutableStateOf(serverPassword) }

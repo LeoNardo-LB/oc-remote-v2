@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.data.repository.LocalServerManager
+import dev.minios.ocremote.ui.theme.LocalAmoledMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,7 +65,7 @@ internal fun LocalServerLaunchOptionsDialog(
         startupTimeoutSec: Int,
     ) -> Unit,
 ) {
-    val isAmoled = MaterialTheme.colorScheme.background == Color.Black && MaterialTheme.colorScheme.surface == Color.Black
+    val isAmoled = LocalAmoledMode.current
     var localEnabled by remember(enabled) { mutableStateOf(enabled) }
     var localProxyUrl by remember(proxyUrl) { mutableStateOf(proxyUrl) }
     var localNoProxyList by remember(noProxyList) { mutableStateOf(noProxyList) }

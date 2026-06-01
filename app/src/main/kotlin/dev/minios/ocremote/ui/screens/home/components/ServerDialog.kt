@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.ServerConfig
 import dev.minios.ocremote.ui.components.AmoledDefaultBorder
+import dev.minios.ocremote.ui.theme.LocalAmoledMode
 
 /**
  * Parse and validate a server URL string.
@@ -94,7 +95,7 @@ internal fun ServerDialog(
     val dialogMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.9f
     val scrollState = rememberScrollState()
 
-    val isAmoled = MaterialTheme.colorScheme.background == Color.Black && MaterialTheme.colorScheme.surface == Color.Black
+    val isAmoled = LocalAmoledMode.current
     val switchColors = if (isAmoled) {
         SwitchDefaults.colors(
             checkedThumbColor = MaterialTheme.colorScheme.primary,

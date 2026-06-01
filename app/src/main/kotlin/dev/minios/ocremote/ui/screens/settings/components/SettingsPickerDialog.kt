@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.theme.LocalAmoledMode
 
 /**
  * Reusable single-selection picker dialog styled to match
@@ -57,8 +58,7 @@ internal fun <K> SettingsPickerDialog(
     onDismiss: () -> Unit,
     maxHeight: Int = 480
 ) {
-    val isAmoled = MaterialTheme.colorScheme.background == Color.Black &&
-        MaterialTheme.colorScheme.surface == Color.Black
+    val isAmoled = LocalAmoledMode.current
 
     val listState = rememberLazyListState()
 

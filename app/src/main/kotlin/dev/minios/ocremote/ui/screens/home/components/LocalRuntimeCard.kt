@@ -14,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.components.AmoledCard
+import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.screens.home.LocalRuntimeStatus
 
 @Composable
@@ -37,8 +38,7 @@ internal fun LocalRuntimeCard(
     onOpenLocalLaunchOptions: () -> Unit,
     onInstallTermux: () -> Unit,
 ) {
-    val isAmoled = MaterialTheme.colorScheme.background == Color.Black &&
-        MaterialTheme.colorScheme.surface == Color.Black
+    val isAmoled = LocalAmoledMode.current
     val cardContentColor = if (isAmoled) {
         MaterialTheme.colorScheme.onSurface
     } else {
