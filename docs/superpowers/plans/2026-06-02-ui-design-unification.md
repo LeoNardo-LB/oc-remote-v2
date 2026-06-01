@@ -28,7 +28,7 @@
 | `app/src/main/kotlin/dev/minios/ocremote/MainActivity.kt` | 修改 | 计算 WindowSizeClass |
 | `app/src/main/kotlin/dev/minios/ocremote/ui/screens/home/HomeScreen.kt` | 修改 | 网格布局适配 |
 | `app/src/main/kotlin/dev/minios/ocremote/ui/screens/settings/SettingsScreen.kt` | 修改 | 居中约束 |
-| `app/build.gradle.kts` | 修改 | 添加 window-size-class 依赖 |
+| `app/build.gradle.kts` | 修改 | 验证/添加 window-size-class 依赖 |
 | 若干 ServerDialog/LocalLaunchOptionsDialog 等文件 | 修改 | 内联检测改为 LocalAmoledMode |
 
 ---
@@ -129,10 +129,10 @@ git commit -m "feat(ui): add centralized Motion constants (AppMotion)"
 在 Theme.kt 文件的 import 区域之后、`LightColorScheme` 定义之前，添加：
 
 ```kotlin
-val LocalAmoledMode = compositionLocalOf { false }
+val LocalAmoledMode = staticCompositionLocalOf { false }
 ```
 
-注意：`compositionLocalOf` 的 import `androidx.compose.runtime.compositionLocalOf` 应该已经在文件的 import 区域中。如果不在，需要添加。
+注意：`staticCompositionLocalOf` 的 import `androidx.compose.runtime.staticCompositionLocalOf` 应该已经在文件的 import 区域中。如果不在，需要添加。使用 `staticCompositionLocalOf` 而非 `compositionLocalOf`，因为 AMOLED 模式值在主题设置后不会变化，static 版本避免了不必要的重组。
 
 - [ ] **Step 2: 在 OpenCodeTheme 中应用 Shape + 包裹 CompositionLocalProvider**
 
@@ -168,6 +168,8 @@ val LocalAmoledMode = compositionLocalOf { false }
 Run: `.\gradlew :app:compileDevDebugKotlin`
 Expected: BUILD SUCCESSFUL
 
+> **编译失败回滚：** 如果 BUILD FAILED → 执行 `git checkout -- app/src/main/kotlin/dev/minios/ocremote/ui/theme/Theme.kt`，重新读取文件，定位错误，修复后重新编译。最多重试 3 次。
+
 - [ ] **Step 4: 提交**
 
 ```bash
@@ -177,20 +179,16 @@ git commit -m "feat(ui): add LocalAmoledMode CompositionLocal + wire Shape syste
 
 ---
 
-### Task 4: 添加 window-size-class 依赖
+### Task 4: 验证 material3 WindowSizeClass API 可用性
 
 **Files:**
-- Modify: `app/build.gradle.kts`
+- Modify: `app/build.gradle.kts`（仅在验证失败时）
 
-- [ ] **Step 1: 添加依赖**
+- [ ] **Step 1: 验证 API 可用性**
 
-在 `build.gradle.kts` 第 115 行 `implementation("androidx.compose.material3:material3")` 之后添加：
-
-```kotlin
-    implementation("androidx.compose.material3:material3-window-size-class")
-```
-
-版本由 Compose BOM `2026.05.01`（第 110 行）管理，无需显式版本号。
+在 `MainActivity.kt` 中测试 `import androidx.compose.material3.windowsizeclass.WindowSizeClass` 是否可解析：
+- 如果可解析 → 无需额外依赖（`material3` BOM 已包含），标记 Task 4 为验证通过，跳到 Step 2
+- 如果不可解析 → 在 `build.gradle.kts` 第 115 行 `implementation("androidx.compose.material3:material3")` 之后添加 `implementation("androidx.compose.material3:material3-window-size-class")`（版本由 Compose BOM `2026.05.01` 管理，无需显式版本号）
 
 - [ ] **Step 2: 编译验证**
 
@@ -201,7 +199,7 @@ Expected: BUILD SUCCESSFUL
 
 ```bash
 git add app/build.gradle.kts
-git commit -m "build: add material3-window-size-class dependency"
+git commit -m "build: verify material3 WindowSizeClass API availability"
 ```
 
 ---
@@ -273,6 +271,8 @@ import dev.minios.ocremote.ui.theme.AppMotion
 Run: `.\gradlew :app:compileDevDebugKotlin`
 Expected: BUILD SUCCESSFUL
 
+> **编译失败回滚：** 如果 BUILD FAILED → 执行 `git checkout -- app/src/main/kotlin/dev/minios/ocremote/ui/navigation/NavGraph.kt`，重新读取文件，定位错误，修复后重新编译。最多重试 3 次。
+
 - [ ] **Step 4: 提交**
 
 ```bash
@@ -341,6 +341,8 @@ internal fun isAmoledTheme(): Boolean = LocalAmoledMode.current
 Run: `.\gradlew :app:compileDevDebugKotlin`
 Expected: BUILD SUCCESSFUL
 
+> **编译失败回滚：** 如果 BUILD FAILED → 执行 `git checkout -- app/src/main/kotlin/dev/minios/ocremote/ui/screens/chat/util/ChatColors.kt app/src/main/kotlin/dev/minios/ocremote/ui/screens/sessions/components/SessionUiHelpers.kt`，重新读取文件，定位错误，修复后重新编译。最多重试 3 次。
+
 - [ ] **Step 4: 提交**
 
 ```bash
@@ -376,6 +378,8 @@ Run: `rg "colorScheme\.background == Color\.Black" --line-number app/src/main/ko
 
 Run: `.\gradlew :app:compileDevDebugKotlin`
 Expected: BUILD SUCCESSFUL
+
+> **编译失败回滚：** 如果 BUILD FAILED → 执行 `git checkout -- <本Task修改的文件列表>`（参考 Step 1 搜索结果中的文件），重新读取文件，定位错误，修复后重新编译。最多重试 3 次。
 
 - [ ] **Step 4: 提交**
 
@@ -417,10 +421,14 @@ shape: Shape = RoundedCornerShape(0.dp),
 shape: Shape = MaterialTheme.shapes.extraSmall,
 ```
 
+> **安全性说明：** AmoledSurface 组件仅在 `LocalAmoledMode.current == true` 时使用自定义 shape 参数。在 AMOLED 模式下 `AmoledShapes.extraSmall = 0.dp`（与原硬编码 `RoundedCornerShape(0.dp)` 行为一致）；在非 AMOLED 模式下 `AppShapes.extraSmall = 4.dp`（微圆角变化），但由于 AmoledSurface 不在非 AMOLED 模式下调用，此变更安全。
+
 - [ ] **Step 2: 编译验证**
 
 Run: `.\gradlew :app:compileDevDebugKotlin`
 Expected: BUILD SUCCESSFUL
+
+> **编译失败回滚：** 如果 BUILD FAILED → 执行 `git checkout -- app/src/main/kotlin/dev/minios/ocremote/ui/components/AmoledCard.kt`，重新读取文件，定位错误，修复后重新编译。最多重试 3 次。
 
 - [ ] **Step 3: 提交**
 
@@ -442,30 +450,20 @@ git commit -m "refactor(ui): use theme shapes in AmoledCard components"
 在 `MainActivity.kt` 的 import 区域添加：
 
 ```kotlin
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 ```
 
-注意：`material3-window-size-class` 的 API 在不同 Compose BOM 版本中可能不同。如果 `calculateWindowSizeClass()` 不可用，请查阅当前 BOM 2026.05.01 对应的 API。优先使用 `calculateWindowSizeClass(activity)` 或 `currentWindowAdaptiveInfo()` 取决于 API 可用性。
+如果编译报错标记为 Experimental，添加 `@OptIn(ExperimentalMaterial3WindowSizeClassApi::class)` 注解及对应 import。
 
-在 `setContent` 块中（约第 136 行之后），添加 WindowSizeClass 计算，并通过参数传递给 `NavGraph`。
-
-**方案 A（如果 `calculateWindowSizeClass(Activity)` 可用）：**
+在 `setContent` 块中（约第 136 行之后），添加 WindowSizeClass 计算，并通过参数传递给 `NavGraph`：
 
 ```kotlin
 val windowSizeClass = calculateWindowSizeClass(this)
 ```
 
 将 `windowSizeClass` 传递给 `NavGraph`，再由 NavGraph 传递给 HomeScreen。
-
-**方案 B（如果使用 adaptive API）：**
-
-查阅 BOM 2026.05.01 的实际 API，使用对应方法。在 `setContent` 内部：
-
-```kotlin
-val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
-```
 
 - [ ] **Step 2: 更新 NavGraph 接收 WindowSizeClass**
 
@@ -491,9 +489,22 @@ LazyVerticalGrid(
     verticalArrangement = Arrangement.spacedBy(12.dp),
     horizontalArrangement = Arrangement.spacedBy(12.dp)
 ) {
-    // 保持相同的 item 内容
+    item(span = { GridItemSpan(maxLineSpan) }, key = "__battery_banner") {
+        // BatteryOptimizationBanner（如有）
+    }
+    item(span = { GridItemSpan(maxLineSpan) }, key = "__local_runtime") {
+        // LocalRuntimeCard（如有）
+    }
+    item(span = { GridItemSpan(maxLineSpan) }, key = "__empty_servers") {
+        // EmptyServersView（如有）
+    }
+    // 保持相同的其余 item 内容
 }
 ```
+
+补充 import：`import androidx.compose.foundation.lazy.grid.GridItemSpan`
+
+非全宽 item（如 ServerCard）不需要 span，默认占一列即可。
 
 当 `useGrid = false` 时，保持现有 `LazyColumn` 不变。
 
@@ -501,6 +512,8 @@ LazyVerticalGrid(
 
 Run: `.\gradlew :app:compileDevDebugKotlin`
 Expected: BUILD SUCCESSFUL
+
+> **编译失败回滚：** 如果 BUILD FAILED → 执行 `git checkout -- app/src/main/kotlin/dev/minios/ocremote/MainActivity.kt app/src/main/kotlin/dev/minios/ocremote/ui/navigation/NavGraph.kt app/src/main/kotlin/dev/minios/ocremote/ui/screens/home/HomeScreen.kt`，重新读取文件，定位错误，修复后重新编译。最多重试 3 次。
 
 - [ ] **Step 5: 提交**
 
@@ -516,7 +529,11 @@ git commit -m "feat(ui): add WindowSizeClass adaptive grid layout for HomeScreen
 **Files:**
 - Modify: `app/src/main/kotlin/dev/minios/ocremote/ui/screens/settings/SettingsScreen.kt`
 
-- [ ] **Step 1: 为 SettingsScreen 内容添加居中约束**
+- [ ] **Step 1: 替换 SettingsScreen 中硬编码圆角**
+
+搜索 SettingsScreen 中所有 `RoundedCornerShape(20.dp)`，替换为 `MaterialTheme.shapes.large`（即 `AppShapes.large = 16.dp`）。注意：这是一个设计决策调整（20.dp → 16.dp），请确认是否符合预期。
+
+- [ ] **Step 2: 为 SettingsScreen 内容添加居中约束**
 
 找到 `SettingsScreen` 中包裹设置列表的 `Column` + `verticalScroll` 容器。在其外层添加一个 `Box` 居中约束：
 
@@ -539,12 +556,14 @@ Box(
 
 需要添加 import：`import androidx.compose.foundation.layout.widthIn`
 
-- [ ] **Step 2: 编译验证**
+- [ ] **Step 3: 编译验证**
 
 Run: `.\gradlew :app:compileDevDebugKotlin`
 Expected: BUILD SUCCESSFUL
 
-- [ ] **Step 3: 提交**
+> **编译失败回滚：** 如果 BUILD FAILED → 执行 `git checkout -- app/src/main/kotlin/dev/minios/ocremote/ui/screens/settings/SettingsScreen.kt`，重新读取文件，定位错误，修复后重新编译。最多重试 3 次。
+
+- [ ] **Step 4: 提交**
 
 ```bash
 git add app/src/main/kotlin/dev/minios/ocremote/ui/screens/settings/SettingsScreen.kt
@@ -588,6 +607,8 @@ tween(AppMotion.LONG, AppMotion.EmphasizedEasing)
 
 Run: `.\gradlew :app:compileDevDebugKotlin`
 Expected: BUILD SUCCESSFUL
+
+> **编译失败回滚：** 如果 BUILD FAILED → 执行 `git checkout -- <本Task修改的文件列表>`（参考 Step 1 搜索结果中的文件），重新读取文件，定位错误，修复后重新编译。最多重试 3 次。
 
 - [ ] **Step 5: 提交**
 
