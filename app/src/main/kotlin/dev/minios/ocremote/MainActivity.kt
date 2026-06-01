@@ -31,6 +31,9 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
 
 private const val TAG = "MainActivity"
 
@@ -133,7 +136,9 @@ class MainActivity : ComponentActivity() {
         // Handle image share that launched the activity
         handleShareIntent(intent)
         
+        @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
         setContent {
+            val windowSizeClass = calculateWindowSizeClass(this)
             // Collect theme preference
             val appTheme by settingsRepository.appTheme.collectAsState(initial = "system")
             val dynamicColor by settingsRepository.dynamicColor.collectAsState(initial = true)
@@ -154,6 +159,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     NavGraph(
+                        windowSizeClass = windowSizeClass,
                         deepLinkFlow = _deepLinkFlow,
                         sharedImagesFlow = sharedImagesFlow,
                         settingsRepository = settingsRepository,

@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.firstOrNull
 import java.net.URLDecoder
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
 
 private const val TAG = "NavGraph"
 
@@ -45,6 +46,7 @@ private const val TAG = "NavGraph"
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Composable
 fun NavGraph(
+    windowSizeClass: WindowSizeClass,
     deepLinkFlow: MutableSharedFlow<SessionDeepLink>,
     sharedImagesFlow: SharedFlow<List<Uri>>,
     settingsRepository: SettingsRepository,
@@ -230,6 +232,7 @@ fun NavGraph(
         // ============ Home Screen ============
         composable(HomeNav.route) {
             HomeRoute(
+                windowSizeClass = windowSizeClass,
                 onNavigateToSessions = { serverUrl, username, password, serverName, serverId ->
                     navController.navigate(
                         SessionListNav.createRoute(serverUrl, username, password, serverName, serverId)

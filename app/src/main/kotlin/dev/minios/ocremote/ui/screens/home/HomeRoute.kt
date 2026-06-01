@@ -1,5 +1,6 @@
 package dev.minios.ocremote.ui.screens.home
 
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.hilt.navigation.compose.hiltViewModel
 
@@ -10,6 +11,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
  */
 @Composable
 fun HomeRoute(
+    windowSizeClass: WindowSizeClass,
     onNavigateToSessions: (String, String, String, String, String) -> Unit,
     onNavigateToServerSettings: (String, String, String, String, String) -> Unit,
     onNavigateToSettings: () -> Unit,
@@ -17,6 +19,7 @@ fun HomeRoute(
 ) {
     val viewModel: HomeViewModel = hiltViewModel()
     HomeScreen(
+        windowSizeClass = windowSizeClass,
         viewModel = viewModel,
         onNavigateToSessions = onNavigateToSessions,
         onNavigateToServerSettings = onNavigateToServerSettings,

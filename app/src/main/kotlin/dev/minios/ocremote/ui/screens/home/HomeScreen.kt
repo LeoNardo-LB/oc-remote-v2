@@ -14,6 +14,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -26,6 +30,8 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.core.content.ContextCompat
@@ -43,6 +49,7 @@ import dev.minios.ocremote.ui.screens.home.components.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    windowSizeClass: WindowSizeClass,
     onNavigateToSessions: (serverUrl: String, username: String, password: String, serverName: String, serverId: String) -> Unit = { _, _, _, _, _ -> },
     onNavigateToServerSettings: (serverUrl: String, username: String, password: String, serverName: String, serverId: String) -> Unit = { _, _, _, _, _ -> },
     onNavigateToSettings: () -> Unit = {},
@@ -150,138 +157,271 @@ fun HomeScreen(
                 else -> {
                     val localServer = uiState.servers.firstOrNull { it.url == LocalServerManager.LOCAL_SERVER_URL }
                     val remoteServers = uiState.servers.filterNot { it.url == LocalServerManager.LOCAL_SERVER_URL }
+                    val useGrid = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
 
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Battery optimization warning banner
-                        if (isBatteryOptimized) {
-                            item(key = "__battery_banner") {
-                                BatteryOptimizationBanner(
-                                    onDisable = {
-                                        val intent = Intent(
-                                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                            Uri.parse("package:${context.packageName}")
-                                        )
-                                        context.startActivity(intent)
-                                    }
-                                )
-                            }
-                        }
-
-                        if (uiState.showLocalRuntime) {
-                            item(key = "__local_runtime") {
-                                LocalRuntimeCard(
-                                    termuxInstalled = uiState.termuxInstalled,
-                                    runtimeStatus = uiState.localRuntimeStatus,
-                                    statusMessage = uiState.localRuntimeMessage,
-                                    fixCommand = uiState.localRuntimeFixCommand,
-                                    needsOverlaySettings = uiState.localRuntimeNeedsOverlaySettings,
-                                    localServerConnected = localServer?.id in uiState.connectedServerIds,
-                                    localServerConnecting = localServer?.id in uiState.connectingServerIds,
-                                    localServerConnectionError = localServer?.id?.let { uiState.connectionErrors[it] },
-                                    showLocalServerSettings = localServer?.id in uiState.serverSettingsReadyIds,
-                                    onStart = { requestRunCommandPermissionAndStartLocal() },
-                                    onStop = { viewModel.stopLocalServer(context) },
-                                    onSetup = {
-                                        val setupCommand = uiState.setupCommand ?: viewModel.getLocalSetupCommand()
-                                        clipboardManager.setText(AnnotatedString(setupCommand))
-                                        Toast.makeText(context, R.string.home_local_setup_copied, Toast.LENGTH_SHORT).show()
-                                        viewModel.setupLocalServer(context)
-                                    },
-                                    onCopyFixCommand = { command ->
-                                        clipboardManager.setText(AnnotatedString(command))
-                                        Toast.makeText(context, R.string.home_local_fix_command_copied, Toast.LENGTH_SHORT).show()
-                                    },
-                                    onOpenTermuxOverlaySettings = {
-                                        val intent = Intent(
-                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                            Uri.parse("package:com.termux"),
-                                        )
-                                        context.startActivity(intent)
-                                    },
-                                    onOpenLocalSessions = {
-                                        localServer?.let { server ->
-                                            onNavigateToSessions(
-                                                server.url,
-                                                server.username,
-                                                server.password ?: "",
-                                                server.displayName,
-                                                server.id,
+                    if (useGrid) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(280.dp),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Battery optimization warning banner
+                            if (isBatteryOptimized) {
+                                item(span = { GridItemSpan(maxLineSpan) }, key = "__battery_banner") {
+                                    BatteryOptimizationBanner(
+                                        onDisable = {
+                                            val intent = Intent(
+                                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                                Uri.parse("package:${context.packageName}")
                                             )
+                                            context.startActivity(intent)
                                         }
-                                    },
-                                    onOpenLocalServerSettings = {
-                                        localServer?.let { server ->
-                                            onNavigateToServerSettings(
-                                                server.url,
-                                                server.username,
-                                                server.password ?: "",
-                                                server.displayName,
-                                                server.id,
+                                    )
+                                }
+                            }
+
+                            if (uiState.showLocalRuntime) {
+                                item(span = { GridItemSpan(maxLineSpan) }, key = "__local_runtime") {
+                                    LocalRuntimeCard(
+                                        termuxInstalled = uiState.termuxInstalled,
+                                        runtimeStatus = uiState.localRuntimeStatus,
+                                        statusMessage = uiState.localRuntimeMessage,
+                                        fixCommand = uiState.localRuntimeFixCommand,
+                                        needsOverlaySettings = uiState.localRuntimeNeedsOverlaySettings,
+                                        localServerConnected = localServer?.id in uiState.connectedServerIds,
+                                        localServerConnecting = localServer?.id in uiState.connectingServerIds,
+                                        localServerConnectionError = localServer?.id?.let { uiState.connectionErrors[it] },
+                                        showLocalServerSettings = localServer?.id in uiState.serverSettingsReadyIds,
+                                        onStart = { requestRunCommandPermissionAndStartLocal() },
+                                        onStop = { viewModel.stopLocalServer(context) },
+                                        onSetup = {
+                                            val setupCommand = uiState.setupCommand ?: viewModel.getLocalSetupCommand()
+                                            clipboardManager.setText(AnnotatedString(setupCommand))
+                                            Toast.makeText(context, R.string.home_local_setup_copied, Toast.LENGTH_SHORT).show()
+                                            viewModel.setupLocalServer(context)
+                                        },
+                                        onCopyFixCommand = { command ->
+                                            clipboardManager.setText(AnnotatedString(command))
+                                            Toast.makeText(context, R.string.home_local_fix_command_copied, Toast.LENGTH_SHORT).show()
+                                        },
+                                        onOpenTermuxOverlaySettings = {
+                                            val intent = Intent(
+                                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                Uri.parse("package:com.termux"),
                                             )
-                                        }
-                                    },
-                                    onOpenLocalLaunchOptions = {
-                                        showLocalLaunchOptionsDialog = true
-                                    },
-                                    onInstallTermux = {
-                                        val intent = Intent(
-                                            Intent.ACTION_VIEW,
-                                            Uri.parse("https://f-droid.org/packages/com.termux/")
+                                            context.startActivity(intent)
+                                        },
+                                        onOpenLocalSessions = {
+                                            localServer?.let { server ->
+                                                onNavigateToSessions(
+                                                    server.url,
+                                                    server.username,
+                                                    server.password ?: "",
+                                                    server.displayName,
+                                                    server.id,
+                                                )
+                                            }
+                                        },
+                                        onOpenLocalServerSettings = {
+                                            localServer?.let { server ->
+                                                onNavigateToServerSettings(
+                                                    server.url,
+                                                    server.username,
+                                                    server.password ?: "",
+                                                    server.displayName,
+                                                    server.id,
+                                                )
+                                            }
+                                        },
+                                        onOpenLocalLaunchOptions = {
+                                            showLocalLaunchOptionsDialog = true
+                                        },
+                                        onInstallTermux = {
+                                            val intent = Intent(
+                                                Intent.ACTION_VIEW,
+                                                Uri.parse("https://f-droid.org/packages/com.termux/")
+                                            )
+                                            context.startActivity(intent)
+                                        },
+                                    )
+                                }
+                            }
+
+                            if (remoteServers.isEmpty()) {
+                                item(span = { GridItemSpan(maxLineSpan) }, key = "__empty_servers") {
+                                    EmptyServersView(
+                                        onAddServer = { viewModel.showAddServerDialog() }
+                                    )
+                                }
+                            }
+
+                            items(remoteServers, key = { it.id }) { server ->
+                                ServerCard(
+                                    server = server,
+                                    isConnected = server.id in uiState.connectedServerIds,
+                                    isConnecting = server.id in uiState.connectingServerIds,
+                                    connectionError = uiState.connectionErrors[server.id],
+                                    showServerSettings = server.id in uiState.serverSettingsReadyIds,
+                                    onConnect = { requestNotificationPermissionAndConnect(server.id) },
+                                    onDisconnect = { viewModel.disconnectFromServer(server.id) },
+                                    onOpenSessions = {
+                                        onNavigateToSessions(
+                                            server.url,
+                                            server.username,
+                                            server.password ?: "",
+                                            server.displayName,
+                                            server.id
                                         )
-                                        context.startActivity(intent)
                                     },
+                                    onServerSettings = {
+                                        onNavigateToServerSettings(
+                                            server.url,
+                                            server.username,
+                                            server.password ?: "",
+                                            server.displayName,
+                                            server.id
+                                        )
+                                    },
+                                    onEdit = { viewModel.showEditServerDialog(server) },
+                                    onDelete = { viewModel.deleteServer(server.id) }
                                 )
                             }
                         }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Battery optimization warning banner
+                            if (isBatteryOptimized) {
+                                item(key = "__battery_banner") {
+                                    BatteryOptimizationBanner(
+                                        onDisable = {
+                                            val intent = Intent(
+                                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                                Uri.parse("package:${context.packageName}")
+                                            )
+                                            context.startActivity(intent)
+                                        }
+                                    )
+                                }
+                            }
 
-                        if (remoteServers.isEmpty()) {
-                            item(key = "__empty_servers") {
-                                val hasLocalCard = uiState.showLocalRuntime
-                                EmptyServersView(
-                                    onAddServer = { viewModel.showAddServerDialog() },
-                                    modifier = if (hasLocalCard) {
-                                        Modifier.fillParentMaxHeight(0.5f)
-                                    } else {
-                                        Modifier.fillParentMaxHeight(0.8f)
-                                    }
+                            if (uiState.showLocalRuntime) {
+                                item(key = "__local_runtime") {
+                                    LocalRuntimeCard(
+                                        termuxInstalled = uiState.termuxInstalled,
+                                        runtimeStatus = uiState.localRuntimeStatus,
+                                        statusMessage = uiState.localRuntimeMessage,
+                                        fixCommand = uiState.localRuntimeFixCommand,
+                                        needsOverlaySettings = uiState.localRuntimeNeedsOverlaySettings,
+                                        localServerConnected = localServer?.id in uiState.connectedServerIds,
+                                        localServerConnecting = localServer?.id in uiState.connectingServerIds,
+                                        localServerConnectionError = localServer?.id?.let { uiState.connectionErrors[it] },
+                                        showLocalServerSettings = localServer?.id in uiState.serverSettingsReadyIds,
+                                        onStart = { requestRunCommandPermissionAndStartLocal() },
+                                        onStop = { viewModel.stopLocalServer(context) },
+                                        onSetup = {
+                                            val setupCommand = uiState.setupCommand ?: viewModel.getLocalSetupCommand()
+                                            clipboardManager.setText(AnnotatedString(setupCommand))
+                                            Toast.makeText(context, R.string.home_local_setup_copied, Toast.LENGTH_SHORT).show()
+                                            viewModel.setupLocalServer(context)
+                                        },
+                                        onCopyFixCommand = { command ->
+                                            clipboardManager.setText(AnnotatedString(command))
+                                            Toast.makeText(context, R.string.home_local_fix_command_copied, Toast.LENGTH_SHORT).show()
+                                        },
+                                        onOpenTermuxOverlaySettings = {
+                                            val intent = Intent(
+                                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                Uri.parse("package:com.termux"),
+                                            )
+                                            context.startActivity(intent)
+                                        },
+                                        onOpenLocalSessions = {
+                                            localServer?.let { server ->
+                                                onNavigateToSessions(
+                                                    server.url,
+                                                    server.username,
+                                                    server.password ?: "",
+                                                    server.displayName,
+                                                    server.id,
+                                                )
+                                            }
+                                        },
+                                        onOpenLocalServerSettings = {
+                                            localServer?.let { server ->
+                                                onNavigateToServerSettings(
+                                                    server.url,
+                                                    server.username,
+                                                    server.password ?: "",
+                                                    server.displayName,
+                                                    server.id,
+                                                )
+                                            }
+                                        },
+                                        onOpenLocalLaunchOptions = {
+                                            showLocalLaunchOptionsDialog = true
+                                        },
+                                        onInstallTermux = {
+                                            val intent = Intent(
+                                                Intent.ACTION_VIEW,
+                                                Uri.parse("https://f-droid.org/packages/com.termux/")
+                                            )
+                                            context.startActivity(intent)
+                                        },
+                                    )
+                                }
+                            }
+
+                            if (remoteServers.isEmpty()) {
+                                item(key = "__empty_servers") {
+                                    val hasLocalCard = uiState.showLocalRuntime
+                                    EmptyServersView(
+                                        onAddServer = { viewModel.showAddServerDialog() },
+                                        modifier = if (hasLocalCard) {
+                                            Modifier.fillParentMaxHeight(0.5f)
+                                        } else {
+                                            Modifier.fillParentMaxHeight(0.8f)
+                                        }
+                                    )
+                                }
+                            }
+
+                            items(remoteServers, key = { it.id }) { server ->
+                                ServerCard(
+                                    server = server,
+                                    isConnected = server.id in uiState.connectedServerIds,
+                                    isConnecting = server.id in uiState.connectingServerIds,
+                                    connectionError = uiState.connectionErrors[server.id],
+                                    showServerSettings = server.id in uiState.serverSettingsReadyIds,
+                                    onConnect = { requestNotificationPermissionAndConnect(server.id) },
+                                    onDisconnect = { viewModel.disconnectFromServer(server.id) },
+                                    onOpenSessions = {
+                                        onNavigateToSessions(
+                                            server.url,
+                                            server.username,
+                                            server.password ?: "",
+                                            server.displayName,
+                                            server.id
+                                        )
+                                    },
+                                    onServerSettings = {
+                                        onNavigateToServerSettings(
+                                            server.url,
+                                            server.username,
+                                            server.password ?: "",
+                                            server.displayName,
+                                            server.id
+                                        )
+                                    },
+                                    onEdit = { viewModel.showEditServerDialog(server) },
+                                    onDelete = { viewModel.deleteServer(server.id) }
                                 )
                             }
-                        }
-
-                        items(remoteServers, key = { it.id }) { server ->
-                            ServerCard(
-                                server = server,
-                                isConnected = server.id in uiState.connectedServerIds,
-                                isConnecting = server.id in uiState.connectingServerIds,
-                                connectionError = uiState.connectionErrors[server.id],
-                                showServerSettings = server.id in uiState.serverSettingsReadyIds,
-                                onConnect = { requestNotificationPermissionAndConnect(server.id) },
-                                onDisconnect = { viewModel.disconnectFromServer(server.id) },
-                                onOpenSessions = {
-                                    onNavigateToSessions(
-                                        server.url,
-                                        server.username,
-                                        server.password ?: "",
-                                        server.displayName,
-                                        server.id
-                                    )
-                                },
-                                onServerSettings = {
-                                    onNavigateToServerSettings(
-                                        server.url,
-                                        server.username,
-                                        server.password ?: "",
-                                        server.displayName,
-                                        server.id
-                                    )
-                                },
-                                onEdit = { viewModel.showEditServerDialog(server) },
-                                onDelete = { viewModel.deleteServer(server.id) }
-                            )
                         }
                     }
                 }
