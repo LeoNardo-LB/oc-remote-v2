@@ -40,12 +40,11 @@
 └─────────────────────────────────────┘
 ```
 
-- 顶部：服务器名称 + 返回按钮
+- 顶部：服务器名称 + 返回按钮 + 右上角 + 图标按钮
 - 列表：每个项目目录一行，显示路径（`~` 替代 home）、会话数、最近活动时间
-- 右上角 + 按钮：打开 OpenProjectDialog 浏览/新建目录，选完后直接在该目录新建会话并跳转
-- 点击某行：进入第二级（该目录的会话列表）
-- 长按某行：进入选择模式（支持删除目录/批量操作）
-- 空状态：显示"暂无项目，点击 + 添加"
+- 右上角 + 图标按钮（TopBar 内）：打开 OpenProjectDialog 浏览/新建目录，选完后直接在该目录新建会话并跳转到 ChatScreen
+- 点击某行：进入第二级（该目录的会话列表），ViewModel 设置 `mode = SESSIONS`，`currentProject = 选中的项目`
+- 空状态：显示"暂无项目，点击右上角 + 添加"
 
 ### 第二级：项目会话列表
 
@@ -66,11 +65,10 @@
 └─────────────────────────────────────┘
 ```
 
-- 顶部：项目目录路径 + 返回按钮
+- 顶部：项目目录路径 + 返回按钮（返回到第一级，ViewModel 设置 `mode = PROJECTS`，`currentProject = null`）
 - 列表：复用现有 SessionRow 组件
-- 右下角 + 按钮：直接在该目录下新建会话（无需再选目录），调用 `createNewSession(directory=currentProject.directory)`
-- 长按：进入选择模式（重命名/删除会话）
-- 点返回：回到第一级
+- 右下角 FAB + 按钮：直接在该目录下新建会话（无需再选目录），调用 `createNewSession(directory=currentProject.directory)`
+- 长按会话行：进入选择模式（重命名/删除会话，与当前行为一致）
 
 ### 导航逻辑变化
 
@@ -81,9 +79,9 @@
 
 改造后：
   HomeScreen → SessionListScreen（项目目录列表）
-    点击目录 → 同一页面切换为会话列表模式
+    点击目录 → 同一页面切换为会话列表模式（mode=SESSIONS）
       FAB+ → 直接新建会话 → ChatScreen
-    右上+ → OpenProjectDialog → 选目录 → 新建会话 → ChatScreen
+    TopBar + → OpenProjectDialog → 选目录 → 新建会话 → ChatScreen
 ```
 
 不新增导航路由，在同一个 SessionListScreen 内通过状态切换两级视图。
