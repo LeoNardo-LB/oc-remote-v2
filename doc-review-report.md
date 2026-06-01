@@ -1,202 +1,88 @@
----
-report_name: 复制交互重新设计 — 文档一致性审查报告
-review_date: 2026-06-01
-document_reviewed: docs/superpowers/specs/2026-06-01-copy-interaction-redesign.md
-round_number: 1 / 3
-final_verdict: ALL PASS
----
-
 # 文档一致性审查报告
 
 ## 1. 审查摘要
 
 | 项目 | 内容 |
 |------|------|
-| **审查对象** | `docs/superpowers/specs/2026-06-01-copy-interaction-redesign.md` |
+| **审查对象** | `docs/superpowers/specs/2026-06-02-ui-design-unification.md` + `docs/superpowers/plans/2026-06-02-ui-design-unification.md` |
 | **审查轮次** | 第 1 轮 / 共 3 轮 |
-| **审查时间** | 2026-06-01 |
-| **最终判定** | **ALL PASS** |
+| **审查时间** | 2026-06-02 |
+| **最终判定** | **CONDITIONAL PASS** |
 
 ### 各维度结果速览
 
-| 维度 | 维度名称 | 本轮 | 上轮变化 |
-|------|----------|------|----------|
-| D1 | 上下文一致性 | PASS | - |
-| D2 | 内部逻辑自洽 | PASS | - |
-| D3 | 外部事实一致性 | PASS | - |
-| D4 | 技术可行性 | PASS | - |
-| D5 | 可执行性 | PASS | - |
-| D6 | 前置依赖完备性 | PASS | - |
-| D7 | 验收标准明确性 | PASS | - |
-| D8 | 边界完备性 | PASS | - |
-| D9 | 结构清晰性 | PASS | - |
+| 维度 | 维度名称 | 本轮 | 状态 |
+|------|----------|------|------|
+| D1 | 上下文一致性 | FAIL → **已修复** | ✅ |
+| D2 | 内部逻辑自洽 | FAIL → **已修复** | ✅ |
+| D3 | 外部事实一致性 | FAIL → **已修复** | ✅ |
+| D4 | 技术可行性 | FAIL → **已修复** | ✅ |
+| D5 | 可执行性 | FAIL → **已修复** | ✅ |
+| D6 | 前置依赖完备性 | FAIL → **已修复** | ✅ |
+| D7 | 验收标准明确性 | FAIL → **已修复** | ✅ |
+| D8 | 边界完备性 | FAIL → **已修复** | ✅ |
+| D9 | 结构清晰性 | PASS | ✅ |
 
-> **图例**: `PASS` 通过 · `FAIL` 未通过 · `-` 无变化 · `↑` 改善 · `↓` 退步 · `NEW` 新增
+## 2. 修复记录
 
-## 2. 改进建议（P2 级别，不阻塞实现）
+### 第 1 轮修复
 
-> 以下问题均为 P2 级别——不影响正确性但可提升质量。按维度编号排列。
+| Issue ID | 严重级别 | 修改位置 | 修改摘要 |
+|----------|----------|----------|----------|
+| D3-001/D1-001/D2-001 | P0 | Spec §2.1 Motion.kt | `EmphasizedDecelerate` → `EaseOut`，`EmphasizedAccelerate` → `EaseIn` |
+| D3-002/D1-003/D2-002 | P0 | Spec §2.2 页面过渡 | `MaterialSharedAxisX` → 实际 slide+fade API 描述 |
+| D4-001 | P0 | Plan Task 4 | "添加依赖" → "验证 API 可用性"（可能已合并进 material3） |
+| D4-002/D8-008 | P0 | Plan Task 9 | LazyVerticalGrid 补充 `GridItemSpan(maxLineSpan)` 处理全宽元素 |
+| D1-004/D7-002 | P0 | Plan Task 10 | 补充 SettingsScreen `RoundedCornerShape(20.dp)` → `shapes.large` 步骤 |
+| D1-002/D2-003 | P1 | Spec §3.3 | "删除 isAmoledTheme()" → "委托到 LocalAmoledMode.current" |
+| D3-006/D4-007 | P1 | Spec+Plan | `compositionLocalOf` → `staticCompositionLocalOf` |
+| D1-005/D6-002 | P1 | Spec §3.1 | `AppTypography` → `Typography` |
+| D8-003 | P1 | Plan Task 3-11 | 每个编译验证步骤后添加回滚策略 |
+| D5-002/D6-003 | P1 | Plan Task 9 | 消除 API 双方案不确定性，只保留 `calculateWindowSizeClass` |
+| D4-004 | P1 | Plan Task 9 | 补充 `@OptIn(ExperimentalMaterial3WindowSizeClassApi::class)` |
+| D7-006/D4-008 | P1 | Plan Task 8 | 补充 AmoledSurface shape 替换安全性说明 |
 
-### [P2] D2-001: MarkdownPreviewDialog 指令模糊
+**提交记录：**
+- `0b82490 docs: fix spec issues from doc-consistency-review (P0/P1)`
+- `4903505 docs: fix plan issues from doc-consistency-review (P0/P1)`
 
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D2 |
-| **位置** | 第一部分末尾，MarkdownPreviewDialog 处理 |
-| **描述** | 「检查是否还有其他调用方。如果没有，可保留文件备用但不影响功能」——这是待办指令而非设计决策，把决策责任推给了实现者。 |
-| **修复建议** | 改为明确的决策：「确认无其他调用方后删除 ChatMessageList.kt 中的引用逻辑，文件本体保留备用」或提供具体 grep 命令。 |
+## 3. 残留问题（P2 改进建议）
 
-### [P2] D2-002: BashToolCard 行号范围重叠
+> 以下 P2 问题已识别但不阻塞实施，建议后续迭代中优化。
 
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D2 |
-| **位置** | 第二部分 BashToolCard 行号 vs 第三部分复制按钮行号 |
-| **描述** | Part 2 标题行 L104-160 与 Part 3 复制按钮 L138-150 重叠，combinedClickable 可能与内部 IconButton 的事件消费产生冲突。 |
-| **修复建议** | 标注复制按钮为标题行子组件，Compose 中子组件的 clickable 会优先消费事件，不影响功能。文档中可添加注释说明。 |
+### [P2] D8-001: Shape 替换全局覆盖率
+- **位置**: Plan 全文
+- **描述**: 代码库中约 28 个文件使用了硬编码 `RoundedCornerShape`，计划仅覆盖 AmoledCard.kt 和 SettingsScreen。其余文件（ChatInputBar 16 处、ServerProvidersScreen 7 处等）未纳入。
+- **建议**: 在 Phase 3 打磨阶段增加一个全局 Shape 审计 Task，用 `rg "RoundedCornerShape"` 逐一评估是否应替换为主题值。
 
-### [P2] D3-001: combinedClickable 版本下限未标注
+### [P2] D9-003: Spec/Plan 代码块重复
+- **位置**: Spec §1.1/§2.1 vs Plan Task 1/Task 2
+- **描述**: Shape.kt 和 Motion.kt 的代码在两份文档中逐字重复，存在同步风险。
+- **建议**: Spec 只保留接口定义和设计决策，完整实现代码仅在 Plan 中出现。
 
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D3 |
-| **位置** | 第二部分通用策略 |
-| **描述** | `combinedClickable` 需要 `@OptIn(ExperimentalFoundationApi::class)` 已正确提及，但未指明最低 Compose BOM 版本。 |
-| **修复建议** | 补充：需 Compose BOM >= 2022.02.00（对应 foundation 1.2.0+）。 |
+### [P2] D9-002: Plan 无目录
+- **位置**: Plan 文档顶部
+- **描述**: 619 行 12 个 Task 的文档缺少目录索引。
+- **建议**: 在 File Structure 表后添加 Task 索引。
 
-### [P2] D3-002: SelectionContainer 父容器未排查
+### [P2] D8-006: Dynamic Color + AMOLED 共存
+- **位置**: Spec §3.1
+- **描述**: Dynamic Color 激活且 AMOLED 开启时，shapes 走 AmoledShapes 但 colorScheme 非纯黑，未讨论此组合下的视觉效果。
+- **建议**: 在验证清单中增加此项，手动验证。
 
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D3 |
-| **位置** | 第三部分嵌套冲突注意 |
-| **描述** | 文档正确指出 SelectionContainer 不能嵌套，但未确认聊天屏幕父级是否存在 SelectionContainer。 |
-| **修复建议** | 补充验证步骤：实现前 grep `screens/chat` 目录确认无父级 SelectionContainer。 |
+### [P2] D7-007: 品牌动画无回归验证
+- **位置**: Plan Task 11
+- **描述**: PulsingDotsIndicator 1200ms 脉冲"保持不变"仅为文字提醒，无验证步骤。
+- **建议**: Task 12 最终验证中添加 `rg "1200" PulsingDotsIndicator.kt` 确认。
 
-### [P2] D4-001: coroutineScope 来源不明确
+## 4. 结论
 
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D4 |
-| **位置** | 第一部分代码片段 |
-| **描述** | 代码片段使用 `coroutineScope.launch` 但未声明来源，可能导致生命周期泄漏。 |
-| **修复建议** | 显式说明需要 `val coroutineScope = rememberCoroutineScope()` 且在 Compose 作用域内定义。 |
+### 最终判定: **CONDITIONAL PASS**
 
-### [P2] D4-002: DiffView + SelectionContainer 兼容性
+所有 P0/P1 问题已在第 1 轮修复中解决。残留 5 个 P2 改进建议不影响实施正确性，建议在后续迭代中处理。
 
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D4 |
-| **位置** | 第三部分 EditToolCard 改动 |
-| **描述** | EditToolCard 的 DiffView 如果内部有自定义手势处理，SelectionContainer 可能干扰触摸事件。 |
-| **修复建议** | 实现时先验证 DiffView 的触摸事件处理方式，必要时将 SelectionContainer 置于 DiffView 文本区域内部。 |
-
-### [P2] D5-001: MarkdownPreviewDialog 检查操作性不足
-
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D5 |
-| **位置** | 第一部分 MarkdownPreviewDialog 处理 |
-| **描述** | 「检查是否还有其他调用方」缺少具体搜索命令和判定标准。 |
-| **修复建议** | 改为：`grep -r "MarkdownPreviewDialog" --include="*.kt" -l`，预期仅输出定义文件自身。 |
-
-### [P2] D5-002: 缺乏每个卡片当前 clickable 代码快照
-
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D5 |
-| **位置** | 第二部分各卡片改动详情表 |
-| **描述** | 行号引用基于当前代码快照，实现者需手动定位每个文件的 clickable 代码。 |
-| **修复建议** | 在每个卡片行号后附上当前 clickable 代码的 1-3 行快照。 |
-
-### [P2] D6-001: ExperimentalFoundationApi 模块级配置未提及
-
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D6 |
-| **位置** | 第二部分通用策略 |
-| **描述** | 仅提到逐文件 `@OptIn`，未说明是否可在 build.gradle 模块级全局启用。 |
-| **修复建议** | 补充模块级配置选项：`freeCompilerArgs += "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi"`。 |
-
-### [P2] D6-002: 缺失 Compose BOM 版本建议
-
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D6 |
-| **位置** | 第二部分通用策略 |
-| **描述** | 未指定 Compose BOM 最低版本。 |
-| **修复建议** | 标注需 Compose BOM >= 2022.02.00。 |
-
-### [P2] D7-001: 「静默复制」缺乏精确定义
-
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D7 |
-| **位置** | 目标第二条 |
-| **描述** | 「静默」的精确内涵未文档化——是否仅指 Toast 反馈？是否需要无障碍支持？ |
-| **修复建议** | 明确「静默」= 仅 Toast 反馈 + 触觉反馈，不触发页面跳转/弹窗/动画。 |
-
-### [P2] D7-002: SelectionContainer 生效判定标准不明确
-
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D7 |
-| **位置** | 第三部分 |
-| **描述** | 无统一的验证方案确认每个卡片 SelectionContainer 正确生效。 |
-| **修复建议** | 补充：在模拟器和真机上对每个改动卡片执行长按 500ms+，预期出现文本选择锚点手柄。 |
-
-### [P2] D8-001: 快速连续长按缺失防抖
-
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D8 |
-| **位置** | 第二部分反馈方式 |
-| **描述** | 用户快速多次长按可能导致连续弹出多个 Toast，影响 UX。 |
-| **修复建议** | 添加防抖：1 秒内相同内容不重复弹 Toast。 |
-
-### [P2] D8-002: 标题行与输出区域长按手势潜在干扰
-
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D8 |
-| **位置** | 第二部分与第三部分交叉 |
-| **描述** | 标题行 combinedClickable 和输出区 SelectionContainer 手势竞争需确认。 |
-| **修复建议** | 验证 Compose 手势消费链，确保两个区域的事件互不干扰。 |
-
-### [P2] D9-001: Part 2 与 Part 3 卡片列表冗余
-
-| 字段 | 内容 |
-|------|------|
-| **严重级别** | P2 | **所属维度** | D9 |
-| **位置** | 第二部分改动详情表 vs 第三部分改动表 |
-| **描述** | 两个表格列举相同 7 个卡片，新增/删除卡片时需同步修改两处。 |
-| **修复建议** | 可合并为一个综合表格，增加「改动类型」列；或保持现状（拆分便于聚焦）。 |
-
-## 3. 修复记录
-
-| 轮次 | 修复项 | 影响维度 | 本轮结果 |
-|------|--------|----------|----------|
-| 1 | 无需修复（无 P0/P1 问题） | - | ALL PASS |
-
-## 4. 残留问题
-
-> ✅ 无残留问题，所有维度全部通过。上述 P2 级别建议为改进项，可在实现过程中酌情采纳。
-
-## 5. 结论
-
-### 最终判定: **ALL PASS**
-
-| 判定 | 含义 |
-|------|------|
-| **ALL PASS** | 所有维度全部通过，文档可交付实现 |
-| **CONDITIONAL PASS** | 存在 P2 级别改进建议，不影响实现，建议择机优化 |
-| **BLOCKED** | 存在 P0/P1 残留问题，建议暂停实现，优先解决后重审 |
-
-**建议**: 文档质量高，可直接进入实现阶段。建议在实现过程中关注以下 3 个高价值 P2 改进项：
-1. **D3-002 / D4-002**：实现前验证 DiffView 内部和父级无 SelectionContainer 嵌套风险
-2. **D5-001**：将 MarkdownPreviewDialog 的模糊指令改为具体的 grep 命令
-3. **D4-001**：确认 coroutineScope 的生命周期安全来源
+**建议**: 文档可进入实施阶段。建议实施时优先关注 Task 4（API 可用性验证）和 Task 9（Grid span + API 确认）两个曾有不确定性的 Task，首次编译时仔细观察。
 
 ---
 
-*报告由 doc-consistency-review 技能自动生成 · 生成时间: 2026-06-01*
+*报告由 doc-consistency-review 技能自动生成 · 生成时间: 2026-06-02*
