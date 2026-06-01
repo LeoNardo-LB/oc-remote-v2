@@ -5,12 +5,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import dev.minios.ocremote.data.dto.response.AgentInfo
+import dev.minios.ocremote.ui.theme.LocalAmoledMode
 
 @Composable
-internal fun isAmoledTheme(): Boolean {
-    val colors = MaterialTheme.colorScheme
-    return colors.background == Color.Black && colors.surface == Color.Black
-}
+internal fun isAmoledTheme(): Boolean = LocalAmoledMode.current
 
 @Composable
 internal fun toolOutputContainerColor(isAmoled: Boolean): Color {
