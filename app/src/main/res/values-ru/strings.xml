@@ -228,7 +228,7 @@
     <string name="tool_edit_file">Редактировать файл</string>
     <string name="tool_terminal">Терминал</string>
     <string name="tool_find_files">Найти файлы</string>
-    <string name="tool_search_code">Поиск кода</string>
+    <string name="tool_search_code">Поиск</string>
     <string name="tool_list_directory">Список каталога</string>
     <string name="tool_fetch_url">Получить URL</string>
     <string name="tool_sub_agent">Под-агент</string>

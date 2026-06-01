@@ -202,7 +202,7 @@
     <string name="tool_edit_file">编辑文件</string>
     <string name="tool_terminal">终端</string>
     <string name="tool_find_files">查找文件</string>
-    <string name="tool_search_code">搜索代码</string>
+    <string name="tool_search_code">搜索</string>
     <string name="tool_list_directory">列出目录</string>
     <string name="tool_fetch_url">获取 URL</string>
     <string name="tool_sub_agent">子代理</string>

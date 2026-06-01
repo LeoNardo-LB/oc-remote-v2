@@ -200,7 +200,7 @@
     <string name="tool_edit_file">Écrire le fichier</string>
     <string name="tool_terminal">Modifier le fichier</string>
     <string name="tool_find_files">Terminal</string>
-    <string name="tool_search_code">Trouver des fichiers</string>
+    <string name="tool_search_code">Rechercher</string>
     <string name="tool_list_directory">Rechercher du code</string>
     <string name="tool_fetch_url">Lister le répertoire</string>
     <string name="tool_sub_agent">Récupérer l’URL</string>

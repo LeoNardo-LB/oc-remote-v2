@@ -200,7 +200,7 @@
     <string name="tool_edit_file">파일 편집</string>
     <string name="tool_terminal">터미널</string>
     <string name="tool_find_files">파일 찾기</string>
-    <string name="tool_search_code">코드 검색</string>
+    <string name="tool_search_code">검색</string>
     <string name="tool_list_directory">디렉터리 목록</string>
     <string name="tool_fetch_url">URL 가져오기</string>
     <string name="tool_sub_agent">서브 에이전트</string>

@@ -200,7 +200,7 @@
     <string name="tool_edit_file">Editando archivo</string>
     <string name="tool_terminal">Terminal</string>
     <string name="tool_find_files">Buscar archivos</string>
-    <string name="tool_search_code">Buscar código</string>
+    <string name="tool_search_code">Buscar</string>
     <string name="tool_list_directory">Listar directorio</string>
     <string name="tool_fetch_url">Obtener URL</string>
     <string name="tool_sub_agent">Sub-agente</string>

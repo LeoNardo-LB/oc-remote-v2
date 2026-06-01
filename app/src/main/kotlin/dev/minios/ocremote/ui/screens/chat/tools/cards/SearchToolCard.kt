@@ -1,7 +1,11 @@
 package dev.minios.ocremote.ui.screens.chat.tools.cards
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -12,16 +16,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.Part
 import dev.minios.ocremote.domain.model.ToolState
 import dev.minios.ocremote.ui.screens.chat.markdown.MarkdownContent
 import dev.minios.ocremote.ui.screens.chat.tools.extractToolInput
 import dev.minios.ocremote.ui.screens.chat.tools.extractToolOutput
+import dev.minios.ocremote.ui.theme.CodeTypography
 import dev.minios.ocremote.ui.screens.chat.util.halfScreenHeight
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.toolOutputContainerColor
@@ -68,6 +75,40 @@ internal fun SearchToolCard(
         isAmoled = isAmoled,
         onToggleExpand = onToggleExpand
     ) {
+        // 入参信息块
+        if (pattern != null || !dirPath.isNullOrBlank()) {
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = toolOutputContainerColor(isAmoled),
+                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
+                ) {
+                    if (pattern != null) {
+                        Text(
+                            text = "pattern: $pattern",
+                            style = CodeTypography.copy(
+                                fontSize = 11.sp,
+                                color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                            )
+                        )
+                    }
+                    if (!dirPath.isNullOrBlank()) {
+                        Text(
+                            text = "path: $dirPath",
+                            style = CodeTypography.copy(
+                                fontSize = 11.sp,
+                                color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                            )
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+        }
         val halfScreenHeight = halfScreenHeight()
         val scrollState = rememberScrollState()
         Surface(

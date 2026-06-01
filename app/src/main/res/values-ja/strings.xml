@@ -200,7 +200,7 @@
     <string name="tool_edit_file">ファイルを編集</string>
     <string name="tool_terminal">ターミナル</string>
     <string name="tool_find_files">ファイル検索</string>
-    <string name="tool_search_code">コード検索</string>
+    <string name="tool_search_code">検索</string>
     <string name="tool_list_directory">ディレクトリ一覧</string>
     <string name="tool_fetch_url">URL取得</string>
     <string name="tool_sub_agent">サブエージェント</string>

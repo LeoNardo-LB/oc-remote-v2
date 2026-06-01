@@ -200,7 +200,7 @@
     <string name="tool_edit_file">تعديل ملف</string>
     <string name="tool_terminal">طرفية</string>
     <string name="tool_find_files">البحث عن ملفات</string>
-    <string name="tool_search_code">بحث في الكود</string>
+    <string name="tool_search_code">بحث</string>
     <string name="tool_list_directory">عرض الدليل</string>
     <string name="tool_fetch_url">جلب رابط</string>
     <string name="tool_sub_agent">وكيل فرعي</string>
