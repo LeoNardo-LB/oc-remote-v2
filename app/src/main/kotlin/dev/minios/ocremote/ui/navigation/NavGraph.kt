@@ -2,7 +2,15 @@ package dev.minios.ocremote.ui.navigation
 
 import android.net.Uri
 import android.util.Log
+import androidx.compose.animation.core.EaseIn
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import dev.minios.ocremote.BuildConfig
+import dev.minios.ocremote.ui.theme.AppMotion
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.navigation.compose.NavHost
@@ -201,7 +209,23 @@ fun NavGraph(
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Home.route
+        startDestination = Screen.Home.route,
+        enterTransition = { slideInHorizontally(
+            initialOffsetX = { it },
+            animationSpec = tween(AppMotion.MEDIUM, easing = EaseOut)
+        ) + fadeIn(animationSpec = tween(AppMotion.MEDIUM)) },
+        exitTransition = { slideOutHorizontally(
+            targetOffsetX = { -it / 3 },
+            animationSpec = tween(AppMotion.MEDIUM, easing = EaseIn)
+        ) + fadeOut(animationSpec = tween(AppMotion.MEDIUM)) },
+        popEnterTransition = { slideInHorizontally(
+            initialOffsetX = { -it / 3 },
+            animationSpec = tween(AppMotion.MEDIUM, easing = EaseOut)
+        ) + fadeIn(animationSpec = tween(AppMotion.MEDIUM)) },
+        popExitTransition = { slideOutHorizontally(
+            targetOffsetX = { it },
+            animationSpec = tween(AppMotion.MEDIUM, easing = EaseIn)
+        ) + fadeOut(animationSpec = tween(AppMotion.MEDIUM)) }
     ) {
         // ============ Home Screen ============
         composable(HomeNav.route) {
