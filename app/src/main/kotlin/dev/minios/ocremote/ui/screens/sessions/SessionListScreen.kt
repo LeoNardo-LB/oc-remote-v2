@@ -29,6 +29,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -41,28 +43,28 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.components.AmoledSurface
 import dev.minios.ocremote.ui.components.indicators.PulsingDotsIndicator
+import dev.minios.ocremote.ui.screens.sessions.components.DirectoryTreeNode
 import dev.minios.ocremote.ui.screens.sessions.components.SessionRow
-import dev.minios.ocremote.ui.screens.sessions.components.ProjectGroupRow
+import dev.minios.ocremote.ui.screens.sessions.components.TreeNode
 import dev.minios.ocremote.ui.screens.sessions.components.isAmoledTheme
 import dev.minios.ocremote.ui.screens.sessions.components.OpenProjectDialog
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
-/**
- * Session List Screen - shows all sessions for a connected server,
- * grouped by project. Tapping a session navigates to the chat screen.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionListScreen(
@@ -72,7 +74,10 @@ fun SessionListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isAmoled = isAmoledTheme()
-    // Navigate to newly created session
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(viewModel) {
         viewModel.navigateToSession
             .onEach { sessionId ->
@@ -81,29 +86,24 @@ fun SessionListScreen(
             .launchIn(this)
     }
 
-    // Rename dialog state
+    // Dialog states
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameSessionId by remember { mutableStateOf("") }
     var renameText by remember { mutableStateOf("") }
 
-    // Delete confirmation dialog state
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deleteSessionId by remember { mutableStateOf("") }
     var deleteSessionTitle by remember { mutableStateOf("") }
     var showDeleteSelectedDialog by remember { mutableStateOf(false) }
 
-    // Project picker dialog state
     var showOpenProject by remember { mutableStateOf(false) }
 
     BackHandler(enabled = uiState.isSelectionMode) {
         viewModel.clearSelection()
     }
 
-    BackHandler(enabled = uiState.mode == ListMode.SESSIONS && !uiState.isSelectionMode) {
-        viewModel.navigateBack()
-    }
-
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (uiState.isSelectionMode) {
                 TopAppBar(
@@ -131,46 +131,34 @@ fun SessionListScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = if (isAmoledTheme()) Color.Black else MaterialTheme.colorScheme.surfaceVariant
+                        containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
             } else {
                 TopAppBar(
                     title = {
-                        val currentProject = uiState.currentProject
                         Text(
-                            if (uiState.mode == ListMode.SESSIONS && currentProject != null)
-                                currentProject.displayName
-                            else
-                                uiState.serverName.ifEmpty { stringResource(R.string.sessions_title) },
+                            text = uiState.serverName.ifEmpty { stringResource(R.string.sessions_title) },
                             style = MaterialTheme.typography.titleMedium
                         )
                     },
                     navigationIcon = {
-                        if (uiState.mode == ListMode.SESSIONS) {
-                            IconButton(onClick = { viewModel.navigateBack() }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
-                            }
-                        } else {
-                            IconButton(onClick = onNavigateBack) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
-                            }
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                         }
                     },
                     actions = {
-                        if (uiState.mode == ListMode.PROJECTS) {
-                            IconButton(onClick = { showOpenProject = true }) {
-                                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.sessions_open_project))
-                            }
+                        IconButton(onClick = { showOpenProject = true }) {
+                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.sessions_open_project))
                         }
                     }
                 )
             }
         },
         floatingActionButton = {
-            if (uiState.mode == ListMode.SESSIONS && !uiState.isSelectionMode) {
+            if (!uiState.isSelectionMode) {
                 FloatingActionButton(
-                    onClick = { viewModel.createSessionInCurrentProject() },
+                    onClick = { viewModel.createNewSession() },
                     containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.primaryContainer,
                     contentColor = if (isAmoled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer,
                     elevation = if (isAmoled) {
@@ -204,14 +192,14 @@ fun SessionListScreen(
                 .padding(padding)
         ) {
             when {
-                uiState.isLoading && uiState.projectGroups.isEmpty() && uiState.sessions.isEmpty() -> {
+                uiState.isLoading && uiState.treeNodes.isEmpty() -> {
                     PulsingDotsIndicator(
                         modifier = Modifier.align(Alignment.Center),
                         dotSize = 12.dp,
                         dotSpacing = 8.dp
                     )
                 }
-                uiState.error != null && uiState.projectGroups.isEmpty() && uiState.sessions.isEmpty() -> {
+                uiState.error != null && uiState.treeNodes.isEmpty() -> {
                     Column(
                         modifier = Modifier
                             .align(Alignment.Center)
@@ -235,75 +223,73 @@ fun SessionListScreen(
                         }
                     }
                 }
-                uiState.mode == ListMode.PROJECTS -> {
-                    if (uiState.projectGroups.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = stringResource(R.string.sessions_empty_directory),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            items(uiState.projectGroups, key = { it.directory }) { group ->
-                                ProjectGroupRow(
-                                    group = group,
-                                    onClick = { viewModel.selectProject(group) },
-                                )
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
-                                )
-                            }
-                        }
+                uiState.treeNodes.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.sessions_empty_directory),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
-                uiState.mode == ListMode.SESSIONS -> {
+                else -> {
                     val untitledLabel = stringResource(R.string.session_untitled)
-                    if (uiState.sessions.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = stringResource(R.string.sessions_no_folders),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(uiState.sessions, key = { it.session.id }) { item ->
-                                SessionRow(
-                                    item = item,
-                                    isSelectionMode = uiState.isSelectionMode,
-                                    isSelected = item.session.id in uiState.selectedIds,
-                                    onClick = {
-                                        if (uiState.isSelectionMode) {
-                                            viewModel.toggleSelection(item.session.id)
-                                        } else {
-                                            onNavigateToChat(item.session.id, false)
-                                        }
-                                    },
-                                    onLongClick = { viewModel.toggleSelection(item.session.id) },
-                                    onRename = {
-                                        renameSessionId = item.session.id
-                                        renameText = item.session.title ?: ""
-                                        showRenameDialog = true
-                                    },
-                                    onDelete = {
-                                        deleteSessionId = item.session.id
-                                        deleteSessionTitle = item.session.title ?: untitledLabel
-                                        showDeleteDialog = true
-                                    },
-                                )
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
-                                )
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        items(uiState.treeNodes, key = { it.id }) { node ->
+                            when (node) {
+                                is TreeNode.Directory -> {
+                                    DirectoryTreeNode(
+                                        node = node,
+                                        onClick = { viewModel.toggleDirectory(node.path) },
+                                        onCopyPath = { path ->
+                                            viewModel.copyToClipboard(path, context)
+                                            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
+                                        },
+                                    )
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(
+                                            alpha = if (isAmoled) AlphaTokens.FAINT else 0.2f
+                                        )
+                                    )
+                                }
+                                is TreeNode.Session -> {
+                                    SessionRow(
+                                        item = node.session,
+                                        depth = node.depth,
+                                        isSelectionMode = uiState.isSelectionMode,
+                                        isSelected = node.id in uiState.selectedIds,
+                                        onClick = {
+                                            if (uiState.isSelectionMode) {
+                                                viewModel.toggleSelection(node.id)
+                                            } else {
+                                                onNavigateToChat(node.id, false)
+                                            }
+                                        },
+                                        onLongClick = { viewModel.toggleSelection(node.id) },
+                                        onRename = {
+                                            renameSessionId = node.id
+                                            renameText = node.session.session.title ?: ""
+                                            showRenameDialog = true
+                                        },
+                                        onDelete = {
+                                            deleteSessionId = node.id
+                                            deleteSessionTitle = node.session.session.title ?: untitledLabel
+                                            showDeleteDialog = true
+                                        },
+                                        onCopyId = { id ->
+                                            viewModel.copyToClipboard(id, context)
+                                            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
+                                        },
+                                    )
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(
+                                            alpha = if (isAmoled) AlphaTokens.FAINT else 0.2f
+                                        )
+                                    )
+                                }
                             }
                         }
                     }
@@ -312,7 +298,7 @@ fun SessionListScreen(
         }
     }
 
-    // Open Project directory browser dialog
+    // Open Project dialog
     if (showOpenProject) {
         OpenProjectDialog(
             viewModel = viewModel,
@@ -325,6 +311,7 @@ fun SessionListScreen(
         )
     }
 
+    // Delete selected dialog
     if (showDeleteSelectedDialog) {
         BasicAlertDialog(onDismissRequest = { showDeleteSelectedDialog = false }) {
             AmoledSurface(
