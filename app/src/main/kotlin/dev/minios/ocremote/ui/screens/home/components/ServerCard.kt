@@ -16,6 +16,7 @@ import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.ServerConfig
 import dev.minios.ocremote.ui.components.AmoledCard
 import dev.minios.ocremote.ui.components.AmoledDefaultBorder
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.theme.StatusConnected
 
@@ -65,7 +66,7 @@ internal fun ServerCard(
                     Text(
                         text = server.url,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = cardContentColor.copy(alpha = 0.7f)
+                        color = cardContentColor.copy(alpha = AlphaTokens.NORMAL)
                     )
                     if (isConnected) {
                         Text(
@@ -150,7 +151,7 @@ internal fun ServerCard(
                             ButtonDefaults.buttonColors()
                         },
                         border = if (isAmoled) {
-                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                         } else {
                             null
                         }
@@ -178,7 +179,7 @@ internal fun ServerCard(
                             ButtonDefaults.outlinedButtonColors()
                         },
                         border = if (isAmoled) {
-                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                         } else {
                             ButtonDefaults.outlinedButtonBorder
                         }
@@ -199,13 +200,13 @@ internal fun ServerCard(
                             containerColor = Color.Black,
                             contentColor = MaterialTheme.colorScheme.primary,
                             disabledContainerColor = Color.Black,
-                            disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+                            disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.NORMAL),
                         )
                     } else {
                         ButtonDefaults.buttonColors()
                     },
                     border = if (isAmoled) {
-                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                     } else {
                         null
                     }

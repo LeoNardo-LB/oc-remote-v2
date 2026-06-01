@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.components.AmoledDefaultBorder
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.screens.server.ProviderToggle
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
@@ -53,7 +54,7 @@ internal fun ProviderRow(
                 Text(
                     text = provider.providerId,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MEDIUM)
                 )
                 if (showSource) {
                     provider.source?.let { src ->
@@ -66,7 +67,7 @@ internal fun ProviderRow(
                                 else -> stringResource(R.string.server_settings_provider_source_other)
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
                         )
                     }
                 }
@@ -84,7 +85,7 @@ internal fun ProviderRow(
                     Text(
                         text = stringResource(R.string.server_settings_provider_env_connected),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
                     )
                 }
             }

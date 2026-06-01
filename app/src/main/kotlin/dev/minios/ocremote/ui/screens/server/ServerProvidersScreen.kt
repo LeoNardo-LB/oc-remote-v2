@@ -60,6 +60,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.screens.server.components.ProviderRow
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
@@ -149,7 +150,7 @@ fun ServerProvidersScreen(
             Surface(
                 shape = ShapeTokens.largeMedium,
                 color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)) else null,
+                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.NORMAL)) else null,
                 tonalElevation = if (isAmoled) 0.dp else 6.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -204,7 +205,7 @@ fun ServerProvidersScreen(
             Surface(
                 shape = ShapeTokens.largeMedium,
                 color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)) else null,
+                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.NORMAL)) else null,
                 tonalElevation = if (isAmoled) 0.dp else 6.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -257,7 +258,7 @@ fun ServerProvidersScreen(
             Surface(
                 shape = ShapeTokens.largeMedium,
                 color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)) else null,
+                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.NORMAL)) else null,
                 tonalElevation = if (isAmoled) 0.dp else 6.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -274,19 +275,19 @@ fun ServerProvidersScreen(
                         Text(
                             text = stringResource(R.string.server_settings_oauth_device_code_hint),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.NORMAL),
                         )
                         Surface(
                             shape = ShapeTokens.medium,
                             color = if (isAmoled) {
-                                MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.3f)
+                                MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = AlphaTokens.FAINT)
                             } else {
                                 MaterialTheme.colorScheme.surfaceContainerHighest
                             },
                             border = BorderStroke(
                                 1.dp,
-                                if (isAmoled) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                                if (isAmoled) MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MUTED)
+                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -320,7 +321,7 @@ fun ServerProvidersScreen(
                                     Icons.Default.ContentCopy,
                                     contentDescription = stringResource(R.string.server_settings_oauth_copy_code),
                                     modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
                                 )
                             }
                         }
@@ -340,7 +341,7 @@ fun ServerProvidersScreen(
                         Text(
                             text = stringResource(R.string.server_settings_oauth_headless_fallback),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.NORMAL),
                         )
                     }
                     if (pending.authorization.url.isNotBlank()) {
@@ -425,7 +426,7 @@ fun ServerProvidersScreen(
                     Text(
                         text = stringResource(R.string.server_settings_providers_connected),
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.NORMAL)
                     )
                 }
                 items(connected, key = { it.providerId }) { provider ->
@@ -448,7 +449,7 @@ fun ServerProvidersScreen(
                     Text(
                         text = stringResource(R.string.server_settings_providers_available),
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.NORMAL)
                     )
                 }
                 items(available, key = { it.providerId }) { provider ->

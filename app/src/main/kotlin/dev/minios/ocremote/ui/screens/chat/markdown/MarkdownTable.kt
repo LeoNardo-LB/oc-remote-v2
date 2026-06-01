@@ -33,6 +33,7 @@ import org.intellij.markdown.flavours.gfm.GFMElementTypes.HEADER as GFMHeader
 import org.intellij.markdown.flavours.gfm.GFMElementTypes.ROW as GFMRow
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL as GFMCell
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /** Data class representing a parsed table row from the AST. */
 private data class TableRow(
@@ -54,9 +55,9 @@ internal fun SimpleMarkdownTable(
     tableNode: ASTNode,
     style: TextStyle,
 ) {
-    val headerBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-    val rowBgOdd = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
-    val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+    val headerBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = AlphaTokens.MUTED)
+    val rowBgOdd = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = AlphaTokens.MUTED)
+    val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
     val pad = 10.dp
     val shape = ShapeTokens.smallMedium
     val border = BorderStroke(1.dp, dividerColor)

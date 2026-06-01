@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import dev.minios.ocremote.ui.theme.AppMotion
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -71,6 +72,7 @@ import dev.minios.ocremote.BuildConfig
 import dev.minios.ocremote.ui.screens.chat.TerminalEmulator
 import dev.minios.ocremote.ui.theme.CodeTypography
 import kotlinx.coroutines.delay
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 @Composable
 internal fun SessionTerminalInline(
@@ -404,7 +406,7 @@ internal fun SessionTerminalInline(
                 initialValue = 1f,
                 targetValue = 0f,
                 animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 700),
+                    animation = tween(durationMillis = AppMotion.TERMINAL),
                     repeatMode = RepeatMode.Reverse
                 ),
                 label = "terminal_cursor_alpha"
@@ -537,7 +539,7 @@ internal fun SessionTerminalInline(
                 }
                 val selectionColors = TextSelectionColors(
                     handleColor = Color(0xFF4FC3F7),
-                    backgroundColor = Color(0xFF4FC3F7).copy(alpha = 0.4f)
+                    backgroundColor = Color(0xFF4FC3F7).copy(alpha = AlphaTokens.FAINT)
                 )
                 CompositionLocalProvider(
                     LocalTextToolbar provides terminalTextToolbar,

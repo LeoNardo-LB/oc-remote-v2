@@ -30,6 +30,7 @@ import dev.minios.ocremote.ui.theme.CodeTypography
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Write tool card — shows file path + code content.
@@ -83,7 +84,7 @@ internal fun WriteToolCard(
             SelectionContainer {
                 Text(
                     text = content.take(5000),
-                    style = CodeTypography.copy(color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer),
+                    style = CodeTypography.copy(color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED_CODE) else MaterialTheme.colorScheme.onSecondaryContainer),
                     modifier = Modifier
                         .padding(4.dp)
                         .codeHorizontalScroll()

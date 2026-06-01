@@ -54,6 +54,7 @@ import dev.minios.ocremote.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.performHaptic
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Interactive card for answering agent questions.
@@ -118,7 +119,7 @@ internal fun QuestionCard(
                 Text(
                     text = question.sourceSessionTitle,
                     style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = 0.6f)
+                    color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
                 )
             }
 
@@ -134,7 +135,7 @@ internal fun QuestionCard(
                 Text(
                     text = q.question,
                     style = MaterialTheme.typography.bodySmall,
-                    color = contentColor.copy(alpha = 0.8f)
+                    color = contentColor.copy(alpha = AlphaTokens.STRONG)
                 )
 
                 Spacer(Modifier.height(2.dp))
@@ -173,7 +174,7 @@ internal fun QuestionCard(
                                 onCheckedChange = null,
                                 colors = CheckboxDefaults.colors(
                                     checkedColor = accentColor,
-                                    uncheckedColor = contentColor.copy(alpha = 0.5f)
+                                    uncheckedColor = contentColor.copy(alpha = AlphaTokens.MUTED)
                                 )
                             )
                             Column {
@@ -186,7 +187,7 @@ internal fun QuestionCard(
                                     Text(
                                         text = option.description,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = contentColor.copy(alpha = 0.6f)
+                                        color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
                                     )
                                 }
                             }
@@ -212,8 +213,8 @@ internal fun QuestionCard(
                             },
                                 enabled = !submitted,
                                 shape = ShapeTokens.small,
-                                color = if (isSelected) accentColor.copy(alpha = 0.12f) else if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                border = if (!isSelected && isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)) else null,
+                                color = if (isSelected) accentColor.copy(alpha = 0.12f) else if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
+                                border = if (!isSelected && isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MUTED)) else null,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                             Row(
@@ -225,7 +226,7 @@ internal fun QuestionCard(
                                     if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
-                                    tint = if (isSelected) accentColor else accentColor.copy(alpha = 0.7f)
+                                    tint = if (isSelected) accentColor else accentColor.copy(alpha = AlphaTokens.NORMAL)
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
@@ -237,7 +238,7 @@ internal fun QuestionCard(
                                         Text(
                                             text = option.description,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = contentColor.copy(alpha = 0.6f)
+                                            color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
                                         )
                                     }
                                 }
@@ -288,7 +289,7 @@ internal fun QuestionCard(
                                         Icons.Default.Close,
                                         contentDescription = stringResource(R.string.chat_clear),
                                         modifier = Modifier.size(16.dp),
-                                        tint = accentColor.copy(alpha = 0.7f)
+                                        tint = accentColor.copy(alpha = AlphaTokens.NORMAL)
                                     )
                                 }
                             }
@@ -316,12 +317,12 @@ internal fun QuestionCard(
                                         Icons.Default.Edit,
                                         contentDescription = null,
                                         modifier = Modifier.size(14.dp),
-                                        tint = accentColor.copy(alpha = 0.7f)
+                                        tint = accentColor.copy(alpha = AlphaTokens.NORMAL)
                                     )
                                     Text(
                                         text = stringResource(R.string.question_custom_answer),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = accentColor.copy(alpha = 0.7f)
+                                        color = accentColor.copy(alpha = AlphaTokens.NORMAL)
                                     )
                                 }
                             }

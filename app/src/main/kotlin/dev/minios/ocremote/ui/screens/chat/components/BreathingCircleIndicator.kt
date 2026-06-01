@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.minios.ocremote.ui.theme.AppMotion
 
 /** Breathing circle loading indicator — single circle that pulses smoothly. */
 @Composable
@@ -32,7 +33,7 @@ internal fun BreathingCircleIndicator(
         initialValue = 0.7f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
+            animation = tween(AppMotion.BREATH_CYCLE, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "circle_scale"
@@ -41,7 +42,7 @@ internal fun BreathingCircleIndicator(
         initialValue = 0.5f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
+            animation = tween(AppMotion.BREATH_CYCLE, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "circle_alpha"

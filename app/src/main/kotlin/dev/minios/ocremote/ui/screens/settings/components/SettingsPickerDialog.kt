@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
@@ -76,7 +77,7 @@ internal fun <K> SettingsPickerDialog(
             color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
             border = if (isAmoled) BorderStroke(
                 1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM)
             ) else null,
             tonalElevation = if (isAmoled) 0.dp else 6.dp,
             modifier = Modifier
@@ -117,7 +118,7 @@ internal fun <K> SettingsPickerDialog(
                                 .background(
                                     when {
                                         isSelected && isAmoled -> Color.Black
-                                        isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                                        isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = AlphaTokens.MUTED)
                                         else -> Color.Transparent
                                     }
                                 )
@@ -125,7 +126,7 @@ internal fun <K> SettingsPickerDialog(
                                     if (isSelected && isAmoled) {
                                         Modifier.border(
                                             width = 1.dp,
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.NORMAL),
                                             shape = ShapeTokens.medium,
                                         )
                                     } else {

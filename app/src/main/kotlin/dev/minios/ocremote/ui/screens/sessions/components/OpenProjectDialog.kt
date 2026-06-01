@@ -64,6 +64,7 @@ import dev.minios.ocremote.ui.components.indicators.PulsingDotsIndicator
 import dev.minios.ocremote.ui.screens.sessions.SessionListViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
 /**
@@ -238,14 +239,14 @@ internal fun OpenProjectDialog(
                             if (isAmoled) {
                                 Color.Black
                             } else {
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.MUTED)
                             }
                         )
                         .then(
                             if (isAmoled) {
                                 Modifier.border(
                                     width = 1.dp,
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM),
                                     shape = ShapeTokens.small
                                 )
                             } else {
@@ -260,7 +261,7 @@ internal fun OpenProjectDialog(
                         Icons.Default.Search,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                     )
                     BasicTextField(
                         value = searchQuery,
@@ -278,7 +279,7 @@ internal fun OpenProjectDialog(
                                 Text(
                                     text = stringResource(R.string.sessions_search_folders),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
                                 )
                             }
                             innerTextField()
@@ -291,7 +292,7 @@ internal fun OpenProjectDialog(
                                 modifier = Modifier
                                     .size(18.dp)
                                     .clickable { searchQuery = "" },
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                             )
                         }
                 }
@@ -320,13 +321,13 @@ internal fun OpenProjectDialog(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource(R.string.back),
                                 modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.NORMAL)
                             )
                         }
                         Text(
                             text = tildeReplace(currentDir ?: "/"),
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
                             maxLines = 1,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
@@ -335,7 +336,7 @@ internal fun OpenProjectDialog(
 
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 4.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 )
 
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -361,7 +362,7 @@ internal fun OpenProjectDialog(
                                     Text(
                                         text = stringResource(R.string.sessions_no_folders),
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                                     )
                                 }
                             } else {
@@ -410,7 +411,7 @@ internal fun OpenProjectDialog(
                                     Text(
                                         text = stringResource(R.string.sessions_empty_directory),
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                                     )
                                 }
                             } else {

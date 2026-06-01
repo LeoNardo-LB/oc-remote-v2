@@ -39,6 +39,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 private data class TodoItem(
     val content: String,
@@ -131,13 +132,13 @@ internal fun TodoListCard(
                     Text(
                         text = "$completedCount/$totalCount",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
                     )
                     Icon(
                         imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (expanded) stringResource(R.string.chat_collapse) else stringResource(R.string.chat_expand),
                         modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
                     )
                 }
             }
@@ -186,7 +187,7 @@ private fun TodoItemRow(todo: TodoItem) {
             text = todo.content,
             style = MaterialTheme.typography.bodySmall.copy(
                 color = if (isCompleted) {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                 } else {
                     MaterialTheme.colorScheme.onSurface
                 }

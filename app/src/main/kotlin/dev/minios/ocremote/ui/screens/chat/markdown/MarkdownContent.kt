@@ -29,6 +29,7 @@ import dev.minios.ocremote.ui.theme.CodeTypography
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontStyle
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 private val HtmlDocumentHintRegex = Regex("(?is)<!doctype\\s+html\\b|<\\s*html\\b")
 private val HtmlTagRegex = Regex("(?is)<\\s*/?\\s*[a-z][^>]*>")
@@ -154,14 +155,14 @@ internal fun MarkdownContent(
     val inlineCodeBg = when {
         isAmoled -> Color(0xFF353540)
         isUser -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f)
-        else -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+        else -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = AlphaTokens.FAINT)
     }
 
     val colors = markdownColor(
         text = textColor,
         codeBackground = codeBlockBg,
         inlineCodeBackground = inlineCodeBg,
-        dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
         tableBackground = MaterialTheme.colorScheme.surfaceContainerLow
     )
 
@@ -190,7 +191,7 @@ internal fun MarkdownContent(
             fontWeight = FontWeight.SemiBold
         ),
         h6 = MaterialTheme.typography.bodyMedium.copy(
-            color = textColor.copy(alpha = 0.8f),
+            color = textColor.copy(alpha = AlphaTokens.STRONG),
             fontWeight = FontWeight.Medium
         ),
         text = bodyStyle,
@@ -201,7 +202,7 @@ internal fun MarkdownContent(
             fontWeight = FontWeight.Medium
         ),
         quote = bodyStyle.copy(
-            color = textColor.copy(alpha = 0.65f),
+            color = textColor.copy(alpha = AlphaTokens.MEDIUM),
             fontStyle = FontStyle.Italic
         ),
         paragraph = bodyStyle,

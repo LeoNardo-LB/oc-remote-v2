@@ -41,6 +41,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Edit tool card — shows file path + diff with red/green colored lines.
@@ -116,7 +117,7 @@ internal fun EditToolCard(
                     Surface(
                         shape = ShapeTokens.extraSmall,
                         color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.errorContainer,
-                        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.7f)) else null,
+                        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = AlphaTokens.NORMAL)) else null,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         ErrorPayloadContent(

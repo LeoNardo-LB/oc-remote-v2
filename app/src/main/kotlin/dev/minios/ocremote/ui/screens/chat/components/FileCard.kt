@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.domain.model.Part
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 @Composable
 internal fun FileCard(file: Part.File) {
@@ -38,7 +39,7 @@ internal fun FileCardFallback(file: Part.File) {
         MaterialTheme.colorScheme.surfaceContainerLow
     }
     val borderColor = if (isAmoled) {
-        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.HIGH)
     } else {
         MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f)
     }

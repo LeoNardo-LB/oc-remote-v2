@@ -231,6 +231,7 @@ import dev.minios.ocremote.ui.screens.chat.components.RevertBanner
 import dev.minios.ocremote.ui.screens.chat.terminal.ChatTerminalView
 import dev.minios.ocremote.ui.screens.chat.dialog.RenameSessionDialog
 import dev.minios.ocremote.ui.screens.chat.dialog.SendConfirmDialog
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 
 /**
@@ -982,12 +983,12 @@ fun ChatScreen(
                         Text(
                             text = stringResource(R.string.chat_empty),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MEDIUM)
                         )
                         Text(
                             text = stringResource(R.string.chat_type_message),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                         )
                     }
                 }

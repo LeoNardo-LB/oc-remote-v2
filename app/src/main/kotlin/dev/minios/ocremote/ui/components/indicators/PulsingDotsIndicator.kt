@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.minios.ocremote.ui.theme.AppMotion
 
 /**
  * Animated pulsing dots indicator used across multiple screens
@@ -38,12 +39,12 @@ fun PulsingDotsIndicator(
             targetValue = 0.4f,
             animationSpec = infiniteRepeatable(
                 animation = keyframes {
-                    durationMillis = 1200
+                    durationMillis = AppMotion.PULSE_CYCLE
                     val offset = index * 150
                     0.4f at 0 + offset
                     1.0f at 300 + offset
                     0.4f at 600 + offset
-                    0.4f at 1200
+                    0.4f at AppMotion.PULSE_CYCLE
                 },
                 repeatMode = RepeatMode.Restart
             ),

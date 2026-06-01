@@ -34,6 +34,7 @@ import dev.minios.ocremote.ui.screens.chat.util.toolOutputContainerColor
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Search tool card (glob/grep) — shows pattern + expandable output.
@@ -93,7 +94,7 @@ internal fun SearchToolCard(
                             text = "pattern: $pattern",
                             style = CodeTypography.copy(
                                 fontSize = 11.sp,
-                                color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED_CODE) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.STRONG)
                             )
                         )
                     }
@@ -102,7 +103,7 @@ internal fun SearchToolCard(
                             text = "path: $dirPath",
                             style = CodeTypography.copy(
                                 fontSize = 11.sp,
-                                color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED_CODE) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.STRONG)
                             )
                         )
                     }
@@ -125,7 +126,7 @@ internal fun SearchToolCard(
             SelectionContainer {
                 MarkdownContent(
                     markdown = output,
-                    textColor = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer,
+                    textColor = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED_CODE) else MaterialTheme.colorScheme.onSecondaryContainer,
                     isUser = false
                 )
             }

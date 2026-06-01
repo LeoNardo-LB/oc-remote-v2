@@ -32,6 +32,7 @@ import dev.minios.ocremote.ui.screens.chat.markdown.looksLikeHtmlPayload
 import dev.minios.ocremote.ui.screens.chat.markdown.normalizeHtmlForEmbeddedPreview
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 private enum class HtmlErrorViewMode {
     Page,
@@ -117,7 +118,7 @@ internal fun ErrorPayloadContent(
                     .heightIn(min = 220.dp, max = 360.dp)
                     .border(
                         width = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM),
                         shape = ShapeTokens.small,
                     )
                     .clip(ShapeTokens.small),

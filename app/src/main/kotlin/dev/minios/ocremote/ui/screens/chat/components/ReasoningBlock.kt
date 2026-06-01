@@ -48,6 +48,7 @@ import dev.minios.ocremote.ui.screens.chat.util.halfScreenHeight
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.performHaptic
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 @Composable
 internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleExpand: () -> Unit = {}, durationMs: Long? = null) {
@@ -56,10 +57,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     val hapticOn = LocalHapticFeedbackEnabled.current
     val expanded = isExpanded
 
-    val accentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+    val accentColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM)
     val containerColor = when {
         isAmoled -> Color.Black
-        else -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)
+        else -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.NORMAL)
     }
     val textColor = MaterialTheme.colorScheme.onSurface
 
@@ -142,7 +143,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                         Text(
                             text = headerText,
                             style = MaterialTheme.typography.labelMedium,
-                            color = textColor.copy(alpha = 0.45f)
+                            color = textColor.copy(alpha = AlphaTokens.MUTED)
                         )
                     }
 
@@ -153,7 +154,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                         else
                             stringResource(R.string.chat_expand),
                         modifier = Modifier.size(18.dp),
-                        tint = textColor.copy(alpha = 0.3f)
+                        tint = textColor.copy(alpha = AlphaTokens.FAINT)
                     )
                 }
 
@@ -175,7 +176,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                         ) {
                         MarkdownContent(
                             markdown = text,
-                            textColor = textColor.copy(alpha = 0.55f),
+                            textColor = textColor.copy(alpha = AlphaTokens.MUTED),
                             isUser = false,
                             customFontSize = "small"
                         )

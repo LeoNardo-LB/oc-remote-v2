@@ -29,6 +29,7 @@ import dev.minios.ocremote.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.minios.ocremote.ui.screens.chat.util.performHaptic
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Banner shown when messages have been reverted.
@@ -41,7 +42,7 @@ internal fun RevertBanner(onRedo: () -> Unit) {
     val isAmoled = LocalAmoledMode.current
     Surface(
         shape = ShapeTokens.medium,
-        color = if (isAmoled) Color(0xFF2A3E44) else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+        color = if (isAmoled) Color(0xFF2A3E44) else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = AlphaTokens.MEDIUM),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -67,7 +68,7 @@ internal fun RevertBanner(onRedo: () -> Unit) {
                 Text(
                     text = stringResource(R.string.chat_tap_restore),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = AlphaTokens.NORMAL)
                 )
             }
             Icon(

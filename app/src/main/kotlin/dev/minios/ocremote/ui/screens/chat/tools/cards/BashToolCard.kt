@@ -31,6 +31,7 @@ import dev.minios.ocremote.ui.theme.CodeTypography
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Bash tool card — shows $ command + output.
@@ -92,7 +93,7 @@ internal fun BashToolCard(
             SelectionContainer {
                 Text(
                     text = displayText,
-                    style = CodeTypography.copy(color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer),
+                    style = CodeTypography.copy(color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED_CODE) else MaterialTheme.colorScheme.onSecondaryContainer),
                     modifier = Modifier
                         .padding(4.dp)
                         .codeHorizontalScroll()

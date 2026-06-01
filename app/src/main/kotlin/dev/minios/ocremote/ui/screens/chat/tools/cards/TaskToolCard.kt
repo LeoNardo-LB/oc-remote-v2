@@ -38,6 +38,7 @@ import dev.minios.ocremote.ui.theme.CodeTypography
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Task (sub-agent) tool card — shows description + child info.
@@ -137,7 +138,7 @@ internal fun TaskToolCard(
                         Text(
                             text = description,
                             style = CodeTypography,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -160,7 +161,7 @@ internal fun TaskToolCard(
             SelectionContainer {
                 MarkdownContent(
                     markdown = output,
-                    textColor = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer,
+                    textColor = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED_CODE) else MaterialTheme.colorScheme.onSecondaryContainer,
                     isUser = false
                 )
             }

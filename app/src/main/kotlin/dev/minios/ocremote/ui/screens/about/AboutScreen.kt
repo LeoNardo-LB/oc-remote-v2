@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.BuildConfig
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +85,7 @@ fun AboutScreen(
             Text(
                 text = stringResource(R.string.about_unofficial),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.NORMAL),
                 textAlign = TextAlign.Center
             )
 
@@ -111,7 +112,7 @@ fun AboutScreen(
                             Icons.Default.OpenInNew,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                         )
                     },
                     modifier = Modifier.clickable {
@@ -121,7 +122,7 @@ fun AboutScreen(
 
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 )
 
                 // OpenCode project
@@ -138,7 +139,7 @@ fun AboutScreen(
                             Icons.Default.OpenInNew,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                         )
                     },
                     modifier = Modifier.clickable {
@@ -148,7 +149,7 @@ fun AboutScreen(
 
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 )
 
                 // License

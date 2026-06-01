@@ -14,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.components.AmoledCard
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.screens.home.LocalRuntimeStatus
 
@@ -95,7 +96,7 @@ internal fun LocalRuntimeCard(
                 Text(
                     text = stringResource(R.string.home_local_server_desc),
                     style = MaterialTheme.typography.bodySmall,
-                    color = cardContentColor.copy(alpha = 0.85f),
+                    color = cardContentColor.copy(alpha = AlphaTokens.AMOLED_CODE),
                 )
             }
 
@@ -126,7 +127,7 @@ internal fun LocalRuntimeCard(
                         ButtonDefaults.outlinedButtonColors()
                     },
                     border = if (isAmoled) {
-                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                     } else {
                         ButtonDefaults.outlinedButtonBorder
                     },
@@ -150,7 +151,7 @@ internal fun LocalRuntimeCard(
                         ButtonDefaults.outlinedButtonColors()
                     },
                     border = if (isAmoled) {
-                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                     } else {
                         ButtonDefaults.outlinedButtonBorder
                     },
@@ -177,7 +178,7 @@ internal fun LocalRuntimeCard(
                             ButtonDefaults.outlinedButtonColors()
                         },
                         border = if (isAmoled) {
-                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                         } else {
                             ButtonDefaults.outlinedButtonBorder
                         },
@@ -193,7 +194,7 @@ internal fun LocalRuntimeCard(
                     Text(
                         text = stringResource(R.string.home_local_setup_desc),
                         style = MaterialTheme.typography.bodySmall,
-                        color = cardContentColor.copy(alpha = 0.85f),
+                        color = cardContentColor.copy(alpha = AlphaTokens.AMOLED_CODE),
                     )
                     Button(
                         onClick = onSetup,
@@ -207,7 +208,7 @@ internal fun LocalRuntimeCard(
                             ButtonDefaults.buttonColors()
                         },
                         border = if (isAmoled) {
-                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                         } else {
                             null
                         },
@@ -229,7 +230,7 @@ internal fun LocalRuntimeCard(
                             ButtonDefaults.outlinedButtonColors()
                         },
                         border = if (isAmoled) {
-                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                         } else {
                             ButtonDefaults.outlinedButtonBorder
                         },
@@ -266,7 +267,7 @@ internal fun LocalRuntimeCard(
                                     ButtonDefaults.buttonColors()
                                 },
                                 border = if (isAmoled) {
-                                    BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                                    BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                                 } else {
                                     null
                                 },
@@ -290,7 +291,7 @@ internal fun LocalRuntimeCard(
                                 ButtonDefaults.outlinedButtonColors()
                             },
                             border = if (isAmoled) {
-                                BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                                BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                             } else {
                                 ButtonDefaults.outlinedButtonBorder
                             },
@@ -326,7 +327,7 @@ internal fun LocalRuntimeCard(
                                 ButtonDefaults.buttonColors()
                             },
                             border = if (isAmoled) {
-                                BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                                BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                             } else {
                                 null
                             },
@@ -348,7 +349,7 @@ internal fun LocalRuntimeCard(
                                 ButtonDefaults.outlinedButtonColors()
                             },
                             border = if (isAmoled) {
-                                BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                                BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                             } else {
                                 ButtonDefaults.outlinedButtonBorder
                             },
@@ -368,7 +369,7 @@ internal fun LocalRuntimeCard(
                 localServerConnected
             ) {
                 if (!compactActive) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT))
                 }
 
                 if (!localServerConnectionError.isNullOrBlank()) {
@@ -391,7 +392,7 @@ internal fun LocalRuntimeCard(
                         ButtonDefaults.outlinedButtonColors()
                     },
                     border = if (isAmoled) {
-                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.75f))
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH))
                     } else {
                         ButtonDefaults.outlinedButtonBorder
                     },

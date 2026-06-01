@@ -39,6 +39,7 @@ import dev.minios.ocremote.ui.theme.CodeTypography
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 @Composable
 internal fun ToolCallCard(
@@ -122,7 +123,7 @@ internal fun ToolCallCard(
                             Text(
                                 text = toolDisplay.subtitle,
                                 style = CodeTypography.copy(fontSize = 11.sp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -187,7 +188,7 @@ internal fun ToolCallCard(
                             ) {
                                 Text(
                                     text = inputText.take(2000),
-                                    style = CodeTypography.copy(fontSize = 11.sp, color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)),
+                                    style = CodeTypography.copy(fontSize = 11.sp, color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED_CODE) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.STRONG)),
                                     modifier = Modifier.padding(4.dp).codeHorizontalScroll()
                                 )
                             }
@@ -202,12 +203,12 @@ internal fun ToolCallCard(
                         Surface(
                             shape = ShapeTokens.extraSmall,
                             color = toolOutputContainerColor(isAmoled),
-                            border = if (isAmoled) BorderStroke(1.dp, stateColor.copy(alpha = 0.6f)) else null,
+                            border = if (isAmoled) BorderStroke(1.dp, stateColor.copy(alpha = AlphaTokens.MEDIUM)) else null,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 text = output.take(3000),
-                                style = CodeTypography.copy(fontSize = 11.sp, color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer),
+                                style = CodeTypography.copy(fontSize = 11.sp, color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED_CODE) else MaterialTheme.colorScheme.onSecondaryContainer),
                                 modifier = Modifier.padding(4.dp).codeHorizontalScroll()
                             )
                         }

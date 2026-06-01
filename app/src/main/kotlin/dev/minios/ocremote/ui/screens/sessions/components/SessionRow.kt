@@ -51,6 +51,9 @@ import dev.minios.ocremote.domain.model.SessionStatus
 import dev.minios.ocremote.ui.components.AmoledDefaultBorder
 import dev.minios.ocremote.ui.components.indicators.PulsingDotsIndicator
 import dev.minios.ocremote.ui.screens.sessions.SessionItem
+import dev.minios.ocremote.ui.theme.AlphaTokens
+import dev.minios.ocremote.ui.theme.DiffAdded
+import dev.minios.ocremote.ui.theme.DiffRemoved
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -70,8 +73,8 @@ internal fun SessionRow(
     val isAmoled = isAmoledTheme()
     val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
 
-    val addColor = Color(0xFF4CAF50)
-    val delColor = Color(0xFFE53935)
+    val addColor = DiffAdded
+    val delColor = DiffRemoved
 
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { dismissValue ->
@@ -106,7 +109,7 @@ internal fun SessionRow(
         val cardBorder = when {
             isSelected -> BorderStroke(
                 1.5.dp,
-                MaterialTheme.colorScheme.primary.copy(alpha = if (isAmoled) 0.75f else 0.5f)
+                MaterialTheme.colorScheme.primary.copy(alpha = if (isAmoled) AlphaTokens.HIGH else AlphaTokens.MUTED)
             )
             isAmoled -> AmoledDefaultBorder
             else -> null
@@ -150,7 +153,7 @@ internal fun SessionRow(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.NORMAL)
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                     }
@@ -173,7 +176,7 @@ internal fun SessionRow(
                         Text(
                             text = dateFormat.format(Date(item.session.time.updated)),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
                         )
 
                         // Status indicator

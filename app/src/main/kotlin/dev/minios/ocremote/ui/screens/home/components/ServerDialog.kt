@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.ServerConfig
 import dev.minios.ocremote.ui.components.AmoledDefaultBorder
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
@@ -100,10 +101,10 @@ internal fun ServerDialog(
         SwitchDefaults.colors(
             checkedThumbColor = MaterialTheme.colorScheme.primary,
             checkedTrackColor = Color.Black,
-            checkedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+            checkedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.STRONG),
             uncheckedThumbColor = MaterialTheme.colorScheme.outline,
             uncheckedTrackColor = Color.Black,
-            uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
+            uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.STRONG)
         )
     } else {
         SwitchDefaults.colors()
@@ -186,7 +187,7 @@ internal fun ServerDialog(
                     Surface(
                         shape = ShapeTokens.medium,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(

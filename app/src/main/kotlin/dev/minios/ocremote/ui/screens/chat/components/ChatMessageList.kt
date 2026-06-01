@@ -62,6 +62,7 @@ import dev.minios.ocremote.ui.screens.chat.util.computeTurnGroups
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Shared composable for both main-session and sub-session message lists.
@@ -288,17 +289,17 @@ fun ChatMessageList(
                                     ) {
                                         HorizontalDivider(
                                             modifier = Modifier.weight(1f),
-                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                                         )
                                         Text(
                                             text = stringResource(R.string.chat_summarized),
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
                                             modifier = Modifier.padding(horizontal = 12.dp)
                                         )
                                         HorizontalDivider(
                                             modifier = Modifier.weight(1f),
-                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                                         )
                                     }
                                     return@itemsIndexed

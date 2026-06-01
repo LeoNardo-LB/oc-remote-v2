@@ -14,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 @Composable
 internal fun EmptyServersView(
@@ -32,12 +33,12 @@ internal fun EmptyServersView(
                 imageVector = Icons.Default.Add,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM)
             )
             Text(
                 text = stringResource(R.string.home_no_servers),
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MEDIUM),
                 textAlign = TextAlign.Center
             )
             Button(onClick = onAddServer) {

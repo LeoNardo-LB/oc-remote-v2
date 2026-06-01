@@ -35,6 +35,7 @@ import dev.minios.ocremote.data.dto.response.ProviderModel
 import dev.minios.ocremote.ui.components.AmoledSurface
 import dev.minios.ocremote.ui.components.ProviderIcon
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,12 +92,12 @@ internal fun ModelPickerDialog(
                             ProviderIcon(
                                 providerId = provider.id,
                                 size = 14.dp,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
                             )
                             Text(
                                 text = (provider.name.ifEmpty { provider.id }).uppercase(),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
                                 letterSpacing = 1.sp
                             )
                         }
@@ -112,7 +113,7 @@ internal fun ModelPickerDialog(
                                 .fillMaxWidth()
                                 .clip(ShapeTokens.small)
                                 .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = AlphaTokens.MUTED)
                                     else Color.Transparent
                                 )
                                 .clickable { onSelect(provider.id, model.id) }
@@ -132,7 +133,7 @@ internal fun ModelPickerDialog(
                                     Text(
                                         text = stringResource(R.string.chat_free_label),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f)
+                                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.STRONG)
                                     )
                                 }
                             }

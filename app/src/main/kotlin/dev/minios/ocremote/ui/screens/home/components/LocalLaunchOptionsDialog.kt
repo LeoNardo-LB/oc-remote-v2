@@ -32,6 +32,7 @@ import androidx.compose.ui.window.DialogProperties
 import dev.minios.ocremote.R
 import dev.minios.ocremote.data.repository.LocalServerManager
 import dev.minios.ocremote.ui.components.AmoledDefaultBorder
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
@@ -81,10 +82,10 @@ internal fun LocalLaunchOptionsDialog(
         SwitchDefaults.colors(
             checkedThumbColor = MaterialTheme.colorScheme.primary,
             checkedTrackColor = Color.Black,
-            checkedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+            checkedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.STRONG),
             uncheckedThumbColor = MaterialTheme.colorScheme.outline,
             uncheckedTrackColor = Color.Black,
-            uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f),
+            uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.STRONG),
         )
     } else SwitchDefaults.colors()
 
@@ -340,7 +341,7 @@ internal fun LocalLaunchOptionsDialog(
                                     .background(
                                         when {
                                             selected && isAmoled -> Color.Black
-                                            selected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                                            selected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = AlphaTokens.MUTED)
                                             else -> Color.Transparent
                                         }
                                     )
@@ -348,7 +349,7 @@ internal fun LocalLaunchOptionsDialog(
                                         if (selected && isAmoled) {
                                             Modifier.border(
                                                 width = 1.dp,
-                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.NORMAL),
                                                 shape = ShapeTokens.medium,
                                             )
                                         } else Modifier

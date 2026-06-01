@@ -56,6 +56,7 @@ import dev.minios.ocremote.ui.screens.sessions.components.isAmoledTheme
 import dev.minios.ocremote.ui.screens.sessions.components.OpenProjectDialog
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
 /**
@@ -185,7 +186,7 @@ fun SessionListScreen(
                     modifier = if (isAmoled) {
                         Modifier.border(
                             width = 1.dp,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.NORMAL),
                             shape = FloatingActionButtonDefaults.shape
                         )
                     } else {
@@ -273,7 +274,8 @@ fun SessionListScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(uiState.sessions, key = { it.session.id }) { item ->
                                 SessionRow(

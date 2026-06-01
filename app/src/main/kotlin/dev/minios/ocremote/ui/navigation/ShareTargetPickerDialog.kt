@@ -23,6 +23,7 @@ import dev.minios.ocremote.domain.model.ServerConfig
 import dev.minios.ocremote.domain.model.Session
 import java.text.SimpleDateFormat
 import java.util.*
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
 /**
@@ -97,7 +98,7 @@ internal fun ShareTargetPickerDialog(
                             else
                                 stringResource(R.string.image_count_multiple, imageCount),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
                         )
                     }
                     IconButton(onClick = onDismiss) {
@@ -107,7 +108,7 @@ internal fun ShareTargetPickerDialog(
 
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 4.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 )
 
                 if (items.isEmpty()) {
@@ -126,17 +127,17 @@ internal fun ShareTargetPickerDialog(
                                 Icons.Default.CloudOff,
                                 contentDescription = null,
                                 modifier = Modifier.size(40.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
                             )
                             Text(
                                 text = stringResource(R.string.share_no_connected_servers),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
                             )
                             Text(
                                 text = stringResource(R.string.share_connect_first),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
                             )
                         }
                     }
@@ -166,7 +167,7 @@ internal fun ShareTargetPickerDialog(
                                     Icons.AutoMirrored.Filled.Chat,
                                     contentDescription = null,
                                     modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.NORMAL)
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     // Session title
@@ -189,7 +190,7 @@ internal fun ShareTargetPickerDialog(
                                         Text(
                                             text = subtitle,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -199,7 +200,7 @@ internal fun ShareTargetPickerDialog(
                                 Text(
                                     text = dateFormat.format(Date(item.session.time.updated)),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                                 )
                             }
                         }
@@ -210,7 +211,7 @@ internal fun ShareTargetPickerDialog(
                 if (activeServers.isNotEmpty()) {
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                     )
 
                     for (server in activeServers) {
@@ -226,7 +227,7 @@ internal fun ShareTargetPickerDialog(
                                 Icons.Default.Add,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
                             )
                             Text(
                                 text = if (activeServers.size > 1)

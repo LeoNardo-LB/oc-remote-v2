@@ -89,6 +89,7 @@ import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import kotlinx.coroutines.launch
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Extracted terminal-mode view for ChatScreen.
@@ -365,7 +366,7 @@ fun ChatTerminalView(
                                         .then(
                                             if (isAmoled && selected) {
                                                 Modifier.border(
-                                                    BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                                    BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MUTED)),
                                                     drawerItemShape
                                                 )
                                             } else Modifier
@@ -392,8 +393,8 @@ fun ChatTerminalView(
                                                     if (!tab.connected) {
                                                         Surface(
                                                             shape = CircleShape,
-                                                            color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+                                                            color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MUTED))
                                                         ) {
                                                             Row(
                                                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -430,7 +431,7 @@ fun ChatTerminalView(
                                                             containerColor = if (isAmoled) {
                                                                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
                                                             } else {
-                                                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f)
+                                                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = AlphaTokens.MEDIUM)
                                                             }
                                                         )
                                                     ) {
@@ -444,7 +445,7 @@ fun ChatTerminalView(
                                                         containerColor = if (isAmoled) {
                                                             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
                                                         } else {
-                                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
                                                         }
                                                     )
                                                 ) {
@@ -458,7 +459,7 @@ fun ChatTerminalView(
                                             selectedContainerColor = if (isAmoled) {
                                                 Color.Black
                                             } else {
-                                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+                                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = AlphaTokens.MUTED)
                                             },
                                             unselectedContainerColor = if (isAmoled) Color.Black else Color.Transparent,
                                             selectedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -496,7 +497,7 @@ fun ChatTerminalView(
                                     .weight(1f)
                                     .height(40.dp),
                                 shape = ShapeTokens.mediumSmall,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM)),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
                                     contentColor = MaterialTheme.colorScheme.onSurface
@@ -515,7 +516,7 @@ fun ChatTerminalView(
                                     .weight(1f)
                                     .height(40.dp),
                                 shape = ShapeTokens.mediumSmall,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM)),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
                                     contentColor = MaterialTheme.colorScheme.onSurface
@@ -535,7 +536,7 @@ fun ChatTerminalView(
                                 .align(Alignment.CenterEnd)
                                 .fillMaxHeight()
                                 .width(1.dp)
-                                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+                                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM))
                         )
                     }
                 }

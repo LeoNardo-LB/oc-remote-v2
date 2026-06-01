@@ -38,6 +38,7 @@ import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.performHaptic
 import dev.minios.ocremote.ui.theme.CodeTypography
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 @Composable
 internal fun PermissionCard(
@@ -60,7 +61,7 @@ internal fun PermissionCard(
         colors = CardDefaults.cardColors(
             containerColor = containerColor
         ),
-        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.7f)) else null,
+        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = AlphaTokens.NORMAL)) else null,
         shape = ShapeTokens.medium,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -99,7 +100,7 @@ internal fun PermissionCard(
                 Text(
                     text = permission.sourceSessionTitle,
                     style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = 0.6f)
+                    color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
                 )
             }
             // Permission description
@@ -114,7 +115,7 @@ internal fun PermissionCard(
                     text = permission.patterns.joinToString(", "),
                     style = CodeTypography.copy(
                         fontSize = 11.sp,
-                        color = contentColor.copy(alpha = 0.7f)
+                        color = contentColor.copy(alpha = AlphaTokens.NORMAL)
                     ),
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis

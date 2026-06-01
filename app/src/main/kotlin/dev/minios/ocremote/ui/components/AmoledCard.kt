@@ -14,13 +14,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Standard border used in AMOLED mode: 1dp outlineVariant at 65% opacity.
  */
 internal val AmoledDefaultBorder: BorderStroke
     @Composable get() = BorderStroke(
-        1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+        1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM)
     )
 
 /**
@@ -124,7 +125,7 @@ fun Modifier.amoledSurface(
         this.then(
             border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM),
             )
         )
     } else {

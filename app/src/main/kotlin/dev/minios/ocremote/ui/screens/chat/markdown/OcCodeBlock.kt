@@ -26,6 +26,7 @@ import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeFence
 import dev.snipme.highlights.Highlights
 import org.intellij.markdown.ast.ASTNode
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Custom code block component replacing mikepenz's built-in showHeader.
@@ -106,7 +107,7 @@ internal fun OcCodeBlock(
                 imageVector = Icons.Default.ContentCopy,
                 contentDescription = "复制代码",
                 modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
             )
         }
     }

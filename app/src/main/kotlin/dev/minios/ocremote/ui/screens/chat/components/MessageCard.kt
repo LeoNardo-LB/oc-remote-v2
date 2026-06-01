@@ -58,6 +58,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 enum class MessageCardRole { USER, ASSISTANT }
 
@@ -113,7 +114,7 @@ private fun MessageCardUser(
     val bubbleBorder = if (isAmoled) {
         BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+            MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MUTED)
         )
     } else {
         null
@@ -202,12 +203,12 @@ private fun MessageCardUser(
                                 imageVector = Icons.Default.RateReview,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
-                                tint = textColor.copy(alpha = 0.7f)
+                                tint = textColor.copy(alpha = AlphaTokens.NORMAL)
                             )
                             Text(
                                 text = userCommandLabel,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = textColor.copy(alpha = 0.85f)
+                                color = textColor.copy(alpha = AlphaTokens.AMOLED_CODE)
                             )
                         }
                     }
@@ -217,7 +218,7 @@ private fun MessageCardUser(
                         Text(
                             text = userFallbackText,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = textColor.copy(alpha = 0.5f)
+                            color = textColor.copy(alpha = AlphaTokens.MUTED)
                         )
                     }
 
@@ -237,7 +238,7 @@ private fun MessageCardUser(
                         Text(
                             text = timeText,
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                         )
 
                         // QUEUED badge
@@ -273,7 +274,7 @@ private fun MessageCardUser(
                                         performHaptic(hapticView, hapticOn)
                                         showRevertConfirmation = true
                                     },
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                             )
                         }
 
@@ -288,7 +289,7 @@ private fun MessageCardUser(
                                         performHaptic(hapticView, hapticOn)
                                         onCopyText()
                                     },
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                             )
                         }
                     }
@@ -437,21 +438,21 @@ private fun MessageCardAssistant(
                                 Text(
                                     text = timeText,
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                                 )
                             }
                             if (assistantMsg?.providerId != null) {
                                 ProviderIcon(
                                     providerId = assistantMsg.providerId,
                                     size = 10.dp,
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                                 )
                             }
                             if (!modelId.isNullOrBlank()) {
                                 Text(
                                     text = modelId,
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -460,21 +461,21 @@ private fun MessageCardAssistant(
                                 Text(
                                     text = "↑$totalInput ↓$totalOutput",
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                                 )
                             }
                             if (totalCost > 0.0 && totalCost.isFinite()) {
                                 Text(
                                     text = stringResource(R.string.chat_cost_format, String.format("%.4f", totalCost)),
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                                 )
                             }
                             if (durationMs != null && durationMs > 0) {
                                 Text(
                                     text = formatDuration(durationMs),
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                                 )
                             }
                             Spacer(modifier = Modifier.weight(1f))
@@ -488,7 +489,7 @@ private fun MessageCardAssistant(
                                             performHaptic(hapticView, hapticOn)
                                             onCopyText()
                                         },
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                                 )
                             }
                         }
@@ -510,7 +511,7 @@ private fun MessageCardAssistant(
                                 Text(
                                     text = timeText,
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                                 )
                             }
                             Spacer(modifier = Modifier.weight(1f))
@@ -523,7 +524,7 @@ private fun MessageCardAssistant(
                                         performHaptic(hapticView, hapticOn)
                                         onCopyText()
                                     },
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                             )
                         }
                     }

@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 @Composable
 internal fun BatteryOptimizationBanner(
@@ -43,7 +44,7 @@ internal fun BatteryOptimizationBanner(
                 Text(
                     text = stringResource(R.string.home_battery_message),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = AlphaTokens.STRONG)
                 )
             }
             FilledTonalButton(onClick = onDisable) {

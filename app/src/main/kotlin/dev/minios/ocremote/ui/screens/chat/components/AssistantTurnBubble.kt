@@ -38,6 +38,7 @@ import dev.minios.ocremote.ui.screens.chat.util.formatAssistantErrorMessage
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.performHaptic
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 @Composable
 internal fun AssistantTurnBubble(
@@ -59,7 +60,7 @@ internal fun AssistantTurnBubble(
     val bubbleBorder = if (isAmoled) {
         BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.HIGH)
         )
     } else {
         null
@@ -144,7 +145,7 @@ internal fun AssistantTurnBubble(
                             ProviderIcon(
                                 providerId = firstAssistant.providerId,
                                 size = 12.dp,
-                                tint = textColor.copy(alpha = 0.4f)
+                                tint = textColor.copy(alpha = AlphaTokens.FAINT)
                             )
                         }
                         Text(
@@ -153,7 +154,7 @@ internal fun AssistantTurnBubble(
                                 letterSpacing = 0.8.sp,
                                 fontWeight = FontWeight.Medium
                             ),
-                            color = textColor.copy(alpha = 0.4f)
+                            color = textColor.copy(alpha = AlphaTokens.FAINT)
                         )
                     }
                     if (onCopyText != null) {
@@ -163,7 +164,7 @@ internal fun AssistantTurnBubble(
                             modifier = Modifier
                                 .size(15.dp)
                                 .clickable { performHaptic(hapticView, hapticOn); onCopyText() },
-                            tint = textColor.copy(alpha = 0.3f)
+                            tint = textColor.copy(alpha = AlphaTokens.FAINT)
                         )
                     }
                 }

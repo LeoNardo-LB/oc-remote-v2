@@ -19,15 +19,18 @@ import dev.minios.ocremote.ui.components.AmoledSurface
 import dev.minios.ocremote.ui.screens.chat.util.codeHorizontalScroll
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.theme.CodeTypography
+import dev.minios.ocremote.ui.theme.DiffAdded
+import dev.minios.ocremote.ui.theme.DiffRemoved
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Inline diff change counts: +N -N with colors.
  */
 @Composable
 internal fun DiffChangesInline(additions: Int, deletions: Int) {
-    val addColor = Color(0xFF4CAF50)
-    val delColor = Color(0xFFE53935)
+    val addColor = DiffAdded
+    val delColor = DiffRemoved
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         if (additions > 0) {
             Text(
@@ -56,10 +59,10 @@ internal data class DiffLine(val type: DiffLineType, val text: String)
 @Composable
 internal fun DiffView(before: String, after: String) {
     val isAmoled = isAmoledTheme()
-    val addColor = Color(0xFF4CAF50)
-    val delColor = Color(0xFFE53935)
-    val addBg = Color(0xFF4CAF50).copy(alpha = 0.1f)
-    val delBg = Color(0xFFE53935).copy(alpha = 0.1f)
+    val addColor = DiffAdded
+    val delColor = DiffRemoved
+    val addBg = DiffAdded.copy(alpha = 0.1f)
+    val delBg = DiffRemoved.copy(alpha = 0.1f)
 
     // Simple diff: show removed lines, then added lines
     // For a proper diff we'd need a diff library, but line-level comparison works for edit tools
@@ -72,7 +75,7 @@ internal fun DiffView(before: String, after: String) {
     AmoledSurface(
         isAmoledDark = isAmoled,
         shape = ShapeTokens.extraSmall,
-        normalColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
+        normalColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = AlphaTokens.FAINT),
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = 400.dp)
@@ -86,7 +89,7 @@ internal fun DiffView(before: String, after: String) {
                 val (prefix, text, bgColor, fgColor) = when (line.type) {
                     DiffLineType.REMOVED -> DiffLineStyle("-", line.text, delBg, delColor)
                     DiffLineType.ADDED -> DiffLineStyle("+", line.text, addBg, addColor)
-                    DiffLineType.UNCHANGED -> DiffLineStyle(" ", line.text, Color.Transparent, if (isAmoled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f))
+                    DiffLineType.UNCHANGED -> DiffLineStyle(" ", line.text, Color.Transparent, if (isAmoled) MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.HIGH) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.MEDIUM))
                 }
                 Row(
                     modifier = Modifier

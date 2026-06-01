@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.components.AmoledCard
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
@@ -167,7 +168,7 @@ fun ServerModelFilterScreen(
                                                 Text(
                                                     text = model.modelId,
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MEDIUM)
                                                 )
                                             }
                                             Switch(
@@ -179,10 +180,10 @@ fun ServerModelFilterScreen(
                                                     SwitchDefaults.colors(
                                                         checkedThumbColor = MaterialTheme.colorScheme.primary,
                                                         checkedTrackColor = Color.Black,
-                                                        checkedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                                        checkedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.STRONG),
                                                         uncheckedThumbColor = MaterialTheme.colorScheme.outline,
                                                         uncheckedTrackColor = Color.Black,
-                                                        uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
+                                                        uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.STRONG)
                                                     )
                                                 } else {
                                                     SwitchDefaults.colors()

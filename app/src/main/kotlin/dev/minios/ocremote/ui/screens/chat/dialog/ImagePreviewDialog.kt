@@ -43,6 +43,7 @@ import dev.minios.ocremote.ui.screens.chat.util.LocalImageSaveRequest
 import dev.minios.ocremote.ui.screens.chat.util.decodePartFileBytes
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.AlphaTokens
 
 /**
  * Compact horizontal row of image thumbnails with tap-to-preview.
@@ -94,7 +95,7 @@ internal fun ImageThumbnailRow(
                         Icons.Default.BrokenImage,
                         contentDescription = null,
                         modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                     )
                 }
             }
@@ -141,7 +142,7 @@ internal fun ImagePreviewDialog(
             shape = ShapeTokens.largeMedium,
             color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceContainerHigh,
             border = if (isAmoled) {
-                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
+                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.HIGH))
             } else {
                 null
             },

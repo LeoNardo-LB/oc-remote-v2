@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import java.util.Locale
 import dev.minios.ocremote.ui.theme.ShapeTokens
@@ -81,7 +82,7 @@ internal fun amoledDialogModifier(): Modifier {
     return if (isAmoledTheme) {
         Modifier.border(
             width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.78f),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.STRONG),
             shape = ShapeTokens.extraLarge,
         )
     } else {

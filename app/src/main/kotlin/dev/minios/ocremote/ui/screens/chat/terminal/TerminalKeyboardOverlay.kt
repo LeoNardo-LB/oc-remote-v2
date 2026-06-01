@@ -48,7 +48,7 @@ internal fun TerminalKeyboardOverlay(
         modifier = modifier,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
-        color = Color(0xFF1A1A1A)
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
             modifier = Modifier
@@ -72,7 +72,7 @@ internal fun TerminalKeyboardOverlay(
                 Modifier
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(Color(0xFF333333))
+                    .background(MaterialTheme.colorScheme.outlineVariant)
             )
             // Row 2: matches Termux default extra keys
             TerminalKeyRow(
@@ -111,7 +111,7 @@ internal fun TerminalKeyRow(keys: List<TerminalKey>) {
                     Modifier
                         .width(1.dp)
                         .height(34.dp)
-                        .background(Color(0xFF333333))
+                        .background(MaterialTheme.colorScheme.outlineVariant)
                 )
             }
             Box(
@@ -120,7 +120,7 @@ internal fun TerminalKeyRow(keys: List<TerminalKey>) {
                     .weight(1f)
                     .height(34.dp)
                     .then(
-                        if (key.active) Modifier.background(Color(0xFF333333))
+                        if (key.active) Modifier.background(MaterialTheme.colorScheme.secondaryContainer)
                         else Modifier
                     )
                     .combinedClickable(
@@ -135,7 +135,7 @@ internal fun TerminalKeyRow(keys: List<TerminalKey>) {
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontSize = 13.sp
                     ),
-                    color = if (key.active) Color(0xFF80CBC4) else Color(0xFFCCCCCC)
+                    color = if (key.active) Color(0xFF80CBC4) else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
