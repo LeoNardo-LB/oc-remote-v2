@@ -14,6 +14,8 @@
 
 ## File Structure
 
+> **Path prefix:** `app/src/main/kotlin/dev/minios/ocremote/ui/screens/` for Kotlin files, `app/src/main/res/values/` for resources, `app/src/test/kotlin/dev/minios/ocremote/ui/screens/sessions/` for tests.
+
 | File | Action | Responsibility |
 |------|--------|----------------|
 | `sessions/components/TreeNode.kt` | Create | `TreeNode` sealed interface + `buildTreeNodes()` pure function |
@@ -41,6 +43,8 @@ Create file `app/src/main/kotlin/dev/minios/ocremote/ui/screens/sessions/compone
 package dev.minios.ocremote.ui.screens.sessions.components
 
 import dev.minios.ocremote.domain.model.Session
+import dev.minios.ocremote.domain.model.SessionStatus
+import dev.minios.ocremote.ui.screens.sessions.SessionItem
 
 /**
  * Sealed interface for tree nodes displayed in the session list.
@@ -87,6 +91,7 @@ fun buildTreeNodes(
     sessions: List<Session>,
     expandedPaths: Set<String>,
     homeDir: String?,
+    statuses: Map<String, SessionStatus> = emptyMap(),
 ): List<TreeNode> {
     // 1. Collect all unique directory paths
     val allPaths = sessions.map { it.directory }.filter { it.isNotBlank() }.toSet()
@@ -106,8 +111,12 @@ fun buildTreeNodes(
     // 3. Build directory info map: path → (displayName, depth, childDirs, sessionCount, totalSessionCount)
     val dirInfo = mutableMapOf<String, DirInfo>()
     for (path in allSegments) {
-        val leaf = path.substringAfterLast('/')
-        val depth = path.count { it == '/' }
+        val leaf = if (homeDir != null && path == homeDir.trimEnd('/')) {
+            "~"
+        } else {
+            path.substringAfterLast('/')
+        }
+        val depth = if (path.startsWith("/")) path.count { it == '/' } - 1 else path.count { it == '/' }
         dirInfo[path] = DirInfo(
             displayName = leaf.ifBlank { path },
             depth = depth,
@@ -154,15 +163,15 @@ fun buildTreeNodes(
     }.sortedBy { it }
 
     for (rootPath in rootPaths) {
-        flattenSubtree(rootPath, allSegments, sessions, expandedPaths, exactCount, totalSessionCount, childDirs, dirInfo, homeDir, result)
+        flattenSubtree(rootPath, allSegments, sessions, expandedPaths, exactCount, totalSessionCount, childDirs, dirInfo, homeDir, statuses, result)
     }
 
-    // Handle sessions with empty/blank directory (no directory)
-    val noDirSessions = sessions.filter { it.directory.isBlank() }
+    // Handle sessions with empty/blank/root directory (no tree node)
+    val noDirSessions = sessions.filter { it.directory.isBlank() || it.directory == "/" }
     for (session in noDirSessions) {
         result.add(TreeNode.Session(
             id = session.id,
-            session = SessionItem(session = session),
+            session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle),
             depth = 0,
         ))
     }
@@ -185,6 +194,7 @@ private fun flattenSubtree(
     childDirs: Map<String, Int>,
     dirInfo: Map<String, DirInfo>,
     homeDir: String?,
+    statuses: Map<String, SessionStatus>,
     result: MutableList<TreeNode>,
 ) {
     val info = dirInfo[path] ?: return
@@ -212,7 +222,7 @@ private fun flattenSubtree(
             .sortedBy { it }
 
         for (childPath in childPaths) {
-            flattenSubtree(childPath, allSegments, sessions, expandedPaths, exactCount, totalSessionCount, childDirs, dirInfo, homeDir, result)
+            flattenSubtree(childPath, allSegments, sessions, expandedPaths, exactCount, totalSessionCount, childDirs, dirInfo, homeDir, statuses, result)
         }
 
         // Sessions in this directory (exact match, sorted by updated desc)
@@ -223,7 +233,7 @@ private fun flattenSubtree(
         for (session in dirSessions) {
             result.add(TreeNode.Session(
                 id = session.id,
-                session = SessionItem(session = session),
+                session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle),
                 depth = info.depth + 1,
             ))
         }
@@ -439,7 +449,15 @@ Append these entries to `app/src/main/res/values/strings.xml` (after the existin
     <string name="session_details_status">Status</string>
     <string name="session_details_created">Created</string>
     <string name="session_details_updated">Updated</string>
+    <string name="session_status_busy">Working</string>
+    <string name="session_status_idle">Idle</string>
+    <string name="session_status_retry">Retrying</string>
 ```
+
+- [ ] **Step 1.5: Run lokit to sync translations**
+
+Run: `lokit`
+Expected: Translations synced across all 15 locales
 
 - [ ] **Step 2: Run compile check**
 
@@ -463,227 +481,6 @@ git commit -m "feat: add string resources for directory/session context menus"
 - [ ] **Step 1: Create the composable**
 
 Create file `app/src/main/kotlin/dev/minios/ocremote/ui/screens/sessions/components/DirectoryTreeNode.kt`:
-
-```kotlin
-package dev.minios.ocremote.ui.screens.sessions.components
-
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import dev.minios.ocremote.R
-import dev.minios.ocremote.ui.components.AmoledSurface
-import dev.minios.ocremote.ui.theme.AlphaTokens
-import dev.minios.ocremote.ui.theme.ShapeTokens
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-
-@Composable
-internal fun DirectoryTreeNode(
-    node: TreeNode.Directory,
-    onClick: () -> Unit,
-    onCopyPath: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val isAmoled = isAmoledTheme()
-
-    var menuExpanded by remember { mutableStateOf(false) }
-    var showDetailsDialog by remember { mutableStateOf(false) }
-
-    val arrowRotation by animateFloatAsState(
-        targetValue = if (node.isExpanded) 90f else 0f,
-        animationSpec = tween(durationMillis = 200),
-        label = "arrowRotation"
-    )
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(start = (node.depth * 16).dp, end = 8.dp)
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // Arrow
-        Icon(
-            imageVector = Icons.Default.KeyboardArrowRight,
-            contentDescription = null,
-            modifier = Modifier
-                .size(20.dp)
-                .rotate(arrowRotation),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        // Folder icon
-        Icon(
-            imageVector = if (node.isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,
-            contentDescription = null,
-            modifier = Modifier.size(22.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Name + session count
-        Text(
-            text = node.displayName,
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        // Session count badge
-        if (node.totalSessionCount > 0) {
-            Text(
-                text = stringResource(R.string.directory_session_count, node.totalSessionCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-            )
-        }
-
-        // Three-dot menu
-        Box {
-            IconButton(
-                onClick = { menuExpanded = true },
-                modifier = Modifier.size(32.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false },
-            ) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.menu_copy_path)) },
-                    onClick = {
-                        menuExpanded = false
-                        onCopyPath(node.path)
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.ContentCopy,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.menu_view_details)) },
-                    onClick = {
-                        menuExpanded = false
-                        showDetailsDialog = true
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Info,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    },
-                )
-            }
-        }
-    }
-
-    // Details dialog
-    if (showDetailsDialog) {
-        DirectoryDetailsDialog(
-            node = node,
-            onDismiss = { showDetailsDialog = false },
-            isAmoled = isAmoled,
-        )
-    }
-}
-
-@Composable
-private fun DirectoryDetailsDialog(
-    node: TreeNode.Directory,
-    onDismiss: () -> Unit,
-    isAmoled: Boolean,
-) {
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        AmoledSurface(
-            isAmoledDark = isAmoled,
-            shape = ShapeTokens.largeMedium,
-            normalTonalElevation = 6.dp,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(
-                    text = node.displayName,
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                HorizontalDivider()
-                DetailRow(stringResource(R.string.directory_details_path), node.path)
-                DetailRow(stringResource(R.string.directory_details_sessions), "${node.sessionCount} (direct), ${node.totalSessionCount} (total)")
-                DetailRow(stringResource(R.string.directory_details_subdirectories), "${node.childDirectoryCount}")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.close))
-                    }
-                }
-            }
-        }
-    }
-}
-```
-
-Wait — I'm using `Box` without importing `Column` and `Modifier.fillMaxWidth`. Let me also need the `DetailRow` composable. And I'm missing the `Box` import. Let me write the full, correct file:
 
 ```kotlin
 package dev.minios.ocremote.ui.screens.sessions.components
@@ -807,6 +604,7 @@ internal fun DirectoryTreeNode(
             DropdownMenu(
                 expanded = menuExpanded,
                 onDismissRequest = { menuExpanded = false },
+                containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
             ) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.menu_copy_path)) },
@@ -1157,6 +955,7 @@ internal fun SessionRow(
                 DropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false },
+                    containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
                 ) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.session_rename)) },
@@ -1242,7 +1041,7 @@ private fun SessionDetailsDialog(
                     stringResource(R.string.session_details_status),
                     when (item.status) {
                         is SessionStatus.Busy -> stringResource(R.string.session_status_busy)
-                        is SessionStatus.Retry -> stringResource(R.string.session_status_idle)
+                        is SessionStatus.Retry -> stringResource(R.string.session_status_retry)
                         else -> stringResource(R.string.session_status_idle)
                     }
                 )
@@ -1272,6 +1071,8 @@ private fun SessionDetailsDialog(
     }
 }
 
+// Note: Same as DirectoryTreeNode.kt's DetailRow. File-private to avoid cross-file coupling.
+// If styling diverges, extract to shared file.
 @Composable
 private fun DetailRow(label: String, value: String) {
     Column {
@@ -1319,7 +1120,7 @@ Key changes:
 
 - [ ] **Step 1: Update SessionListViewModel.kt**
 
-Replace the ViewModel section (keep the directory browsing methods unchanged). Here is the full rewritten file:
+Replace the entire file with:
 
 ```kotlin
 package dev.minios.ocremote.ui.screens.sessions
@@ -1440,7 +1241,7 @@ class SessionListViewModel @Inject constructor(
             .filter { it.id in serverSessionIds && !it.isArchived && it.parentId == null }
             .sortedByDescending { it.time.updated }
 
-        val treeNodes = buildTreeNodes(filteredSessions, expandedPaths, homeDir)
+        val treeNodes = buildTreeNodes(filteredSessions, expandedPaths, homeDir, statuses)
 
         SessionListUiState(
             treeNodes = treeNodes,
@@ -1455,6 +1256,12 @@ class SessionListViewModel @Inject constructor(
     init {
         loadHomeDir()
         loadSessions()
+    }
+
+    private fun loadHomeDir() {
+        viewModelScope.launch {
+            getHomeDirectory()
+        }
     }
 
     fun loadSessions() {
@@ -1488,6 +1295,14 @@ class SessionListViewModel @Inject constructor(
                 Log.e(TAG, "Failed to load sessions", e)
                 _error.value = e.message ?: "Failed to load sessions"
             } finally {
+                // Auto-expand root directories on first load
+                if (_expandedPaths.value.isEmpty()) {
+                    val topDirs = allSessions
+                        .mapNotNull { s -> s.directory.takeIf { it.isNotBlank() }?.trimEnd('/')?.substringBeforeLast('/') }
+                        .filter { it.isNotEmpty() && !it.substring(1).contains('/') }
+                        .toSet()
+                    _expandedPaths.value = topDirs
+                }
                 _isLoading.value = false
             }
         }
@@ -1755,6 +1570,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -1786,6 +1603,7 @@ import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.ShapeTokens
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1797,6 +1615,8 @@ fun SessionListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val isAmoled = isAmoledTheme()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(viewModel) {
         viewModel.navigateToSession
@@ -1823,6 +1643,7 @@ fun SessionListScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (uiState.isSelectionMode) {
                 TopAppBar(
@@ -1958,6 +1779,8 @@ fun SessionListScreen(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                     ) {
                         items(uiState.treeNodes, key = { it.id }) { node ->
+                            // NOTE: animateItem() requires Compose Foundation 1.7.0+
+                            // If not available, items appear instantly (acceptable degradation)
                             when (node) {
                                 is TreeNode.Directory -> {
                                     DirectoryTreeNode(
@@ -1965,6 +1788,7 @@ fun SessionListScreen(
                                         onClick = { viewModel.toggleDirectory(node.path) },
                                         onCopyPath = { path ->
                                             viewModel.copyToClipboard(path, context)
+                                            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
                                         },
                                     )
                                     HorizontalDivider(
@@ -1999,6 +1823,7 @@ fun SessionListScreen(
                                         },
                                         onCopyId = { id ->
                                             viewModel.copyToClipboard(id, context)
+                                            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
                                         },
                                     )
                                     HorizontalDivider(
