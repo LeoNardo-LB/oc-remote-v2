@@ -102,7 +102,7 @@ val uiState = combine(
     _currentProject,
     eventDispatcher.sessions,      // StateFlow<List<Session>>
     eventDispatcher.sessionStatuses, // StateFlow<Map<String, SessionStatus>>
-    serverSessions,                 // StateFlow<Map<String, Set<String>>>
+    eventDispatcher.serverSessions,  // StateFlow<Map<String, Set<String>>>
     _isLoading,
     _error,
     _projects,
@@ -117,7 +117,7 @@ val uiState = combine(
     val isLoading = values[5] as Boolean
     val error = values[6] as String?
     val projects = values[7] as List<Project>
-    val homeDir = values[8] as String
+    val homeDir = values[8] as String?
     val selectedIds = values[9] as Set<String>
 
     val serverSessionIds = serverSessionMap[serverId].orEmpty()
@@ -133,7 +133,7 @@ val uiState = combine(
         .map { (dir, sessions) ->
             ProjectGroup(
                 directory = dir,
-                displayName = dir.replaceHomePrefix(homeDir),
+                displayName = dir.replaceHomePrefix(homeDir ?: ""),
                 sessionCount = sessions.size,
                 lastUpdated = sessions.maxOfOrNull { it.time.updated }
             )
@@ -205,12 +205,25 @@ fun createSessionInCurrentProject() {
 }
 ```
 
-- [ ] **Step 5: 编译检查**
+- [ ] **Step 5: 更新 selectAll() 方法**
+
+现有 `selectAll()` 方法引用了 `uiState.value.sessionGroups`（已移除）。需更新为：
+
+```kotlin
+fun selectAll() {
+    val currentState = uiState.value
+    if (currentState.mode == ListMode.SESSIONS) {
+        _selectedIds.value = currentState.sessions.map { it.session.id }.toSet()
+    }
+}
+```
+
+- [ ] **Step 6: 编译检查**
 
 Run: `.\gradlew :app:compileDevDebugKotlin`
 Expected: 可能因 Screen 端引用旧字段而失败，后续 Task 修复。ViewModel 本身应无编译错误。
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add app/src/main/kotlin/dev/minios/ocremote/ui/screens/sessions/SessionListViewModel.kt
@@ -454,10 +467,10 @@ when {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(uiState.sessions, key = { it.session.id }) { item ->
                     SessionRow(
-                        session = item.session,
-                        status = item.status,
-                        isSelected = item.session.id in uiState.selectedIds,
+                        item = item,
+                        projectName = null,
                         isSelectionMode = uiState.isSelectionMode,
+                        isSelected = item.session.id in uiState.selectedIds,
                         onClick = {
                             if (uiState.isSelectionMode) {
                                 viewModel.toggleSelection(item.session.id)
@@ -479,7 +492,20 @@ when {
 }
 ```
 
-- [ ] **Step 4: 移除对 sessionGroups / sessionDirLabels 的旧引用**
+- [ ] **Step 4: 添加 SESSIONS 模式的 BackHandler**
+
+在 Scaffold 之前添加（现有代码已有 `BackHandler(enabled = uiState.isSelectionMode)` 用于选择模式，需增加 SESSIONS 模式的处理）：
+
+```kotlin
+// 系统返回键：SESSIONS 模式下返回项目列表
+BackHandler(enabled = uiState.mode == ListMode.SESSIONS && !uiState.isSelectionMode) {
+    viewModel.navigateBack()
+}
+```
+
+注意：需确保此 BackHandler 优先级高于现有的选择模式 BackHandler。如果现有 BackHandler 在 `uiState.isSelectionMode` 时才启用，两者不会冲突。
+
+- [ ] **Step 5: 移除对 sessionGroups / sessionDirLabels 的旧引用**
 
 删除所有引用 `uiState.sessionGroups` 的旧代码，包括：
 - `showQuickNewSession` 状态变量和相关 Dialog
@@ -494,7 +520,7 @@ when {
 if (showOpenProject) {
     OpenProjectDialog(
         viewModel = viewModel,
-        projects = uiState.projectGroups.map { Project(id = "", directory = it.directory, worktree = it.directory, name = null, path = it.directory) },
+        projects = uiState.projectGroups.map { Project(id = "", worktree = it.directory, path = it.directory, name = null) },
         onSelect = { directory ->
             showOpenProject = false
             viewModel.createNewSession(directory)
@@ -554,7 +580,15 @@ git commit -m "refactor: remove NewSessionQuickDialog (replaced by two-level nav
 **Files:**
 - Modify: `app/src/main/kotlin/dev/minios/ocremote/ui/screens/sessions/components/OpenProjectDialog.kt`
 
-- [ ] **Step 1: 添加路径检测函数**
+- [ ] **Step 1: 添加 pathNavigatedDirs 状态变量**
+
+在现有状态变量声明区域（约第 87 行，`searchResults` 之后）添加：
+
+```kotlin
+var pathNavigatedDirs by remember { mutableStateOf<List<FileNode>>(emptyList()) }
+```
+
+- [ ] **Step 2: 添加路径检测函数**
 
 在 `OpenProjectDialog` composable 函数内部（`isSearching` 定义之后）添加：
 
@@ -584,7 +618,12 @@ fun resolvePath(input: String, homeDir: String?): Pair<String, String?> {
         // 部分路径：拆分为父目录 + 未完成片段
         val lastSlash = normalized.lastIndexOf('/')
         if (lastSlash > 0) {
-            val parent = expanded.substring(0, lastSlash).replace('/', separatorChar)
+            var parent = expanded.substring(0, lastSlash)
+            // Windows 盘符修复：D: → D:\（D: 表示当前目录而非根目录）
+            if (parent.length == 2 && parent[1] == ':') {
+                parent = "$parent/"
+            }
+            parent = parent.replace('/', java.io.File.separatorChar)
             val fragment = normalized.substring(lastSlash + 1)
             parent to fragment
         } else {
@@ -596,7 +635,7 @@ fun resolvePath(input: String, homeDir: String?): Pair<String, String?> {
 
 注意：`separatorChar` 可用 `java.io.File.separatorChar`。
 
-- [ ] **Step 2: 修改搜索 LaunchedEffect**
+- [ ] **Step 3: 修改搜索 LaunchedEffect**
 
 将现有的搜索 `LaunchedEffect(searchQuery)` 块（约第 118-134 行）替换为：
 
@@ -635,15 +674,11 @@ LaunchedEffect(searchQuery) {
 }
 ```
 
-- [ ] **Step 3: 添加 pathNavigatedDirs 状态**
+- [ ] **Step 4: 删除旧的 pathNavigatedDirs 状态声明步骤**
 
-在现有状态变量声明区域（约第 83-93 行）添加：
+注意：此步骤已被 Step 1 替代，删除原 Plan 中的 "Step 3: 添加 pathNavigatedDirs 状态" 步骤（已合并到 Step 1）。
 
-```kotlin
-var pathNavigatedDirs by remember { mutableStateOf<List<FileNode>>(emptyList()) }
-```
-
-- [ ] **Step 4: 修改搜索结果展示区域**
+- [ ] **Step 5: 修改搜索结果展示区域**
 
 在搜索结果渲染部分（约第 300-335 行），修改为支持两种结果类型：
 
@@ -699,12 +734,12 @@ isSearching -> {
 }
 ```
 
-- [ ] **Step 5: 编译检查**
+- [ ] **Step 6: 编译检查**
 
 Run: `.\gradlew :app:compileDevDebugKotlin`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add app/src/main/kotlin/dev/minios/ocremote/ui/screens/sessions/components/OpenProjectDialog.kt
