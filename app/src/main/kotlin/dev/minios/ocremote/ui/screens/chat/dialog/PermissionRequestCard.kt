@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +39,7 @@ import dev.minios.ocremote.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.performHaptic
 import dev.minios.ocremote.ui.theme.CodeTypography
+import kotlinx.coroutines.delay
 
 @Composable
 internal fun PermissionCard(
@@ -49,7 +51,16 @@ internal fun PermissionCard(
     val isAmoled = isAmoledTheme()
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
-    var submitted by remember { mutableStateOf(false) }
+    var submitted by remember(permission.id) { mutableStateOf(false) }
+
+    // Auto-reset submitted state: if the card is still visible after 5 seconds,
+    // it means the API call likely failed (success would have removed the card).
+    LaunchedEffect(submitted) {
+        if (submitted) {
+            delay(5000)
+            submitted = false
+        }
+    }
 
     // Use error-container colors to signal security sensitivity (distinct from Question's tertiary)
     val containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.errorContainer

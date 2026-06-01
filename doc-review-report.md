@@ -1,9 +1,9 @@
 ---
-report_name: Design H 文档一致性审查报告
-review_date: 2026-05-30
-document_reviewed: docs/superpowers/specs/2026-05-30-chat-interaction-fixes-h-design.md
+report_name: 复制交互重新设计 — 文档一致性审查报告
+review_date: 2026-06-01
+document_reviewed: docs/superpowers/specs/2026-06-01-copy-interaction-redesign.md
 round_number: 1 / 3
-final_verdict: CONDITIONAL PASS
+final_verdict: ALL PASS
 ---
 
 # 文档一致性审查报告
@@ -12,10 +12,10 @@ final_verdict: CONDITIONAL PASS
 
 | 项目 | 内容 |
 |------|------|
-| **审查对象** | `docs/superpowers/specs/2026-05-30-chat-interaction-fixes-h-design.md` |
+| **审查对象** | `docs/superpowers/specs/2026-06-01-copy-interaction-redesign.md` |
 | **审查轮次** | 第 1 轮 / 共 3 轮 |
-| **审查时间** | 2026-05-30 |
-| **最终判定** | **CONDITIONAL PASS** |
+| **审查时间** | 2026-06-01 |
+| **最终判定** | **ALL PASS** |
 
 ### 各维度结果速览
 
@@ -33,50 +33,158 @@ final_verdict: CONDITIONAL PASS
 
 > **图例**: `PASS` 通过 · `FAIL` 未通过 · `-` 无变化 · `↑` 改善 · `↓` 退步 · `NEW` 新增
 
-## 2. 修复后残留 P2 改进建议
+## 2. 改进建议（P2 级别，不阻塞实现）
 
-> 以下 P2 问题已在第一轮修复中顺带处理了部分，剩余的不影响实现正确性。
+> 以下问题均为 P2 级别——不影响正确性但可提升质量。按维度编号排列。
 
-| Issue ID | 严重级别 | 标题 | 状态 |
-|----------|----------|------|------|
-| D1-001 | P2 | fling 行为未在文档中显式确认 | ✅ 已在修复中补充 |
-| D1-002 | P2 | ChatModifiers.kt 文件存续评估未显式处理 | 保留为改进建议 |
-| D2-001 | P2 | H3 统一 halfScreenHeight 对 4 个文件构成隐式行为变更但未标注 | ✅ 已在修复中补充 |
-| D2-002 | P2 | H2 删除与 H3 修改同一文件无冲突标注 | 保留为改进建议 |
-| D3-001 | P2 | H2 嵌套滚动声明缺少固定高度前提条件 | ✅ 已在修复中补充 |
-| D3-002 | P2 | rememberHalfScreenHeight 函数命名不符合 Compose 约定 | ✅ 已重命名为 halfScreenHeight() |
-| D4-002 | P2 | reverseLayout + fling 动量传递的 scroll 手感需人工验证 | ✅ 已在验证节补充人工测试 |
-| D4-003 | P2 | consumeBoundaryScroll 调用点未枚举 | ✅ 已在修复中列出 8 处 |
-| D4-004 | P2 | 共享函数放置位置未指定 | ✅ 已在修复中明确 |
-| D5-001 | P2 | 文件路径缺少模块前缀 | 保留为改进建议（单模块项目不影响） |
-| D5-002 | P2 | H1 两个替换位置的搜索锚点不明确 | 保留为改进建议（全文搜索 isTurnLast 可覆盖） |
-| D5-004 | P2 | rememberHalfScreenHeight 跨文件可见性与导入未说明 | ✅ 已在修复中补充 |
-| D5-006 | P2 | H2 modifier 链删除后完整性未验证 | ✅ 已在修复中补充检查项 |
-| D6-I1 | P2 | 未指定 Kotlin/Compose 版本 | ✅ 已新增前提条件节 |
-| D9-I1 | P2 | 影响范围表文件路径无前缀 | 保留为改进建议 |
+### [P2] D2-001: MarkdownPreviewDialog 指令模糊
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D2 |
+| **位置** | 第一部分末尾，MarkdownPreviewDialog 处理 |
+| **描述** | 「检查是否还有其他调用方。如果没有，可保留文件备用但不影响功能」——这是待办指令而非设计决策，把决策责任推给了实现者。 |
+| **修复建议** | 改为明确的决策：「确认无其他调用方后删除 ChatMessageList.kt 中的引用逻辑，文件本体保留备用」或提供具体 grep 命令。 |
+
+### [P2] D2-002: BashToolCard 行号范围重叠
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D2 |
+| **位置** | 第二部分 BashToolCard 行号 vs 第三部分复制按钮行号 |
+| **描述** | Part 2 标题行 L104-160 与 Part 3 复制按钮 L138-150 重叠，combinedClickable 可能与内部 IconButton 的事件消费产生冲突。 |
+| **修复建议** | 标注复制按钮为标题行子组件，Compose 中子组件的 clickable 会优先消费事件，不影响功能。文档中可添加注释说明。 |
+
+### [P2] D3-001: combinedClickable 版本下限未标注
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D3 |
+| **位置** | 第二部分通用策略 |
+| **描述** | `combinedClickable` 需要 `@OptIn(ExperimentalFoundationApi::class)` 已正确提及，但未指明最低 Compose BOM 版本。 |
+| **修复建议** | 补充：需 Compose BOM >= 2022.02.00（对应 foundation 1.2.0+）。 |
+
+### [P2] D3-002: SelectionContainer 父容器未排查
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D3 |
+| **位置** | 第三部分嵌套冲突注意 |
+| **描述** | 文档正确指出 SelectionContainer 不能嵌套，但未确认聊天屏幕父级是否存在 SelectionContainer。 |
+| **修复建议** | 补充验证步骤：实现前 grep `screens/chat` 目录确认无父级 SelectionContainer。 |
+
+### [P2] D4-001: coroutineScope 来源不明确
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D4 |
+| **位置** | 第一部分代码片段 |
+| **描述** | 代码片段使用 `coroutineScope.launch` 但未声明来源，可能导致生命周期泄漏。 |
+| **修复建议** | 显式说明需要 `val coroutineScope = rememberCoroutineScope()` 且在 Compose 作用域内定义。 |
+
+### [P2] D4-002: DiffView + SelectionContainer 兼容性
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D4 |
+| **位置** | 第三部分 EditToolCard 改动 |
+| **描述** | EditToolCard 的 DiffView 如果内部有自定义手势处理，SelectionContainer 可能干扰触摸事件。 |
+| **修复建议** | 实现时先验证 DiffView 的触摸事件处理方式，必要时将 SelectionContainer 置于 DiffView 文本区域内部。 |
+
+### [P2] D5-001: MarkdownPreviewDialog 检查操作性不足
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D5 |
+| **位置** | 第一部分 MarkdownPreviewDialog 处理 |
+| **描述** | 「检查是否还有其他调用方」缺少具体搜索命令和判定标准。 |
+| **修复建议** | 改为：`grep -r "MarkdownPreviewDialog" --include="*.kt" -l`，预期仅输出定义文件自身。 |
+
+### [P2] D5-002: 缺乏每个卡片当前 clickable 代码快照
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D5 |
+| **位置** | 第二部分各卡片改动详情表 |
+| **描述** | 行号引用基于当前代码快照，实现者需手动定位每个文件的 clickable 代码。 |
+| **修复建议** | 在每个卡片行号后附上当前 clickable 代码的 1-3 行快照。 |
+
+### [P2] D6-001: ExperimentalFoundationApi 模块级配置未提及
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D6 |
+| **位置** | 第二部分通用策略 |
+| **描述** | 仅提到逐文件 `@OptIn`，未说明是否可在 build.gradle 模块级全局启用。 |
+| **修复建议** | 补充模块级配置选项：`freeCompilerArgs += "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi"`。 |
+
+### [P2] D6-002: 缺失 Compose BOM 版本建议
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D6 |
+| **位置** | 第二部分通用策略 |
+| **描述** | 未指定 Compose BOM 最低版本。 |
+| **修复建议** | 标注需 Compose BOM >= 2022.02.00。 |
+
+### [P2] D7-001: 「静默复制」缺乏精确定义
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D7 |
+| **位置** | 目标第二条 |
+| **描述** | 「静默」的精确内涵未文档化——是否仅指 Toast 反馈？是否需要无障碍支持？ |
+| **修复建议** | 明确「静默」= 仅 Toast 反馈 + 触觉反馈，不触发页面跳转/弹窗/动画。 |
+
+### [P2] D7-002: SelectionContainer 生效判定标准不明确
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D7 |
+| **位置** | 第三部分 |
+| **描述** | 无统一的验证方案确认每个卡片 SelectionContainer 正确生效。 |
+| **修复建议** | 补充：在模拟器和真机上对每个改动卡片执行长按 500ms+，预期出现文本选择锚点手柄。 |
+
+### [P2] D8-001: 快速连续长按缺失防抖
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D8 |
+| **位置** | 第二部分反馈方式 |
+| **描述** | 用户快速多次长按可能导致连续弹出多个 Toast，影响 UX。 |
+| **修复建议** | 添加防抖：1 秒内相同内容不重复弹 Toast。 |
+
+### [P2] D8-002: 标题行与输出区域长按手势潜在干扰
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D8 |
+| **位置** | 第二部分与第三部分交叉 |
+| **描述** | 标题行 combinedClickable 和输出区 SelectionContainer 手势竞争需确认。 |
+| **修复建议** | 验证 Compose 手势消费链，确保两个区域的事件互不干扰。 |
+
+### [P2] D9-001: Part 2 与 Part 3 卡片列表冗余
+
+| 字段 | 内容 |
+|------|------|
+| **严重级别** | P2 | **所属维度** | D9 |
+| **位置** | 第二部分改动详情表 vs 第三部分改动表 |
+| **描述** | 两个表格列举相同 7 个卡片，新增/删除卡片时需同步修改两处。 |
+| **修复建议** | 可合并为一个综合表格，增加「改动类型」列；或保持现状（拆分便于聚焦）。 |
 
 ## 3. 修复记录
 
 | 轮次 | 修复项 | 影响维度 | 本轮结果 |
 |------|--------|----------|----------|
-| 1 | 新增「前提条件」节：Compose BOM 2026.05.01 + Kotlin 2.3.21 + internal 可见性说明 | D4, D6 | PASS |
-| 1 | H2 补充固定高度前提、fling 覆盖说明、调用点枚举、回退方案 | D3, D4, D5, D7, D8 | PASS |
-| 1 | H3 重命名为 halfScreenHeight()、补充两种替换模式、行为变更说明 | D2, D3, D5 | PASS |
-| 1 | 验证节重写：补充 =半屏边界、fling 验证、子会话一致性、具体命令、回归范围 | D5, D7, D8 | PASS |
+| 1 | 无需修复（无 P0/P1 问题） | - | ALL PASS |
 
 ## 4. 残留问题
 
-> ✅ 无 P0/P1 残留问题。所有阻断性和严重性问题已修复。
->
-> 剩余 4 项 P2 改进建议不影响实现，可在后续迭代中优化：
-> 1. ChatModifiers.kt 文件存续评估（可考虑重命名）
-> 2. 影响范围表中 ChatModifiers.kt 两处改动可拆为两行
-> 3. 文件路径可补充包名前缀（单模块项目非必须）
-> 4. H1 两处修改位置可标注所在函数名
+> ✅ 无残留问题，所有维度全部通过。上述 P2 级别建议为改进项，可在实现过程中酌情采纳。
 
 ## 5. 结论
 
-### 最终判定: **CONDITIONAL PASS**
+### 最终判定: **ALL PASS**
 
 | 判定 | 含义 |
 |------|------|
@@ -84,8 +192,11 @@ final_verdict: CONDITIONAL PASS
 | **CONDITIONAL PASS** | 存在 P2 级别改进建议，不影响实现，建议择机优化 |
 | **BLOCKED** | 存在 P0/P1 残留问题，建议暂停实现，优先解决后重审 |
 
-**建议**: 文档经第一轮修复后，所有 P1 问题已解决。9 个维度全部 PASS。残留 4 项 P2 改进建议不影响实现正确性，可直接进入实现阶段。
+**建议**: 文档质量高，可直接进入实现阶段。建议在实现过程中关注以下 3 个高价值 P2 改进项：
+1. **D3-002 / D4-002**：实现前验证 DiffView 内部和父级无 SelectionContainer 嵌套风险
+2. **D5-001**：将 MarkdownPreviewDialog 的模糊指令改为具体的 grep 命令
+3. **D4-001**：确认 coroutineScope 的生命周期安全来源
 
 ---
 
-*报告由 doc-consistency-review 技能自动生成 · 生成时间: 2026-05-30*
+*报告由 doc-consistency-review 技能自动生成 · 生成时间: 2026-06-01*
