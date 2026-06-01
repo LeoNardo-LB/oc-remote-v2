@@ -511,7 +511,6 @@ fun ChatScreen(
     }
 
 
-
     CompositionLocalProvider(
         LocalChatFontSize provides chatFontSize,
         LocalCodeWordWrap provides codeWordWrap,
