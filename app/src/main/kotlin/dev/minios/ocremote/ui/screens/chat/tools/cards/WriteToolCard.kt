@@ -1,6 +1,5 @@
 ﻿package dev.minios.ocremote.ui.screens.chat.tools.cards
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -22,12 +21,14 @@ import androidx.compose.ui.unit.sp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.Part
 import dev.minios.ocremote.domain.model.ToolState
+import dev.minios.ocremote.ui.components.AmoledDefaultBorder
 import dev.minios.ocremote.ui.screens.chat.tools.extractToolInput
 import dev.minios.ocremote.ui.screens.chat.util.codeHorizontalScroll
 import dev.minios.ocremote.ui.screens.chat.util.halfScreenHeight
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.toolOutputContainerColor
 import dev.minios.ocremote.ui.theme.CodeTypography
+import dev.minios.ocremote.ui.theme.codeMedium
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -74,8 +75,7 @@ internal fun WriteToolCard(
         Surface(
             shape = RoundedCornerShape(4.dp),
             color = toolOutputContainerColor(isAmoled),
-            border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
-            modifier = Modifier
+            border = if (isAmoled) AmoledDefaultBorder else null,            modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 3.dp)
                 .heightIn(max = halfScreenHeight)
@@ -84,7 +84,7 @@ internal fun WriteToolCard(
             SelectionContainer {
                 Text(
                     text = content.take(5000),
-                    style = CodeTypography.copy(fontSize = 12.sp, color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer),
+                    style = CodeTypography.codeMedium.copy(color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSecondaryContainer),
                     modifier = Modifier
                         .padding(4.dp)
                         .codeHorizontalScroll()

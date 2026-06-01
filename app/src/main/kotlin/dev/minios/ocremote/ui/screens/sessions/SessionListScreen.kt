@@ -1,6 +1,5 @@
 ﻿package dev.minios.ocremote.ui.screens.sessions
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,7 +29,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -50,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.components.AmoledSurface
 import dev.minios.ocremote.ui.components.indicators.PulsingDotsIndicator
 import dev.minios.ocremote.ui.screens.sessions.components.SessionRow
 import dev.minios.ocremote.ui.screens.sessions.components.ProjectGroupRow
@@ -320,11 +319,10 @@ fun SessionListScreen(
 
     if (showDeleteSelectedDialog) {
         BasicAlertDialog(onDismissRequest = { showDeleteSelectedDialog = false }) {
-            Surface(
+            AmoledSurface(
+                isAmoledDark = isAmoled,
                 shape = RoundedCornerShape(20.dp),
-                color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
-                tonalElevation = if (isAmoled) 0.dp else 6.dp,
+                normalTonalElevation = 6.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -361,11 +359,10 @@ fun SessionListScreen(
     // Rename dialog
     if (showRenameDialog) {
         BasicAlertDialog(onDismissRequest = { showRenameDialog = false }) {
-            Surface(
+            AmoledSurface(
+                isAmoledDark = isAmoled,
                 shape = RoundedCornerShape(20.dp),
-                color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
-                tonalElevation = if (isAmoled) 0.dp else 6.dp,
+                normalTonalElevation = 6.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -408,11 +405,10 @@ fun SessionListScreen(
     // Delete confirmation dialog
     if (showDeleteDialog) {
         BasicAlertDialog(onDismissRequest = { showDeleteDialog = false }) {
-            Surface(
+            AmoledSurface(
+                isAmoledDark = isAmoled,
                 shape = RoundedCornerShape(20.dp),
-                color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
-                tonalElevation = if (isAmoled) 0.dp else 6.dp,
+                normalTonalElevation = 6.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(

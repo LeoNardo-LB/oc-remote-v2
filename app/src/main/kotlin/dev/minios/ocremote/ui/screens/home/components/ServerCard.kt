@@ -14,6 +14,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.ServerConfig
+import dev.minios.ocremote.ui.components.AmoledCard
+import dev.minios.ocremote.ui.components.AmoledDefaultBorder
 import dev.minios.ocremote.ui.theme.StatusConnected
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,27 +35,15 @@ internal fun ServerCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val isAmoled = MaterialTheme.colorScheme.background == Color.Black && MaterialTheme.colorScheme.surface == Color.Black
-    val cardContainerColor = if (isAmoled) {
-        Color.Black
-    } else {
-        MaterialTheme.colorScheme.surfaceContainerHighest
-    }
     val cardContentColor = if (isConnected && !isAmoled) {
         MaterialTheme.colorScheme.onSurfaceVariant
     } else {
         MaterialTheme.colorScheme.onSurface
     }
 
-    Card(
+    AmoledCard(
+        isAmoledDark = isAmoled,
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = cardContainerColor
-        ),
-        border = if (isAmoled) {
-            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-        } else {
-            null
-        }
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -105,7 +95,7 @@ internal fun ServerCard(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
                             containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-                            border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null
+                            border = if (isAmoled) AmoledDefaultBorder else null
                         ) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.home_edit)) },

@@ -4,7 +4,6 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,7 +20,6 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,6 +33,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.components.AmoledSurface
 import dev.minios.ocremote.ui.components.indicators.PulsingDotsIndicator
 import dev.minios.ocremote.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
@@ -83,11 +82,10 @@ internal fun ToolCardScaffold(
     val hapticOn = LocalHapticFeedbackEnabled.current
     val expanded = isExpanded
 
-    Surface(
+    AmoledSurface(
+        isAmoledDark = isAmoled,
         shape = RoundedCornerShape(6.dp),
-        color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
-        tonalElevation = if (isAmoled) 0.dp else 1.dp,
+        normalTonalElevation = 1.dp,
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(4.dp)) {

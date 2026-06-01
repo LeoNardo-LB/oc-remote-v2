@@ -1,6 +1,5 @@
 package dev.minios.ocremote.ui.screens.chat.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
@@ -34,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.components.AmoledDefaultBorder
 import dev.minios.ocremote.ui.screens.chat.util.formatTokenCount
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 
@@ -110,7 +110,7 @@ fun ChatTopBar(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
                         containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-                        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null
+                        border = if (isAmoled) AmoledDefaultBorder else null
                     ) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.tool_terminal)) },

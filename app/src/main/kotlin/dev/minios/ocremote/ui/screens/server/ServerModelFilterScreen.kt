@@ -1,6 +1,5 @@
 package dev.minios.ocremote.ui.screens.server
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.components.AmoledCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,16 +138,10 @@ fun ServerModelFilterScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(filteredGroups, key = { it.providerId }) { group ->
-                            Card(
+                            AmoledCard(
+                                isAmoledDark = isAmoled,
                                 shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceContainerHigh
-                                ),
-                                border = if (isAmoled) {
-                                    BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-                                } else {
-                                    null
-                                }
+                                normalContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                             ) {
                                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
                                     Text(

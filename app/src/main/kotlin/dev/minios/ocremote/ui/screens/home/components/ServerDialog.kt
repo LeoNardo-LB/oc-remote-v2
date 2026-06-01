@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.ServerConfig
+import dev.minios.ocremote.ui.components.AmoledDefaultBorder
 
 /**
  * Parse and validate a server URL string.
@@ -111,7 +112,7 @@ internal fun ServerDialog(
         Surface(
             shape = RoundedCornerShape(20.dp),
             color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-            border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
+            border = if (isAmoled) AmoledDefaultBorder else null,
             tonalElevation = if (isAmoled) 0.dp else 6.dp,
             modifier = Modifier
                 .fillMaxWidth()

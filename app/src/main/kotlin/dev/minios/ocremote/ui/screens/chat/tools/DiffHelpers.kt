@@ -1,6 +1,5 @@
 package dev.minios.ocremote.ui.screens.chat.tools
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -18,9 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.minios.ocremote.ui.components.AmoledSurface
 import dev.minios.ocremote.ui.screens.chat.util.codeHorizontalScroll
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.theme.CodeTypography
+import dev.minios.ocremote.ui.theme.codeSmall
 
 /**
  * Inline diff change counts: +N -N with colors.
@@ -33,13 +33,13 @@ internal fun DiffChangesInline(additions: Int, deletions: Int) {
         if (additions > 0) {
             Text(
                 text = "+$additions",
-                style = CodeTypography.copy(fontSize = 11.sp, color = addColor)
+                style = CodeTypography.codeSmall.copy(color = addColor)
             )
         }
         if (deletions > 0) {
             Text(
                 text = "-$deletions",
-                style = CodeTypography.copy(fontSize = 11.sp, color = delColor)
+                style = CodeTypography.codeSmall.copy(color = delColor)
             )
         }
     }
@@ -70,10 +70,10 @@ internal fun DiffView(before: String, after: String) {
     // Compute simple LCS-based diff
     val diffLines = remember(before, after) { computeSimpleDiff(beforeLines, afterLines) }
 
-    Surface(
+    AmoledSurface(
+        isAmoledDark = isAmoled,
         shape = RoundedCornerShape(4.dp),
-        color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
-        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
+        normalColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = 400.dp)
@@ -96,12 +96,12 @@ internal fun DiffView(before: String, after: String) {
                 ) {
                     Text(
                         text = "$prefix ",
-                        style = CodeTypography.copy(fontSize = 13.sp, color = fgColor),
+                        style = CodeTypography.copy(color = fgColor),
                         modifier = Modifier.padding(start = 4.dp)
                     )
                     Text(
                         text = text,
-                        style = CodeTypography.copy(fontSize = 13.sp, color = fgColor)
+                        style = CodeTypography.copy(color = fgColor)
                     )
                 }
             }

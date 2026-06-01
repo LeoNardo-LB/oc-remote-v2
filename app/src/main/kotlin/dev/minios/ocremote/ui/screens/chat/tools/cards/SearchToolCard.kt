@@ -1,6 +1,5 @@
 package dev.minios.ocremote.ui.screens.chat.tools.cards
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.Part
 import dev.minios.ocremote.domain.model.ToolState
+import dev.minios.ocremote.ui.components.AmoledDefaultBorder
 import dev.minios.ocremote.ui.screens.chat.markdown.MarkdownContent
 import dev.minios.ocremote.ui.screens.chat.tools.extractToolInput
 import dev.minios.ocremote.ui.screens.chat.tools.extractToolOutput
@@ -81,7 +81,7 @@ internal fun SearchToolCard(
             Surface(
                 shape = RoundedCornerShape(4.dp),
                 color = toolOutputContainerColor(isAmoled),
-                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
+                border = if (isAmoled) AmoledDefaultBorder else null,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -115,7 +115,7 @@ internal fun SearchToolCard(
         Surface(
             shape = RoundedCornerShape(4.dp),
             color = toolOutputContainerColor(isAmoled),
-            border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
+            border = if (isAmoled) AmoledDefaultBorder else null,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 3.dp)

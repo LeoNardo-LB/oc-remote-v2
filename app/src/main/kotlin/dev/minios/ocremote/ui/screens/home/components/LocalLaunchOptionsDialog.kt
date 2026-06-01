@@ -1,6 +1,5 @@
 package dev.minios.ocremote.ui.screens.home.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,6 +32,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.minios.ocremote.R
 import dev.minios.ocremote.data.repository.LocalServerManager
+import dev.minios.ocremote.ui.components.AmoledDefaultBorder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -312,8 +312,7 @@ internal fun LocalLaunchOptionsDialog(
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-                border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
-                tonalElevation = if (isAmoled) 0.dp else 6.dp,
+                border = if (isAmoled) AmoledDefaultBorder else null,                tonalElevation = if (isAmoled) 0.dp else 6.dp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 420.dp),

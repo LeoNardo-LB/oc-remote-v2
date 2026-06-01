@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.components.AmoledCard
 import dev.minios.ocremote.ui.screens.home.LocalRuntimeStatus
 
 @Composable
@@ -38,27 +39,15 @@ internal fun LocalRuntimeCard(
 ) {
     val isAmoled = MaterialTheme.colorScheme.background == Color.Black &&
         MaterialTheme.colorScheme.surface == Color.Black
-    val cardContainerColor = if (isAmoled) {
-        Color.Black
-    } else {
-        MaterialTheme.colorScheme.surfaceContainerHighest
-    }
     val cardContentColor = if (isAmoled) {
         MaterialTheme.colorScheme.onSurface
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    Card(
+    AmoledCard(
+        isAmoledDark = isAmoled,
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = cardContainerColor,
-        ),
-        border = if (isAmoled) {
-            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-        } else {
-            null
-        },
     ) {
         Column(
             modifier = Modifier

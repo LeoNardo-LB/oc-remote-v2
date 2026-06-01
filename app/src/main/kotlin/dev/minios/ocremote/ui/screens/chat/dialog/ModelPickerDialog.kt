@@ -1,6 +1,5 @@
 ﻿package dev.minios.ocremote.ui.screens.chat.dialog
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +18,6 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -34,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.data.dto.response.ProviderInfo
 import dev.minios.ocremote.data.dto.response.ProviderModel
+import dev.minios.ocremote.ui.components.AmoledSurface
 import dev.minios.ocremote.ui.components.ProviderIcon
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 
@@ -61,11 +60,10 @@ internal fun ModelPickerDialog(
     }
 
     BasicAlertDialog(onDismissRequest = onDismiss) {
-        Surface(
+        AmoledSurface(
+            isAmoledDark = isAmoled,
             shape = RoundedCornerShape(20.dp),
-            color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-            border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
-            tonalElevation = if (isAmoled) 0.dp else 6.dp,
+            normalTonalElevation = 6.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 560.dp)

@@ -1,6 +1,5 @@
 package dev.minios.ocremote.ui.screens.chat.tools.cards
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.Part
 import dev.minios.ocremote.domain.model.ToolState
+import dev.minios.ocremote.ui.components.AmoledDefaultBorder
 import dev.minios.ocremote.ui.screens.chat.markdown.MarkdownContent
 import dev.minios.ocremote.ui.screens.chat.tools.extractToolInput
 import dev.minios.ocremote.ui.screens.chat.tools.extractToolOutput
@@ -36,6 +36,7 @@ import dev.minios.ocremote.ui.screens.chat.util.halfScreenHeight
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.toolOutputContainerColor
 import dev.minios.ocremote.ui.theme.CodeTypography
+import dev.minios.ocremote.ui.theme.codeSmall
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -136,7 +137,7 @@ internal fun TaskToolCard(
                     if (description != null) {
                         Text(
                             text = description,
-                            style = CodeTypography.copy(fontSize = 11.sp),
+                            style = CodeTypography.codeSmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -151,8 +152,7 @@ internal fun TaskToolCard(
         Surface(
             shape = RoundedCornerShape(4.dp),
             color = toolOutputContainerColor(isAmoled),
-            border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
-            modifier = Modifier
+            border = if (isAmoled) AmoledDefaultBorder else null,            modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 3.dp)
                 .heightIn(max = halfScreenHeight)

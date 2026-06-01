@@ -1,7 +1,6 @@
 package dev.minios.ocremote.ui.screens.sessions.components
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,6 +59,8 @@ import androidx.compose.ui.window.DialogProperties
 import dev.minios.ocremote.R
 import dev.minios.ocremote.data.dto.response.FileNode
 import dev.minios.ocremote.domain.model.Project
+import dev.minios.ocremote.ui.components.AmoledSurface
+import dev.minios.ocremote.ui.components.AmoledDefaultBorder
 import dev.minios.ocremote.ui.components.indicators.PulsingDotsIndicator
 import dev.minios.ocremote.ui.screens.sessions.SessionListViewModel
 import kotlinx.coroutines.delay
@@ -201,14 +202,13 @@ internal fun OpenProjectDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(
+        AmoledSurface(
+            isAmoledDark = isAmoled,
+            shape = RoundedCornerShape(16.dp),
+            normalTonalElevation = 6.dp,
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .fillMaxHeight(0.75f),
-            shape = RoundedCornerShape(16.dp),
-            color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
-            border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)) else null,
-            tonalElevation = if (isAmoled) 0.dp else 6.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header
@@ -449,7 +449,7 @@ internal fun OpenProjectDialog(
                                 },
                             shape = CircleShape,
                             color = Color.Black,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
+                            border = AmoledDefaultBorder,
                             tonalElevation = 0.dp,
                         ) {
                             Box(contentAlignment = Alignment.Center) {
