@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -37,10 +36,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.BasicAlertDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -59,7 +56,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
-import dev.minios.ocremote.ui.components.AmoledSurface
+import dev.minios.ocremote.ui.components.AppDialog
+import dev.minios.ocremote.ui.components.AppDialogButtons
+import dev.minios.ocremote.ui.components.ButtonStyle
 import dev.minios.ocremote.ui.components.indicators.PulsingDotsIndicator
 import dev.minios.ocremote.ui.screens.sessions.components.DirectoryTreeNode
 import dev.minios.ocremote.ui.screens.sessions.components.SessionRow
@@ -302,87 +301,54 @@ fun SessionListScreen(
 
     // Rename dialog
     if (showRenameDialog) {
-        BasicAlertDialog(onDismissRequest = { showRenameDialog = false }) {
-            AmoledSurface(
-                isAmoledDark = isAmoled,
-                shape = ShapeTokens.largeMedium,
-                normalTonalElevation = 6.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.session_rename),
-                        style = MaterialTheme.typography.headlineSmall
-                    )
-                    OutlinedTextField(
-                        value = renameText,
-                        onValueChange = { renameText = it },
-                        label = { Text(stringResource(R.string.session_rename_title)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        TextButton(onClick = { showRenameDialog = false }) {
-                            Text(stringResource(R.string.cancel))
+        AppDialog(
+            onDismiss = { showRenameDialog = false },
+            title = stringResource(R.string.session_rename),
+            content = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    label = { Text(stringResource(R.string.session_rename_title)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            buttons = {
+                AppDialogButtons(
+                    buttons = listOf(
+                        Triple(stringResource(R.string.cancel), ButtonStyle.Secondary) { showRenameDialog = false },
+                        Triple(stringResource(R.string.session_rename_button), ButtonStyle.Primary) {
+                            viewModel.renameSession(renameSessionId, renameText)
+                            showRenameDialog = false
                         }
-                        TextButton(
-                            onClick = {
-                                viewModel.renameSession(renameSessionId, renameText)
-                                showRenameDialog = false
-                            },
-                            enabled = renameText.isNotBlank()
-                        ) {
-                            Text(stringResource(R.string.session_rename_button))
-                        }
-                    }
-                }
+                    )
+                )
             }
-        }
+        )
     }
 
     // Delete confirmation dialog
     if (showDeleteDialog) {
-        BasicAlertDialog(onDismissRequest = { showDeleteDialog = false }) {
-            AmoledSurface(
-                isAmoledDark = isAmoled,
-                shape = ShapeTokens.largeMedium,
-                normalTonalElevation = 6.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.session_delete),
-                        style = MaterialTheme.typography.headlineSmall
+        AppDialog(
+            onDismiss = { showDeleteDialog = false },
+            title = stringResource(R.string.session_delete),
+            content = {
+                Text(
+                    text = stringResource(R.string.session_delete_confirm, deleteSessionTitle),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            buttons = {
+                AppDialogButtons(
+                    buttons = listOf(
+                        Triple(stringResource(R.string.cancel), ButtonStyle.Secondary) { showDeleteDialog = false },
+                        Triple(stringResource(R.string.delete), ButtonStyle.Danger) {
+                            viewModel.deleteSession(deleteSessionId)
+                            showDeleteDialog = false
+                        }
                     )
-                    Text(stringResource(R.string.session_delete_confirm, deleteSessionTitle))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        TextButton(onClick = { showDeleteDialog = false }) {
-                            Text(stringResource(R.string.cancel))
-                        }
-                        TextButton(
-                            onClick = {
-                                viewModel.deleteSession(deleteSessionId)
-                                showDeleteDialog = false
-                            },
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Text(stringResource(R.string.delete))
-                        }
-                    }
-                }
+                )
             }
-        }
+        )
     }
 }
