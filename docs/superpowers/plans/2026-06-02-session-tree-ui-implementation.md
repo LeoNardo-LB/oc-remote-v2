@@ -120,7 +120,7 @@ if (scrollable) {
     )
 }
 ```
-Add imports: `import androidx.compose.foundation.layout.heightIn`, `import androidx.compose.foundation.lazy.LazyColumn`, `import androidx.compose.foundation.lazy.items`
+Add imports: `import androidx.compose.foundation.layout.heightIn`, `import androidx.compose.foundation.lazy.LazyColumn`
 
 - [ ] **Step 6: Replace button implementations**
 
@@ -180,12 +180,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -197,7 +200,7 @@ import dev.minios.ocremote.ui.screens.sessions.components.isAmoledTheme
 
 /**
  * Reusable single-selection list for picker dialogs.
- * Handles highlight, check icon, and AMOLED theming.
+ * Handles highlight, check icon, AMOLED theming, and auto-scroll to selected item.
  */
 @Composable
 fun <K> AppPickerList(
@@ -206,8 +209,16 @@ fun <K> AppPickerList(
     onSelect: (K) -> Unit,
 ) {
     val isAmoled = isAmoledTheme()
+    val listState = rememberLazyListState()
+    val selectedIndex = remember(options, selectedKey) {
+        options.indexOfFirst { it.first == selectedKey }.coerceAtLeast(0)
+    }
+    LaunchedEffect(selectedIndex) {
+        listState.scrollToItem(selectedIndex)
+    }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -318,23 +329,125 @@ Update imports: remove `SettingsPickerDialog`, add `AppDialog`, `AppDialogButton
 
 - [ ] **Step 2: Migrate ReconnectModePickerDialog**
 
-Same pattern, title = `stringResource(R.string.dialog_select_reconnect_mode)`, options = aggressive/normal/conservative.
+Use the same `AppDialog` pattern as Step 1 (showClose=false, showDividers=false, scrollable=true, maxBodyHeight=480.dp). Replace the `SettingsPickerDialog(...)` call:
+
+```kotlin
+AppDialog(
+    onDismiss = onDismiss,
+    title = stringResource(R.string.dialog_select_reconnect_mode),
+    showClose = false,
+    showDividers = false,
+    scrollable = true,
+    maxBodyHeight = 480.dp,
+    content = {
+        AppPickerList(
+            options = listOf(
+                "aggressive" to stringResource(R.string.settings_reconnect_aggressive),
+                "normal" to stringResource(R.string.settings_reconnect_normal),
+                "conservative" to stringResource(R.string.settings_reconnect_conservative)
+            ),
+            selectedKey = currentMode,
+            onSelect = onModeSelected,
+        )
+    },
+    buttons = {
+        AppDialogButtons(
+            listOf(Triple(stringResource(R.string.cancel), ButtonStyle.Secondary, onDismiss))
+        )
+    }
+)
+```
+
+Update imports: remove `SettingsPickerDialog`, add `AppDialog`, `AppDialogButtons`, `ButtonStyle`, `AppPickerList`, `dp`.
 
 - [ ] **Step 3: Migrate MessageCountPickerDialog**
 
-Same pattern, title = `stringResource(R.string.settings_initial_messages)`, options = `listOf(20, 50, 100, 200).map { it to "$it" }`.
+Same as Step 1 pattern: `showClose=false, showDividers=false, scrollable=true, maxBodyHeight=480.dp`. Replace with:
 
-- [ ] **Step 4: Migrate LanguagePickerDialog**
-
-Same pattern, title = `stringResource(R.string.dialog_select_language)`, options = all languages. **maxBodyHeight = 520.dp**.
+```kotlin
+AppDialog(
+    onDismiss = onDismiss,
+    title = stringResource(R.string.settings_initial_messages),
+    showClose = false,
+    showDividers = false,
+    scrollable = true,
+    maxBodyHeight = 480.dp,
+    content = {
+        val opts = listOf(20, 50, 100, 200)
+        AppPickerList(
+            options = opts.map { it to "$it" },
+            selectedKey = currentCount,
+            onSelect = onCountSelected,
+        )
+    },
+    buttons = {
+        AppDialogButtons(
+            listOf(Triple(stringResource(R.string.cancel), ButtonStyle.Secondary, onDismiss))
+        )
+    }
+)
+```
 
 - [ ] **Step 5: Migrate FontSizePickerDialog**
 
-Same pattern, title = `stringResource(R.string.settings_font_size)`, options = small/medium/large.
+Same pattern: `showClose=false, showDividers=false, scrollable=true, maxBodyHeight=480.dp`. Replace with:
+
+```kotlin
+AppDialog(
+    onDismiss = onDismiss,
+    title = stringResource(R.string.settings_font_size),
+    showClose = false,
+    showDividers = false,
+    scrollable = true,
+    maxBodyHeight = 480.dp,
+    content = {
+        AppPickerList(
+            options = listOf(
+                "small" to stringResource(R.string.settings_font_size_small),
+                "medium" to stringResource(R.string.settings_font_size_medium),
+                "large" to stringResource(R.string.settings_font_size_large)
+            ),
+            selectedKey = currentSize,
+            onSelect = onSizeSelected,
+        )
+    },
+    buttons = {
+        AppDialogButtons(
+            listOf(Triple(stringResource(R.string.cancel), ButtonStyle.Secondary, onDismiss))
+        )
+    }
+)
+```
 
 - [ ] **Step 6: Migrate ImageCompressionDialog (2 calls)**
 
-Both `ImageCompressionMaxSideDialog` and `ImageCompressionQualityDialog` migrate to same pattern.
+Both functions use same pattern. `ImageCompressionMaxSideDialog`:
+
+```kotlin
+AppDialog(
+    onDismiss = onDismiss,
+    title = stringResource(R.string.settings_compress_images_max_side),
+    showClose = false,
+    showDividers = false,
+    scrollable = true,
+    maxBodyHeight = 480.dp,
+    content = {
+        val opts = listOf(0, 720, 960, 1080, 1440, 1920, 2560)
+        AppPickerList(
+            options = opts.map { it to getImageMaxSideDisplayName(it) },
+            selectedKey = currentMaxSide,
+            onSelect = onSelected,
+        )
+    },
+    buttons = {
+        AppDialogButtons(
+            listOf(Triple(stringResource(R.string.cancel), ButtonStyle.Secondary, onDismiss))
+        )
+    }
+)
+```
+
+`ImageCompressionQualityDialog` (same pattern, different options and title).
 
 - [ ] **Step 7: Delete SettingsPickerDialog.kt**
 
@@ -627,7 +740,7 @@ To:
 ```kotlin
 val (statusIcon, statusIconColor) = when (item.status) {
     is SessionStatus.Busy -> Icons.Filled.ChatBubble to MaterialTheme.colorScheme.tertiary
-    is SessionStatus.Retry -> Icons.Filled.ErrorOutline to MaterialTheme.colorScheme.error
+    is SessionStatus.Retry -> Icons.Outlined.ErrorOutline to MaterialTheme.colorScheme.error
     else -> Icons.Outlined.ChatBubbleOutline to MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
 }
 Icon(
@@ -638,7 +751,7 @@ Icon(
 )
 ```
 
-Update imports: add `import androidx.compose.material.icons.filled.ChatBubble`, add `import androidx.compose.material.icons.filled.ErrorOutline`.
+Update imports: add `import androidx.compose.material.icons.filled.ChatBubble`, add `import androidx.compose.material.icons.outlined.ErrorOutline`.
 
 Remove the old import for `ChatBubbleOutline` from `Icons.Outlined` — actually check: the Idle state still uses `Icons.Outlined.ChatBubbleOutline`, so keep the `Icons.Outlined` import (already imported at line 18).
 
@@ -711,7 +824,13 @@ In `app/src/main/res/values/strings.xml`, add near the existing `directory_sessi
 <string name="directory_session_count_active">%1$d/%2$d sessions active</string>
 ```
 
-Check existing entry with `grep directory_session_count` to confirm exact file location.
+Check existing entry with `grep directory_session_count` to confirm exact file location. Then add a second resource:
+
+```xml
+<string name="sessions_active">active</string>
+```
+
+The first resource provides the complete format string; the second provides the standalone "active" suffix for the zero-case (e.g., "5 active").
 
 - [ ] **Step 4: Update UI in DirectoryTreeNode.kt**
 
@@ -736,13 +855,11 @@ Row(
 ) {
     if (node.activeSessionCount > 0) {
         Text(
-            text = "${node.activeSessionCount}",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-        )
-        Text(
-            text = "/${node.sessionCount} ${stringResource(R.string.sessions_active)}",
+            text = stringResource(
+                R.string.directory_session_count_active,
+                node.activeSessionCount,
+                node.sessionCount
+            ),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
         )
@@ -756,13 +873,7 @@ Row(
 }
 ```
 
-Add a new string resource for "active" part. Run `grep directory_session_count` first to see the existing resource, then add:
-
-```xml
-<string name="sessions_active">active</string>
-```
-
-(Alternatively adjust `directory_session_count` — the spec says "x/y sessions active" format. Since we need i18n flexibility, a separate `sessions_active` string is cleaner.)
+Remove the old `Text("${node.activeSessionCount}")` and `Text("/${node.sessionCount} ... ${stringResource(R.string.sessions_active)}")` approach. Use `directory_session_count_active` for the >0 case and `directory_session_count` for the =0 case. This ensures proper i18n support.
 
 - [ ] **Step 5: Verify compilation**
 
@@ -785,11 +896,15 @@ git commit -m "feat: show active session count on directory items (x/y sessions 
 **Files:**
 - Modify: `app/src/main/kotlin/dev/minios/ocremote/ui/screens/sessions/components/OpenProjectDialog.kt`
 
-- [ ] **Step 1: Adapt OpenProjectDialog to new AppDialog API**
+- [ ] **Step 1: Verify OpenProjectDialog compatibility**
 
-`OpenProjectDialog` calls `AppDialog(...)` at lines 105 and 214. The new params have defaults, so they should still work without changes. Verify by compiling — if `compileDevDebugKotlin` passes, no changes needed.
+`OpenProjectDialog` calls `AppDialog(...)` at two locations (main browser + create-folder sub-dialog). The new AppDialog API has backward-compatible defaults (`showClose=true`, `showDividers=true`, `scrollable=false`), which match the old behavior exactly. No code changes are needed in OpenProjectDialog.kt. Run compilation to confirm:
 
-If there are issues (e.g., scrollable content for the create-folder dialog), address them.
+```bash
+.\gradlew :app:compileDevDebugKotlin
+```
+
+Expected: BUILD SUCCESSFUL. If compilation fails (unlikely), check that no breaking changes were introduced to AppDialog's public API. The only change is new optional parameters with defaults.
 
 - [ ] **Step 2: Run full compilation**
 

@@ -10,7 +10,7 @@
 
 | # | 问题 | 改动位置 | 类别 |
 |---|------|----------|------|
-| P1 | AppDialog / SettingsPickerDialog 双轨弹窗 | `AppDialog.kt` 重构, 删除 `SettingsPickerDialog.kt`, 6 个 Picker 迁移 | **核心重构** |
+| P1 | AppDialog / SettingsPickerDialog 双轨弹窗 | `AppDialog.kt` 重构, `AppPickerList.kt` 新建, 删除 `SettingsPickerDialog.kt`, 6 个 Picker 迁移, `OpenProjectDialog.kt` 验证 | **核心重构** |
 | P2 | 弹窗按钮纯文字无层级 | `AppDialog.kt` `DialogButton()` / `AppDialogButtons()` | 样式 |
 | P3 | KV 纵向排布 → 横向表格 + 长按复制 | `SessionRow.kt`, `DirectoryTreeNode.kt` 的 `DetailRow` | 交互 |
 | P4 | 弹窗边距过大 | `AppDialog.kt` 内容区/头部 padding | 样式 |
@@ -229,16 +229,17 @@ data class Directory(
 ```kotlin
 // DirectoryTreeNode.kt
 if (node.activeSessionCount > 0) {
-    Row {
-        Text("${node.activeSessionCount}", color = primary, fontWeight = Medium)  // 高亮
-        Text("/${node.sessionCount} sessions active", color = MUTED)
-    }
+    Text(
+        text = stringResource(R.string.directory_session_count_active, node.activeSessionCount, node.sessionCount),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+    )
 } else {
-    Text("${node.sessionCount} sessions", color = MUTED)  // 不变
+    Text(stringResource(R.string.directory_session_count, node.sessionCount), color = MUTED)
 }
 ```
 
-需要新增 string resource: `directory_session_count_active` = `"%1$d/%2$d sessions active"`
+需要新增 string resource: `directory_session_count_active` = `"%1$d/%2$d sessions active"`。使用格式化字符串保证 i18n 灵活性。
 
 ---
 
@@ -266,11 +267,17 @@ P1–P3 完成后需 `compileDevDebugKotlin` 验证编译通过。
 | 验证项 | 方法 |
 |--------|------|
 | 编译 | `.\gradlew :app:compileDevDebugKotlin` |
-| 弹窗外观 | 目视检查 6 个 Picker + 4 个 Alert 弹窗样式一致 |
-| 按钮层级 | 确认 Primary=填充, Secondary=描边, Danger=描边红 |
-| 长按复制 | 弹窗内长按文本 → 出现系统选择手柄 → 可复制 |
-| 图标对比 | Busy(实心青) vs Idle(描边灰) 明显可区分 |
-| 活跃计数 | 目录项显示 "3/5 sessions active" 格式 |
+| 弹窗样式统一 | 确认 10 个弹窗（6 Picker + 4 Alert）圆角均为 large(16dp)，内容区 padding 为 h=16/v=12 |
+| Picker 参数正确 | 确认 Picker 类：showClose=false（无 ✕）、showDividers=false（无分割线）、scrollable=true、maxBodyHeight 生效 |
+| Alert 参数正确 | 确认 Alert 类：showClose=true（有 ✕）、showDividers=true（有分割线） |
+| 按钮层级 | 确认 Primary=FilledTonalButton, Secondary=OutlinedButton, Danger=OutlinedButton(error)；≥3按钮时 Column 布局 |
+| 边距缩小 (P4) | 截图测量 AppDialog 内容区 padding 为 h=16dp/v=12dp，头部 top=16dp |
+| 文件夹图标 (P5) | 目视确认 FAB 弹窗中 DirectoryRow 文件夹图标 tint = primary，与 DirectoryTreeNode 一致 |
+| 顶栏双行 (P6) | 确认 TopAppBar 第一行为 serverName(titleMedium)，第二行为 baseDirectory(labelSmall)+▾箭头 |
+| 长按复制 (P3) | 弹窗内长按文本 → 出现系统选择手柄 → 可框选复制 |
+| 会话图标 (P7) | Busy=Filled.ChatBubble(tertiary 青), Idle=Outlined.ChatBubbleOutline(onSurfaceVariant+FAINT 灰), Retry=Outlined.ErrorOutline(error 红) |
+| 活跃计数>0 (P8) | 目录项显示 `stringResource(directory_session_count_active, x, y)` 格式（如 "3/5 sessions active"） |
+| 活跃计数=0 (P8) | 目录项显示 `stringResource(directory_session_count, y)` 格式（如 "5 sessions"） |
 
 ---
 
