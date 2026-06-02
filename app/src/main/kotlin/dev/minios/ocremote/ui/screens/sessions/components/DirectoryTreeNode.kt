@@ -99,7 +99,7 @@ internal fun DirectoryTreeNode(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
                                 )
                             ) {
-                                append("/${node.sessionCount} sessions active")
+                                append(stringResource(R.string.directory_session_count_active_suffix, node.sessionCount))
                             }
                         },
                         style = MaterialTheme.typography.labelSmall,
