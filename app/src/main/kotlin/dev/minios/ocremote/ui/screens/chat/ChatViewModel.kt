@@ -407,7 +407,7 @@ class ChatViewModel @Inject constructor(
         val totalOutputTokens = sessionTokens?.output
             ?: assistantMessages.sumOf { it.tokens?.output ?: 0 }
         // Context usage: total tokens from the last assistant message with output > 0
-        val lastWithOutput = assistantMessages.firstOrNull { (it.tokens?.output ?: 0) > 0 }
+        val lastWithOutput = assistantMessages.lastOrNull { (it.tokens?.output ?: 0) > 0 }
         val lastTokens = lastWithOutput?.tokens
         val lastContextTokens = lastTokens?.let { t ->
             t.input + t.output + t.reasoning + t.cache.read + t.cache.write
@@ -487,7 +487,9 @@ class ChatViewModel @Inject constructor(
             hasOlderMessages = hasOlderMessages,
             isLoadingOlder = isLoadingOlder,
             shareUrl = session?.share?.url,
-            contextWindow = currentModel?.limit?.context ?: 0,
+            contextWindow = session?.model?.let { sm ->
+                providers.find { it.id == sm.providerId }?.models?.get(sm.id)?.limit?.context
+            } ?: currentModel?.limit?.context ?: 0,
             lastContextTokens = lastContextTokens,
             contextInputTokens = contextInputTokens,
             contextOutputTokens = contextOutputTokens,
@@ -619,6 +621,7 @@ class ChatViewModel @Inject constructor(
      */
     fun refreshSession() {
         viewModelScope.launch {
+            loadSession()
             loadMessages()
             loadPendingQuestions()
             loadPendingPermissions()

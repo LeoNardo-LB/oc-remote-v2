@@ -32,9 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.SessionStatus
-import dev.minios.ocremote.ui.components.AppDialog
-import dev.minios.ocremote.ui.components.AppDialogButtons
-import dev.minios.ocremote.ui.components.ButtonStyle
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import dev.minios.ocremote.ui.screens.sessions.SessionItem
 import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.DiffAdded
@@ -53,7 +52,6 @@ internal fun SessionRow(
     onCopyId: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val isAmoled = isAmoledTheme()
     val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
     val addColor = DiffAdded
     val delColor = DiffRemoved
@@ -169,7 +167,6 @@ internal fun SessionRow(
             onCopyId = {
                 onCopyId(item.session.id)
             },
-            isAmoled = isAmoled,
         )
     }
 }
@@ -181,48 +178,54 @@ private fun SessionDetailsDialog(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onCopyId: () -> Unit,
-    isAmoled: Boolean,
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
 
-    AppDialog(
-        onDismiss = onDismiss,
-        title = item.session.title ?: stringResource(R.string.session_untitled),
-        isAmoled = isAmoled,
-        content = {
-            DetailRow(stringResource(R.string.session_details_id), item.session.id)
-            DetailRow(
-                stringResource(R.string.session_details_status),
-                when (item.status) {
-                    is SessionStatus.Busy -> stringResource(R.string.session_status_busy)
-                    is SessionStatus.Retry -> stringResource(R.string.session_status_retry)
-                    else -> stringResource(R.string.session_status_idle)
-                }
-            )
-            DetailRow(
-                stringResource(R.string.session_details_created),
-                dateFormat.format(Date(item.session.time.created))
-            )
-            DetailRow(
-                stringResource(R.string.session_details_updated),
-                dateFormat.format(Date(item.session.time.updated))
-            )
-            val summary = item.session.summary
-            if (summary != null) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = item.session.title ?: stringResource(R.string.session_untitled))
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                DetailRow(stringResource(R.string.session_details_id), item.session.id)
                 DetailRow(
-                    "Diff",
-                    "+${summary.additions} -${summary.deletions} (${summary.files} files)"
+                    stringResource(R.string.session_details_status),
+                    when (item.status) {
+                        is SessionStatus.Busy -> stringResource(R.string.session_status_busy)
+                        is SessionStatus.Retry -> stringResource(R.string.session_status_retry)
+                        else -> stringResource(R.string.session_status_idle)
+                    }
                 )
+                DetailRow(
+                    stringResource(R.string.session_details_created),
+                    dateFormat.format(Date(item.session.time.created))
+                )
+                DetailRow(
+                    stringResource(R.string.session_details_updated),
+                    dateFormat.format(Date(item.session.time.updated))
+                )
+                val summary = item.session.summary
+                if (summary != null) {
+                    DetailRow(
+                        "Diff",
+                        "+${summary.additions} -${summary.deletions} (${summary.files} files)"
+                    )
+                }
             }
         },
-        buttons = {
-            AppDialogButtons(
-                buttons = listOf(
-                    Triple(stringResource(R.string.menu_copy_session_id), ButtonStyle.Secondary, onCopyId),
-                    Triple(stringResource(R.string.session_rename), ButtonStyle.Secondary) { onDismiss(); onRename() },
-                    Triple(stringResource(R.string.session_delete), ButtonStyle.Danger) { onDismiss(); onDelete() },
-                )
-            )
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onCopyId) {
+                    Text(stringResource(R.string.menu_copy_session_id))
+                }
+                TextButton(onClick = { onDismiss(); onRename() }) {
+                    Text(stringResource(R.string.session_rename))
+                }
+                TextButton(onClick = { onDismiss(); onDelete() }) {
+                    Text(stringResource(R.string.session_delete), color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
     )
 }
