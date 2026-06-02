@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -190,30 +191,32 @@ private fun SessionDetailsDialog(
         title = item.session.title ?: stringResource(R.string.session_untitled),
         isAmoled = isAmoled,
         content = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                DetailRow(stringResource(R.string.session_details_id), item.session.id)
-                DetailRow(
-                    stringResource(R.string.session_details_status),
-                    when (item.status) {
-                        is SessionStatus.Busy -> stringResource(R.string.session_status_busy)
-                        is SessionStatus.Retry -> stringResource(R.string.session_status_retry)
-                        else -> stringResource(R.string.session_status_idle)
-                    }
-                )
-                DetailRow(
-                    stringResource(R.string.session_details_created),
-                    dateFormat.format(Date(item.session.time.created))
-                )
-                DetailRow(
-                    stringResource(R.string.session_details_updated),
-                    dateFormat.format(Date(item.session.time.updated))
-                )
-                val summary = item.session.summary
-                if (summary != null) {
+            SelectionContainer {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    DetailRow(stringResource(R.string.session_details_id), item.session.id)
                     DetailRow(
-                        "Diff",
-                        "+${summary.additions} -${summary.deletions} (${summary.files} files)"
+                        stringResource(R.string.session_details_status),
+                        when (item.status) {
+                            is SessionStatus.Busy -> stringResource(R.string.session_status_busy)
+                            is SessionStatus.Retry -> stringResource(R.string.session_status_retry)
+                            else -> stringResource(R.string.session_status_idle)
+                        }
                     )
+                    DetailRow(
+                        stringResource(R.string.session_details_created),
+                        dateFormat.format(Date(item.session.time.created))
+                    )
+                    DetailRow(
+                        stringResource(R.string.session_details_updated),
+                        dateFormat.format(Date(item.session.time.updated))
+                    )
+                    val summary = item.session.summary
+                    if (summary != null) {
+                        DetailRow(
+                            "Diff",
+                            "+${summary.additions} -${summary.deletions} (${summary.files} files)"
+                        )
+                    }
                 }
             }
         },
@@ -231,16 +234,23 @@ private fun SessionDetailsDialog(
 
 @Composable
 private fun DetailRow(label: String, value: String) {
-    Column {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(0.3f),
         )
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(0.7f),
         )
     }
 }

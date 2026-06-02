@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
@@ -109,8 +110,12 @@ private fun DirectoryDetailsDialog(
         title = node.displayName,
         isAmoled = isAmoled,
         content = {
-            DetailRow(label = stringResource(R.string.session_path), value = node.path)
-            DetailRow(label = stringResource(R.string.session_count), value = node.sessionCount.toString())
+            SelectionContainer {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    DetailRow(label = stringResource(R.string.session_path), value = node.path)
+                    DetailRow(label = stringResource(R.string.session_count), value = node.sessionCount.toString())
+                }
+            }
         },
         buttons = {
             AppDialogButtons(
@@ -124,16 +129,23 @@ private fun DirectoryDetailsDialog(
 
 @Composable
 private fun DetailRow(label: String, value: String) {
-    Column {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(0.3f),
         )
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(0.7f),
         )
     }
 }

@@ -56,7 +56,7 @@ internal fun DirectoryRow(
             Icons.Default.Folder,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+            tint = MaterialTheme.colorScheme.primary
         )
         Row(
             modifier = Modifier
