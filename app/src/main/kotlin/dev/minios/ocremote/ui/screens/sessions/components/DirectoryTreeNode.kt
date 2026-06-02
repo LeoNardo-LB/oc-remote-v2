@@ -3,8 +3,6 @@ package dev.minios.ocremote.ui.screens.sessions.components
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,7 +18,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -89,12 +86,6 @@ internal fun DirectoryTreeNode(
     var menuExpanded by remember { mutableStateOf(false) }
     var showDetailsDialog by remember { mutableStateOf(false) }
 
-    val arrowRotation by animateFloatAsState(
-        targetValue = if (node.isExpanded) 90f else 0f,
-        animationSpec = tween(durationMillis = 200),
-        label = "arrowRotation"
-    )
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -108,15 +99,6 @@ internal fun DirectoryTreeNode(
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = Icons.Default.KeyboardArrowRight,
-            contentDescription = null,
-            modifier = Modifier
-                .size(20.dp)
-                .rotate(arrowRotation),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.width(8.dp))
         Icon(
             imageVector = if (node.isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,
             contentDescription = null,

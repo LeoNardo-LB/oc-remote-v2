@@ -111,8 +111,6 @@ internal fun SessionRow(
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Spacer to align with directory's folder icon position (arrow 20dp + gap 8dp = 28dp)
-        Spacer(modifier = Modifier.width(28.dp))
         // Status icon
         val statusIconColor = when (item.status) {
             is SessionStatus.Busy -> MaterialTheme.colorScheme.tertiary
