@@ -3,6 +3,7 @@ package dev.minios.ocremote.ui.screens.chat.util
 import android.view.HapticFeedbackConstants
 import android.view.View
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -32,7 +33,7 @@ internal fun performHaptic(view: View, enabled: Boolean) {
 @Composable
 internal fun Modifier.codeHorizontalScroll(): Modifier {
     return if (!LocalCodeWordWrap.current) {
-        this.horizontalScroll(rememberScrollState())
+        this.fillMaxWidth().horizontalScroll(rememberScrollState())
     } else {
         this
     }
