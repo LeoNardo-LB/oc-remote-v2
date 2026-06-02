@@ -278,6 +278,7 @@ fun SessionListScreen(
         OpenProjectDialog(
             viewModel = viewModel,
             projects = emptyList(),
+            initialDirectory = uiState.prefillDirectory,
             onSelect = { directory ->
                 showOpenProject = false
                 viewModel.createNewSession(directory = directory)
