@@ -106,6 +106,7 @@ internal fun SimpleMarkdownTable(
 
         Box(
             modifier = Modifier
+                .fillMaxWidth()
                 .onSizeChanged { containerWidth = it.width }
                 .horizontalScroll(scrollState)
         ) {

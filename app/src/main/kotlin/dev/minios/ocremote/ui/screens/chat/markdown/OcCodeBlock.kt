@@ -75,7 +75,7 @@ internal fun OcCodeBlock(
             }
         } else {
             val scrollState = rememberScrollState()
-            Box(modifier = Modifier.horizontalScroll(scrollState)) {
+            Box(modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState)) {
                 if (isFence) {
                     MarkdownHighlightedCodeFence(
                         content, node, style, highlightsBuilder,
