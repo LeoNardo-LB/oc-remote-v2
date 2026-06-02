@@ -470,4 +470,8 @@
     <string name="session_count">会话</string>
     <string name="session_copy_path">复制路径</string>
     <string name="sessions_create_session">创建会话</string>
+    <string name="session_directory_details">目录详情</string>
+    <string name="session_session_details">会话详情</string>
+    <string name="session_details_name">名称</string>
+    <string name="directory_session_count_active_suffix">/%1$d 个会话活跃</string>
 </resources>

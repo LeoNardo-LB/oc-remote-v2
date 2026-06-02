@@ -466,4 +466,8 @@
     <string name="session_count">세션</string>
     <string name="session_copy_path">경로 복사</string>
     <string name="sessions_create_session">세션 만들기</string>
+    <string name="session_directory_details">디렉토리 세부정보</string>
+    <string name="session_session_details">세션 세부정보</string>
+    <string name="session_details_name">이름</string>
+    <string name="directory_session_count_active_suffix">/%1$d개 세션 활성</string>
 </resources>

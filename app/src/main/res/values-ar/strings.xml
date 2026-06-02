@@ -466,4 +466,8 @@
     <string name="session_count">الجلسات</string>
     <string name="session_copy_path">نسخ المسار</string>
     <string name="sessions_create_session">إنشاء جلسة</string>
+    <string name="session_directory_details">تفاصيل الدليل</string>
+    <string name="session_session_details">تفاصيل الجلسة</string>
+    <string name="session_details_name">الاسم</string>
+    <string name="directory_session_count_active_suffix">/%1$d جلسات نشطة</string>
 </resources>

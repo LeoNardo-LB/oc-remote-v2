@@ -472,4 +472,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="session_count">Sesi</string>
     <string name="session_copy_path">Salin path</string>
     <string name="sessions_create_session">Buat sesi</string>
+    <string name="session_directory_details">Detail Direktori</string>
+    <string name="session_session_details">Detail Sesi</string>
+    <string name="session_details_name">Nama</string>
+    <string name="directory_session_count_active_suffix">/%1$d sesi aktif</string>
 </resources>

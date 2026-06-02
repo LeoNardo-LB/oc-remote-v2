@@ -464,4 +464,8 @@
     <string name="session_count">Sessions</string>
     <string name="session_copy_path">Copier le chemin</string>
     <string name="sessions_create_session">Créer une session</string>
+    <string name="session_directory_details">Détails du répertoire</string>
+    <string name="session_session_details">Détails de la session</string>
+    <string name="session_details_name">Nom</string>
+    <string name="directory_session_count_active_suffix">/%1$d sessions actives</string>
 </resources>

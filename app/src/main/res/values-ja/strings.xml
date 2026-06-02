@@ -466,4 +466,8 @@
     <string name="session_count">セッション</string>
     <string name="session_copy_path">パスをコピー</string>
     <string name="sessions_create_session">セッションを作成</string>
+    <string name="session_directory_details">ディレクトリの詳細</string>
+    <string name="session_session_details">セッションの詳細</string>
+    <string name="session_details_name">名前</string>
+    <string name="directory_session_count_active_suffix">/%1$dセッションがアクティブ</string>
 </resources>

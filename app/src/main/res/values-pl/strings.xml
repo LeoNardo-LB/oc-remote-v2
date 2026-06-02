@@ -466,4 +466,8 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="session_count">Sesje</string>
     <string name="session_copy_path">Kopiuj ścieżkę</string>
     <string name="sessions_create_session">Utwórz sesję</string>
+    <string name="session_directory_details">Szczegóły katalogu</string>
+    <string name="session_session_details">Szczegóły sesji</string>
+    <string name="session_details_name">Nazwa</string>
+    <string name="directory_session_count_active_suffix">/%1$d sesji aktywnych</string>
 </resources>

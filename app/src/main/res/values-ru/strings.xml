@@ -467,4 +467,8 @@
     <string name="session_count">Сессии</string>
     <string name="session_copy_path">Копировать путь</string>
     <string name="sessions_create_session">Создать сессию</string>
+    <string name="session_directory_details">Сведения о каталоге</string>
+    <string name="session_session_details">Сведения о сеансе</string>
+    <string name="session_details_name">Имя</string>
+    <string name="directory_session_count_active_suffix">/%1$d сеансов активно</string>
 </resources>
