@@ -73,30 +73,21 @@ Two UX improvements to the session list page (`SessionListScreen`):
 
 - Add `private val _lastToggledDirectory = MutableStateFlow<String?>(null)`.
 - In `toggleDirectory(path)`: always set `_lastToggledDirectory.value = path` before toggling in/out of `expandedPaths`.
-- Expose `lastToggledDirectory` in `SessionListUiState`.
+- In the `combine` that builds `SessionListUiState`, compute `prefillDirectory`:
+  ```
+  prefillDirectory = if (lastToggledDirectory != null && lastToggledDirectory in expandedPaths)
+                        lastToggledDirectory
+                      else
+                        baseDirectory
+  ```
 
 #### `SessionListUiState`
 
-- Add field: `val lastToggledDirectory: String? = null`.
+- Add field: `val prefillDirectory: String? = null` — computed in ViewModel, Screen layer does no path logic.
 
 #### `SessionListScreen.kt`
 
-- FAB `onClick`:
-  ```
-  val initialDir = if (uiState.lastToggledDirectory != null
-                       && uiState.lastToggledDirectory in uiState.expandedPaths)
-                      uiState.lastToggledDirectory
-                    else
-                      uiState.baseDirectory
-  ```
-  - Wait — `expandedPaths` is not in UiState. Need to add it, or compute in ViewModel.
-  - **Decision:** compute in ViewModel and expose `prefillDirectory: String?` directly. Screen layer does no path logic.
-- Pass `initialDir` to `OpenProjectDialog(initialDirectory = initialDir, ...)`.
-
-#### `SessionListUiState` (revised)
-
-- Add field: `val prefillDirectory: String? = null` — computed in ViewModel's `combine`.
-- Computation: if `lastToggledDirectory` is in `expandedPaths` → `lastToggledDirectory`, else → `baseDirectory`.
+- FAB `onClick`: pass `uiState.prefillDirectory` directly to `OpenProjectDialog(initialDirectory = uiState.prefillDirectory, ...)`.
 
 #### `OpenProjectDialog.kt`
 
@@ -110,10 +101,9 @@ Two UX improvements to the session list page (`SessionListScreen`):
 
 | File | Change Type |
 |---|---|
-| `ui/screens/sessions/SessionListViewModel.kt` | Add refresh logic, lastToggledDirectory tracking, prefillDirectory computation |
-| `ui/screens/sessions/SessionListScreen.kt` | Add PullToRefreshBox wrapper, pass initialDirectory to Dialog |
+| `ui/screens/sessions/SessionListViewModel.kt` | Add refresh logic, lastToggledDirectory tracking, prefillDirectory computation, isRefreshing state |
+| `ui/screens/sessions/SessionListScreen.kt` | Add PullToRefreshBox wrapper, pass prefillDirectory to Dialog |
 | `ui/screens/sessions/components/OpenProjectDialog.kt` | Add initialDirectory parameter, init-time directory navigation |
-| `SessionListUiState` (inline data class in ViewModel) | Add isRefreshing, prefillDirectory fields |
 
 ---
 
