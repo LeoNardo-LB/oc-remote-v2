@@ -87,7 +87,7 @@ internal fun OpenProjectDialog(
     LaunchedEffect(Unit) {
         val home = viewModel.getHomeDirectory()
         homeDir = home
-        val startDir = initialDirectory ?: home
+        val startDir = initialDirectory ?: "/"
         currentDir = startDir
         isLoading = true
         directories = viewModel.listDirectories(startDir)
@@ -114,12 +114,12 @@ internal fun OpenProjectDialog(
                     .padding(bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (currentDir != homeDir && currentDir != null) {
+                if (currentDir != "/" && currentDir != null) {
                     IconButton(
                         onClick = {
                             val path = currentDir?.trimEnd('/') ?: ""
                             val parent = path.substringBeforeLast('/')
-                            currentDir = parent.ifEmpty { homeDir }
+                            currentDir = parent.ifEmpty { "/" }
                         },
                         modifier = Modifier.size(32.dp),
                     ) {
