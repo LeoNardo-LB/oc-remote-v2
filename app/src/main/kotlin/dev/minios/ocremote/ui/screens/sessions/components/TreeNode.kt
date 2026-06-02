@@ -47,54 +47,43 @@ fun buildTreeNodes(
     baseDirectory: String?,
     statuses: Map<String, SessionStatus> = emptyMap(),
 ): List<TreeNode> {
-    if (baseDirectory == null) {
-        // No base directory: show all sessions flat
-        return sessions.map { session ->
-            TreeNode.Session(
-                id = session.id,
-                session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle),
-            )
-        }
-    }
-
-    val normalizedBase = baseDirectory.replace('\\', '/').trimEnd('/')
     val result = mutableListOf<TreeNode>()
     val dirSessions = sortedMapOf<String, MutableList<Session>>()
     val rootSessions = mutableListOf<Session>()
 
+    val normalizedBase = baseDirectory?.replace('\\', '/')?.trimEnd('/')
+
     for (session in sessions) {
         val dir = session.directory.replace('\\', '/').trimEnd('/')
-        val relative = if (dir.startsWith(normalizedBase)) {
-            dir.removePrefix(normalizedBase).removePrefix("/")
-        } else {
-            continue // skip sessions outside base directory
-        }
-
-        if (relative.isEmpty()) {
+        if (dir.isEmpty()) {
             rootSessions.add(session)
+            continue
+        }
+
+        if (normalizedBase != null) {
+            if (!dir.startsWith(normalizedBase)) continue
+            val relative = dir.removePrefix(normalizedBase).removePrefix("/")
+            if (relative.isEmpty()) {
+                rootSessions.add(session)
+            } else {
+                val firstSegment = relative.substringBefore('/')
+                dirSessions.getOrPut(firstSegment) { mutableListOf() }.add(session)
+            }
         } else {
-            val firstSegment = relative.substringBefore('/')
-            dirSessions.getOrPut(firstSegment) { mutableListOf() }.add(session)
+            // No base directory: group by full directory path
+            dirSessions.getOrPut(dir) { mutableListOf() }.add(session)
         }
     }
 
-    // Root sessions first (ungrouped)
-    for (session in rootSessions.sortedByDescending { it.time.updated }) {
-        result.add(TreeNode.Session(
-            id = session.id,
-            session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle),
-        ))
-    }
-
-    // Directory groups — expand all by default when no explicit expanded state
+    // Directory groups FIRST — expand all by default when no explicit expanded state
     val expandAll = expandedDirs.isEmpty()
-    for ((dirName, dirSessionList) in dirSessions) {
-        val fullPath = "$normalizedBase/$dirName"
+    for ((dirKey, dirSessionList) in dirSessions) {
+        val fullPath = if (normalizedBase != null) "$normalizedBase/$dirKey" else dirKey
         val isExpanded = expandAll || fullPath in expandedDirs
         result.add(TreeNode.Directory(
-            id = dirName,
+            id = dirKey,
             path = fullPath,
-            displayName = dirName,
+            displayName = fullPath,
             sessionCount = dirSessionList.size,
             isExpanded = isExpanded,
         ))
@@ -106,6 +95,14 @@ fun buildTreeNodes(
                 ))
             }
         }
+    }
+
+    // Root sessions last (directly in base directory, ungrouped)
+    for (session in rootSessions.sortedByDescending { it.time.updated }) {
+        result.add(TreeNode.Session(
+            id = session.id,
+            session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle),
+        ))
     }
 
     return result
