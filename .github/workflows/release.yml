@@ -23,11 +23,11 @@ jobs:
           echo "code=$VERSION_CODE" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION (code: $VERSION_CODE)"
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3.13.0
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          distribution: 'adopt'
-          java-version: '17'
+          distribution: 'temurin'
+          java-version: '21'
 
       - name: Grant execute permissions for gradlew
         run: chmod +x ./gradlew
@@ -44,18 +44,18 @@ jobs:
           echo "keystore.password=${{ secrets.KEYSTORE_PASSWORD }}" >> app/keystore/signing.properties
 
       - name: Build Release APK
-        run: ./gradlew :app:assembleRelease
+        run: ./gradlew :app:assembleBetaRelease
 
       - name: Rename APK
         run: |
           VERSION="${{ steps.version.outputs.name }}"
           mkdir -p release-apks
           # Find the built APK (signed or unsigned)
-          APK=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
+          APK=$(find app/build/outputs/apk/beta/release -name '*.apk' | head -1)
           if [ -n "$APK" ]; then
             cp "$APK" release-apks/oc-remote-${VERSION}.apk
           else
-            echo "::error::No APK found in app/build/outputs/apk/release/"
+            echo "::error::No APK found in app/build/outputs/apk/beta/release/"
             exit 1
           fi
 
