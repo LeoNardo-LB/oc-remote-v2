@@ -134,7 +134,7 @@ private fun DirectoryDetailsDialog(
 ) {
     AppDialog(
         onDismiss = onDismiss,
-        title = node.displayName,
+        title = stringResource(R.string.session_directory_details),
         isAmoled = isAmoled,
         content = {
             SelectionContainer {

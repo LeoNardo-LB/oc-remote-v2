@@ -190,11 +190,15 @@ private fun SessionDetailsDialog(
 
     AppDialog(
         onDismiss = onDismiss,
-        title = item.session.title ?: stringResource(R.string.session_untitled),
+        title = stringResource(R.string.session_session_details),
         isAmoled = isAmoled,
         content = {
             SelectionContainer {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    DetailRow(
+                        stringResource(R.string.session_details_name),
+                        item.session.title ?: stringResource(R.string.session_untitled)
+                    )
                     DetailRow(stringResource(R.string.session_details_id), item.session.id)
                     DetailRow(
                         stringResource(R.string.session_details_status),

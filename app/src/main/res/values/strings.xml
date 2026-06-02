@@ -129,6 +129,9 @@
     <string name="session_delete_confirm">Delete \"%1$s\"? This cannot be undone.</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>
+    <string name="session_directory_details">Directory Details</string>
+    <string name="session_session_details">Session Details</string>
+    <string name="session_details_name">Name</string>
     <string name="session_untitled">Untitled session</string>
     <string name="session_unknown_error">Unknown error</string>
     <!-- Directory / Session context menu -->
