@@ -403,8 +403,13 @@ class ChatViewModel @Inject constructor(
         val totalReasoningTokens = assistantMessages.sumOf { it.tokens?.reasoning ?: 0 }
         val totalCacheReadTokens = assistantMessages.sumOf { it.tokens?.cache?.read ?: 0 }
         val totalCacheWriteTokens = assistantMessages.sumOf { it.tokens?.cache?.write ?: 0 }
-        // Context usage: cumulative tokens from all loaded assistant messages
-        val lastContextTokens = totalInputTokens + totalOutputTokens + totalReasoningTokens + totalCacheReadTokens + totalCacheWriteTokens
+        // Context usage: tokens from the last assistant message with output > 0
+        // This represents the current context window usage (OpenCode WebUI pattern:
+        // lastAssistantWithTokens → single API call's input+output+reasoning+cache)
+        val lastAssistantWithTokens = assistantMessages.lastOrNull { (it.tokens?.output ?: 0) > 0 }
+        val lastContextTokens = lastAssistantWithTokens?.tokens?.let { t ->
+            t.input + t.output + t.reasoning + t.cache.read + t.cache.write
+        } ?: 0
 
         // Resolve available variants for the currently selected model.
         // If selected model is no longer visible (filtered out), fall back to first visible model.
