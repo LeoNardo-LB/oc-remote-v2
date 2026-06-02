@@ -2,7 +2,12 @@ package dev.minios.ocremote.ui.screens.settings.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.components.AppDialog
+import dev.minios.ocremote.ui.components.AppDialogButtons
+import dev.minios.ocremote.ui.components.AppPickerList
+import dev.minios.ocremote.ui.components.ButtonStyle
 
 @Composable
 internal fun MessageCountPickerDialog(
@@ -10,11 +15,26 @@ internal fun MessageCountPickerDialog(
     onCountSelected: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    SettingsPickerDialog(
+    AppDialog(
+        onDismiss = onDismiss,
         title = stringResource(R.string.settings_initial_messages),
-        options = listOf(20, 50, 100, 200).map { it to "$it" },
-        selectedKey = currentCount,
-        onSelect = onCountSelected,
-        onDismiss = onDismiss
+        showClose = false,
+        showDividers = false,
+        scrollable = true,
+        maxBodyHeight = 480.dp,
+        content = {
+            AppPickerList(
+                options = listOf(20, 50, 100, 200).map { it to "$it" },
+                selectedKey = currentCount,
+                onSelect = onCountSelected,
+            )
+        },
+        buttons = {
+            AppDialogButtons(
+                listOf(
+                    Triple(stringResource(R.string.cancel), ButtonStyle.Secondary, onDismiss),
+                )
+            )
+        }
     )
 }
