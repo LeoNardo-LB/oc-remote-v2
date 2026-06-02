@@ -1,5 +1,6 @@
 package dev.minios.ocremote.ui.screens.chat.tools.cards
 
+import dev.minios.ocremote.ui.screens.chat.tools.extractFileName
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,8 +57,9 @@ internal fun EditToolCard(
     val isAmoled = isAmoledTheme()
     val input = extractToolInput(tool)
     val filePath = input["filePath"]?.jsonPrimitive?.contentOrNull ?: ""
-    val shortPath = java.io.File(filePath).name
-    val dirPath = if (filePath.contains('/')) filePath.substringBeforeLast('/') else ""
+    val shortPath = extractFileName(filePath)
+    val normalizedPath = filePath.replace('\\', '/').replace('/', '/')
+    val dirPath = if ('/' in normalizedPath) normalizedPath.substringBeforeLast('/') else ""
     val oldString = input["oldString"]?.jsonPrimitive?.contentOrNull ?: ""
     val newString = input["newString"]?.jsonPrimitive?.contentOrNull ?: ""
 

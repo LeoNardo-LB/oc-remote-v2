@@ -93,7 +93,9 @@ internal fun PartContent(
             } else {
                 // Dispatch to tool-specific renderers (like WebUI)
                 val autoExpand = LocalCollapseTools.current
-                when (part.tool) {
+                // Server sends TitleCase tool names ("Read", "Write", "Edit", "Bash"),
+                // so lowercase() ensures matching regardless of casing.
+                when (part.tool.lowercase()) {
                     "edit", "multiedit" -> EditToolCard(
                         tool = part,
                         isExpanded = toolExpandedStates[part.id] ?: autoExpand,

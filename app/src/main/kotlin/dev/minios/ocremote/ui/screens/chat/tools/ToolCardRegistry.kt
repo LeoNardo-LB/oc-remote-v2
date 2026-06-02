@@ -33,6 +33,20 @@ internal data class ToolDisplayInfo(
 )
 
 /**
+ * Extract the file name from a cross-platform path string.
+ *
+ * Server may send Windows paths (D:\foo\bar.txt) or POSIX paths (/foo/bar.txt).
+ * [java.io.File.getName] only splits on the platform separator, so we normalize
+ * both separators to the local [java.io.File.separatorChar] first, then call getName.
+ */
+internal fun extractFileName(path: String): String {
+    if (path.isBlank()) return ""
+    val normalized = path.replace('\\', java.io.File.separatorChar)
+        .replace('/', java.io.File.separatorChar)
+    return java.io.File(normalized).name
+}
+
+/**
  * Extract the file name from a potentially path-like server title.
  * If the title contains path separators, returns only the last segment.
  * e.g. "Read /path/to/File.kt" → "File.kt", "Edit file" → "Edit file" (unchanged)
@@ -66,7 +80,7 @@ internal fun resolveToolDisplay(
     val filePath = input["filePath"]?.jsonPrimitive?.contentOrNull
         ?: input["path"]?.jsonPrimitive?.contentOrNull
         ?: input["file"]?.jsonPrimitive?.contentOrNull
-    val shortPath = filePath?.let { java.io.File(it).name }
+    val shortPath = filePath?.let { extractFileName(it) }
 
     return when (toolName) {
         "read" -> {

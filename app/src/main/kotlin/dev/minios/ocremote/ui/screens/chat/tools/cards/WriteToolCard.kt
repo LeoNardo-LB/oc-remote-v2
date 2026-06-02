@@ -1,5 +1,6 @@
 package dev.minios.ocremote.ui.screens.chat.tools.cards
 
+import dev.minios.ocremote.ui.screens.chat.tools.extractFileName
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -46,7 +47,7 @@ internal fun WriteToolCard(
     val input = extractToolInput(tool)
     val filePath = input["filePath"]?.jsonPrimitive?.contentOrNull
         ?: input["path"]?.jsonPrimitive?.contentOrNull ?: ""
-    val shortPath = java.io.File(filePath).name
+    val shortPath = extractFileName(filePath)
     val content = input["content"]?.jsonPrimitive?.contentOrNull ?: ""
 
     val isRunning = tool.state is ToolState.Running

@@ -64,7 +64,7 @@ internal fun ToolCallCard(
     }
 
     // Resolve display info based on tool type
-    val toolDisplay = resolveToolDisplay(tool.tool, tool.state, input)
+    val toolDisplay = resolveToolDisplay(tool.tool.lowercase(), tool.state, input)
 
     val longPressCopyText = if (toolDisplay.subtitle != null && toolDisplay.subtitle != toolDisplay.title) {
         "${toolDisplay.title} · ${toolDisplay.subtitle}"

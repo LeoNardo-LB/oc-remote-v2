@@ -36,6 +36,7 @@ import dev.minios.ocremote.ui.screens.chat.util.toolOutputContainerColor
 import dev.minios.ocremote.ui.theme.CodeTypography
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import dev.minios.ocremote.ui.screens.chat.tools.extractFileName
 import dev.minios.ocremote.ui.theme.ShapeTokens
 import dev.minios.ocremote.ui.theme.AlphaTokens
 
@@ -52,7 +53,7 @@ internal fun ReadToolCard(
     val input = extractToolInput(tool)
     val filePath = input["filePath"]?.jsonPrimitive?.contentOrNull
         ?: input["path"]?.jsonPrimitive?.contentOrNull ?: ""
-    val shortPath = java.io.File(filePath).name
+    val shortPath = extractFileName(filePath)
     val offset = input["offset"]?.jsonPrimitive?.contentOrNull
     val limit = input["limit"]?.jsonPrimitive?.contentOrNull
 
