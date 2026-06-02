@@ -17,11 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,14 +31,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.components.AmoledSurface
-import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -53,7 +48,6 @@ internal fun DirectoryTreeNode(
     modifier: Modifier = Modifier,
 ) {
     val isAmoled = isAmoledTheme()
-    var menuExpanded by remember { mutableStateOf(false) }
     var showDetailsDialog by remember { mutableStateOf(false) }
 
     Row(
@@ -61,7 +55,7 @@ internal fun DirectoryTreeNode(
             .fillMaxWidth()
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = { menuExpanded = true },
+                onLongClick = { showDetailsDialog = true },
             )
             .padding(start = 12.dp, end = 8.dp)
             .padding(vertical = 5.dp),
@@ -73,7 +67,7 @@ internal fun DirectoryTreeNode(
             modifier = Modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.primary,
         )
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = node.displayName,
             style = MaterialTheme.typography.bodyMedium,
@@ -83,37 +77,11 @@ internal fun DirectoryTreeNode(
         )
     }
 
-    DropdownMenu(
-        expanded = menuExpanded,
-        onDismissRequest = { menuExpanded = false },
-        containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.menu_copy_path)) },
-            onClick = {
-                menuExpanded = false
-                onCopyPath(node.path)
-            },
-            leadingIcon = {
-                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
-            },
-        )
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.menu_view_details)) },
-            onClick = {
-                menuExpanded = false
-                showDetailsDialog = true
-            },
-            leadingIcon = {
-                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
-            },
-        )
-    }
-
     if (showDetailsDialog) {
         DirectoryDetailsDialog(
             node = node,
             onDismiss = { showDetailsDialog = false },
+            onCopyPath = { onCopyPath(node.path) },
             isAmoled = isAmoled,
         )
     }
@@ -124,8 +92,11 @@ internal fun DirectoryTreeNode(
 private fun DirectoryDetailsDialog(
     node: TreeNode.Directory,
     onDismiss: () -> Unit,
+    onCopyPath: () -> Unit,
     isAmoled: Boolean,
 ) {
+    val context = LocalContext.current
+
     BasicAlertDialog(onDismissRequest = onDismiss) {
         AmoledSurface(
             isAmoledDark = isAmoled,
@@ -148,6 +119,19 @@ private fun DirectoryDetailsDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
+                    TextButton(onClick = {
+                        onCopyPath()
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("path", node.path))
+                    }) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(stringResource(R.string.menu_copy_path))
+                    }
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
                 }
             }
