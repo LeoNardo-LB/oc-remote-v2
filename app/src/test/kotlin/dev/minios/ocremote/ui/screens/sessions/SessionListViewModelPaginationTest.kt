@@ -3,6 +3,8 @@ package dev.minios.ocremote.ui.screens.sessions
 import android.util.Log
 import dev.minios.ocremote.data.api.OpenCodeApi
 import dev.minios.ocremote.data.repository.EventDispatcher
+import dev.minios.ocremote.domain.model.Session
+import dev.minios.ocremote.domain.model.SessionStatus
 import dev.minios.ocremote.domain.usecase.ManageSessionUseCase
 import io.mockk.every
 import io.mockk.mockk
@@ -30,6 +32,11 @@ class SessionListViewModelPaginationTest {
         every { Log.e(any(), any()) } returns 0
         every { Log.w(any(), any<String>()) } returns 0
         every { Log.w(any(), any<String>(), any()) } returns 0
+        // Relaxed mock returns default Object for StateFlow<List>.value;
+        // set up proper empty collections to avoid ClassCastException
+        every { eventDispatcher.sessions.value } returns emptyList()
+        every { eventDispatcher.sessionStatuses.value } returns emptyMap<String, SessionStatus>()
+        every { eventDispatcher.serverSessions.value } returns emptyMap<String, Set<String>>()
     }
 
     @After
