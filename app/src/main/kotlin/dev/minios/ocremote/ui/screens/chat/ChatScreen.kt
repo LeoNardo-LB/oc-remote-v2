@@ -970,7 +970,7 @@ fun ChatScreen(
                             textStyle = MaterialTheme.typography.bodyLarge,
                             textColor = MaterialTheme.colorScheme.error,
                         )
-                        Button(onClick = { viewModel.loadMessages() }) {
+                        FilledTonalButton(onClick = { viewModel.loadMessages() }) {
                             Text(stringResource(R.string.retry))
                         }
                     }

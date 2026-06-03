@@ -19,8 +19,7 @@ import androidx.compose.ui.window.DialogProperties
 import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.components.amoledDialogParams
 import dev.minios.ocremote.ui.components.AppPickerList
-import dev.minios.ocremote.ui.components.DialogButtons
-import dev.minios.ocremote.ui.components.DialogButtonRole
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,12 +57,6 @@ internal fun ThemePickerDialog(
                     ),
                     selectedKey = currentTheme,
                     onSelect = onThemeSelected,
-                )
-                Spacer(Modifier.height(16.dp))
-                DialogButtons(
-                    buttons = listOf(
-                        Triple(stringResource(R.string.cancel), DialogButtonRole.Secondary, onDismiss),
-                    )
                 )
             }
         }

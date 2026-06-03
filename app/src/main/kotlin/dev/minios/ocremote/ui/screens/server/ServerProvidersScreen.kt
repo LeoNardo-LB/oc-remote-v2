@@ -388,21 +388,23 @@ fun ServerProvidersScreen(
                             } else androidx.compose.material3.OutlinedTextFieldDefaults.colors()
                         )
                     }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = {
-                            oauthCode = ""
-                            viewModel.cancelProviderOauth()
-                        }) { Text(stringResource(R.string.cancel)) }
-                        if (pending.authorization.method == "code") {
-                            FilledTonalButton(
-                                onClick = {
+                    DialogButtons(
+                        buttons = buildList {
+                            add(Triple(stringResource(R.string.cancel), DialogButtonRole.Secondary) {
+                                oauthCode = ""
+                                viewModel.cancelProviderOauth()
+                            })
+                            if (pending.authorization.method == "code") {
+                                add(Triple(
+                                    stringResource(R.string.server_settings_oauth_complete),
+                                    DialogButtonRole.Primary
+                                ) {
                                     viewModel.completeProviderOauth(oauthCode)
                                     oauthCode = ""
-                                },
-                                enabled = oauthCode.isNotBlank() && !uiState.isSaving
-                            ) { Text(stringResource(R.string.server_settings_oauth_complete)) }
+                                })
+                            }
                         }
-                    }
+                    )
                 }
             }
         }

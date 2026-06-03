@@ -3,7 +3,9 @@ package dev.minios.ocremote.ui.screens.home.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
+import dev.minios.ocremote.ui.components.amoledTonalButtonColors
+import dev.minios.ocremote.ui.components.amoledTonalButtonBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,7 +43,11 @@ internal fun EmptyServersView(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MEDIUM),
                 textAlign = TextAlign.Center
             )
-            Button(onClick = onAddServer) {
+            FilledTonalButton(
+                onClick = onAddServer,
+                colors = amoledTonalButtonColors(),
+                border = amoledTonalButtonBorder(),
+            ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.home_add_server))

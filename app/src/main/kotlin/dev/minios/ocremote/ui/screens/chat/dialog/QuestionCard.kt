@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -400,7 +400,7 @@ internal fun QuestionCard(
                     Text(stringResource(R.string.chat_dismiss), style = MaterialTheme.typography.labelMedium)
                 }
                 if (!isSingle) {
-                    Button(
+                    FilledTonalButton(
                         onClick = {
                             performHaptic(hapticView, hapticOn)
                             submitted = true

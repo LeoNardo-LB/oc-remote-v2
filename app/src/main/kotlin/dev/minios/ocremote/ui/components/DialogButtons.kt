@@ -85,7 +85,12 @@ private fun DialogActionButton(
 ) {
     when (role) {
         DialogButtonRole.Primary -> {
-            FilledTonalButton(onClick = onClick, modifier = modifier) {
+            FilledTonalButton(
+                onClick = onClick,
+                modifier = modifier,
+                colors = amoledTonalButtonColors(),
+                border = amoledTonalButtonBorder(),
+            ) {
                 Text(text)
             }
         }
