@@ -99,6 +99,9 @@ class SessionListViewModel @Inject constructor(
     private val _currentCursor = MutableStateFlow<String?>(null)
     private val _hasMorePages = MutableStateFlow(true)
     private val _isLoadingMore = MutableStateFlow(false)
+    private val _showArchived = MutableStateFlow(false)
+
+    val showArchived: Boolean get() = _showArchived.value
 
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<SessionListUiState> = combine(
@@ -113,7 +116,8 @@ class SessionListViewModel @Inject constructor(
         _baseDirectory,
         _isRefreshing,
         _lastToggledDirectory,
-        _searchQuery
+        _searchQuery,
+        _showArchived
     ) { values ->
         val allSessions = values[0] as List<Session>
         val statuses = values[1] as Map<String, SessionStatus>
@@ -127,11 +131,12 @@ class SessionListViewModel @Inject constructor(
         val isRefreshing = values[9] as Boolean
         val lastToggledDirectory = values[10] as String?
         val searchQuery = values[11] as String?
+        val showArchived = values[12] as Boolean
 
         val serverSessionIds = serverSessionMap[serverId].orEmpty()
 
         val filteredSessions = allSessions
-            .filter { it.id in serverSessionIds && !it.isArchived && it.parentId == null }
+            .filter { it.id in serverSessionIds && (showArchived || !it.isArchived) && it.parentId == null }
             .sortedByDescending { it.time.updated }
 
         val baseFilteredSessions = if (baseDirectory != null) {
@@ -447,6 +452,30 @@ class SessionListViewModel @Inject constructor(
                 Log.e(TAG, "Failed to load more sessions", e)
             } finally {
                 _isLoadingMore.value = false
+            }
+        }
+    }
+
+    fun toggleArchivedFilter() {
+        _showArchived.value = !_showArchived.value
+        loadSessions()
+    }
+
+    /**
+     * Import a session from a share URL.
+     * On success, reload the session list.
+     */
+    fun importSession(shareUrl: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val session = manageSessionUseCase.importSession(conn, shareUrl)
+                if (BuildConfig.DEBUG) Log.d(TAG, "Imported session ${session.id}")
+                eventDispatcher.setSessions(serverId, listOf(session))
+                onResult(true)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to import session", e)
+                _error.value = e.message ?: "Failed to import session"
+                onResult(false)
             }
         }
     }
