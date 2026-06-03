@@ -86,6 +86,12 @@ class EventDispatcher @Inject constructor(
     fun mergeMessages(sessionId: String, messages: List<MessageWithParts>) =
         messageHandler.mergeMessages(sessionId, messages)
 
+    fun replaceMessages(sessionId: String, messages: List<MessageWithParts>) =
+        messageHandler.replaceMessages(sessionId, messages)
+
+    fun syncAllSessionStatuses(statuses: Map<String, SessionStatus>) =
+        sessionHandler.updateAllSessionStatuses(statuses)
+
     fun removePermission(permissionId: String) =
         permissionHandler.removePermission(permissionId)
 
