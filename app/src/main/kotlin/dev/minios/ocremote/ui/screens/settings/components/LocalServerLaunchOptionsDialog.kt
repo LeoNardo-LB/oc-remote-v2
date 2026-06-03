@@ -33,7 +33,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
@@ -45,7 +44,6 @@ import dev.minios.ocremote.ui.components.DialogButtonRole
 import dev.minios.ocremote.ui.components.DialogButtons
 import dev.minios.ocremote.ui.components.amoledDialogParams
 import dev.minios.ocremote.ui.theme.AlphaTokens
-import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,7 +71,7 @@ internal fun LocalServerLaunchOptionsDialog(
         startupTimeoutSec: Int,
     ) -> Unit,
 ) {
-    val isAmoled = LocalAmoledMode.current
+
     var localEnabled by remember(enabled) { mutableStateOf(enabled) }
     var localProxyUrl by remember(proxyUrl) { mutableStateOf(proxyUrl) }
     var localNoProxyList by remember(noProxyList) { mutableStateOf(noProxyList) }
@@ -92,18 +90,7 @@ internal fun LocalServerLaunchOptionsDialog(
     val trimmedServerPassword = localServerPassword.trim()
     val canSave = !localEnabled || trimmedProxyUrl.isNotBlank()
 
-    val switchColors = if (isAmoled) {
-        SwitchDefaults.colors(
-            checkedThumbColor = MaterialTheme.colorScheme.primary,
-            checkedTrackColor = Color.Black,
-            checkedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH),
-            uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-            uncheckedTrackColor = Color.Black,
-            uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.HIGH),
-        )
-    } else {
-        SwitchDefaults.colors()
-    }
+    val switchColors = SwitchDefaults.colors()
 
     val mainParams = amoledDialogParams()
     BasicAlertDialog(

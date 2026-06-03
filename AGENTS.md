@@ -108,6 +108,13 @@ See `docs/chatscreen-editing-protocol.md`. Rules:
 - CI extracts version by grepping `versionName = "..."` — **do not change the format**
 - Tags follow `v2.0.0-beta.XX` (beta) or `v2.0.0-dev` (dev) pattern
 
+### Gradle Timeout
+执行 Gradle 命令时必须设置合理的超时时间，禁止无超时裸跑：
+- **Kotlin 编译检查**（`compileDevDebugKotlin`）: 120 秒
+- **单元测试**（`testDevDebugUnitTest`）: 180 秒
+- **完整构建**（`assembleDevRelease` 等）: 300 秒
+- **依赖解析/首次构建**: 可延长至 600 秒
+
 ### Test Gotchas
 - `isReturnDefaultValues = true` — mocks return default values instead of throwing. This can mask bugs where mock data silently returns null/0/false
 - Test runner: JUnit 4 + MockK 1.14.9 + Turbine 1.2.1 + coroutines-test

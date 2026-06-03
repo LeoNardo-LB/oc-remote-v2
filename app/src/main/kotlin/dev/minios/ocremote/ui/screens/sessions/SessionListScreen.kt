@@ -147,7 +147,7 @@ fun SessionListScreen(
         floatingActionButton = {
             FloatingActionButton(
                     onClick = { showOpenProject = true },
-                    containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.primaryContainer,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = if (isAmoled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer,
                     elevation = if (isAmoled) {
                         FloatingActionButtonDefaults.elevation(

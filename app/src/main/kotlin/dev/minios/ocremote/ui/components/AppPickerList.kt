@@ -60,7 +60,6 @@ fun <K> AppPickerList(
                     .clip(ShapeTokens.medium)
                     .background(
                         when {
-                            isSelected && isAmoled -> Color.Black
                             isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = AlphaTokens.MUTED)
                             else -> Color.Transparent
                         }

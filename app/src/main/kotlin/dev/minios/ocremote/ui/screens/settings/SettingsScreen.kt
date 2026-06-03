@@ -50,7 +50,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
@@ -71,7 +70,6 @@ import dev.minios.ocremote.ui.screens.settings.components.getReconnectModeDispla
 import dev.minios.ocremote.ui.screens.settings.components.getThemeDisplayName
 import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.ListItemTokens
-import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import kotlin.math.roundToInt
 
 /**
@@ -125,19 +123,7 @@ fun SettingsScreen(
     var showImageQualityDialog by remember { mutableStateOf(false) }
     var showLocalLaunchOptionsDialog by remember { mutableStateOf(false) }
 
-    val isAmoledTheme = LocalAmoledMode.current
-    val switchColors = if (isAmoledTheme) {
-        SwitchDefaults.colors(
-            checkedThumbColor = MaterialTheme.colorScheme.primary,
-            checkedTrackColor = Color.Black,
-            checkedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH),
-            uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-            uncheckedTrackColor = Color.Black,
-            uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.HIGH)
-        )
-    } else {
-        SwitchDefaults.colors()
-    }
+    val switchColors = SwitchDefaults.colors()
 
     Scaffold(
         topBar = {

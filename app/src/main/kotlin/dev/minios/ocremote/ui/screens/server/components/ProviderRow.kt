@@ -36,7 +36,7 @@ internal fun ProviderRow(
     Card(
         shape = ShapeTokens.medium,
         colors = CardDefaults.cardColors(
-            containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surfaceContainerHigh
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
         border = if (isAmoled) AmoledDefaultBorder else null
     ) {

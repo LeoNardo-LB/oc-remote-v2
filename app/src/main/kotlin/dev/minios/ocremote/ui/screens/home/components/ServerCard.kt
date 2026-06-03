@@ -96,7 +96,7 @@ internal fun ServerCard(
                         DropdownMenu(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
-                            containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
+                            containerColor = MaterialTheme.colorScheme.surface,
                             border = if (isAmoled) AmoledDefaultBorder else null
                         ) {
                             DropdownMenuItem(

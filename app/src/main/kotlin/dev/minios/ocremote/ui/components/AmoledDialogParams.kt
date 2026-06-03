@@ -42,7 +42,7 @@ fun amoledDialogParams(
     val isAmoled = LocalAmoledMode.current
     return if (isAmoled) {
         AmoledDialogParams(
-            containerColor = Color.Black,
+            containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
             border = BorderStroke(
                 1.dp,
@@ -67,8 +67,8 @@ fun amoledDialogParams(
 @Composable
 fun amoledOutlinedTextFieldColors(): TextFieldColors {
     return OutlinedTextFieldDefaults.colors(
-        focusedContainerColor = Color.Black,
-        unfocusedContainerColor = Color.Black,
-        disabledContainerColor = Color.Black,
+        focusedContainerColor = MaterialTheme.colorScheme.surface,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+        disabledContainerColor = MaterialTheme.colorScheme.surface,
     )
 }

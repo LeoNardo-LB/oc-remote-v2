@@ -79,19 +79,10 @@ internal fun LocalLaunchOptionsDialog(
         OutlinedTextFieldDefaults.colors()
     }
 
-    val switchColors = if (isAmoled) {
-        SwitchDefaults.colors(
-            checkedThumbColor = MaterialTheme.colorScheme.primary,
-            checkedTrackColor = Color.Black,
-            checkedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH),
-            uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-            uncheckedTrackColor = Color.Black,
-            uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.HIGH),
-        )
-    } else SwitchDefaults.colors()
+    val switchColors = SwitchDefaults.colors()
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        val containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface
+        val containerColor = MaterialTheme.colorScheme.surface
         Surface(modifier = Modifier.fillMaxSize(), color = containerColor) {
             Scaffold(
                 containerColor = containerColor,

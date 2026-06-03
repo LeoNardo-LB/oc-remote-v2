@@ -10,7 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
@@ -22,7 +21,6 @@ import dev.minios.ocremote.ui.components.DialogButtonRole
 import dev.minios.ocremote.ui.components.DialogButtons
 import dev.minios.ocremote.ui.components.amoledDialogParams
 import dev.minios.ocremote.ui.theme.AlphaTokens
-import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
 /**
@@ -98,23 +96,11 @@ internal fun ServerDialog(
     val dialogMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.9f
     val scrollState = rememberScrollState()
 
-    val isAmoled = LocalAmoledMode.current
     val params = amoledDialogParams(
         normalColor = MaterialTheme.colorScheme.surface,
         shape = ShapeTokens.largeMedium,
     )
-    val switchColors = if (isAmoled) {
-        SwitchDefaults.colors(
-            checkedThumbColor = MaterialTheme.colorScheme.primary,
-            checkedTrackColor = Color.Black,
-            checkedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH),
-            uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-            uncheckedTrackColor = Color.Black,
-            uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.HIGH)
-        )
-    } else {
-        SwitchDefaults.colors()
-    }
+    val switchColors = SwitchDefaults.colors()
 
     BasicAlertDialog(onDismissRequest = onDismiss) {
         Surface(
