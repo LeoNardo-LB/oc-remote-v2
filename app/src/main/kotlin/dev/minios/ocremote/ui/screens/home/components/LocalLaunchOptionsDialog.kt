@@ -36,6 +36,7 @@ import dev.minios.ocremote.ui.components.AppPickerList
 import dev.minios.ocremote.ui.components.DialogButtonRole
 import dev.minios.ocremote.ui.components.DialogButtons
 import dev.minios.ocremote.ui.components.amoledDialogParams
+import dev.minios.ocremote.ui.components.amoledOutlinedTextFieldColors
 import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.theme.ShapeTokens
@@ -73,11 +74,7 @@ internal fun LocalLaunchOptionsDialog(
     var maskProxy by remember { mutableStateOf(true) }
     var showTimeoutDialog by remember { mutableStateOf(false) }
     val fieldColors = if (isAmoled) {
-        OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = Color.Black,
-            unfocusedContainerColor = Color.Black,
-            disabledContainerColor = Color.Black,
-        )
+        amoledOutlinedTextFieldColors()
     } else {
         OutlinedTextFieldDefaults.colors()
     }

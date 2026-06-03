@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,8 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -92,28 +91,13 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
         modifier = Modifier.fillMaxWidth()
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            // Gradient left accent bar
+            // Accent left bar
             Box(
                 modifier = Modifier
-                    .matchParentSize()
-                    .padding(end = 0.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(2.5.dp)
-                        .fillMaxHeight()
-                        .drawBehind {
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        accentColor,
-                                        accentColor.copy(alpha = 0.15f)
-                                    )
-                                )
-                            )
-                        }
-                )
-            }
+                    .width(2.5.dp)
+                    .fillMaxHeight()
+                    .background(accentColor)
+            )
 
             Column(
                 modifier = Modifier
