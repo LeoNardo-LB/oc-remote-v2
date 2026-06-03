@@ -42,7 +42,7 @@ internal fun RevertBanner(onRedo: () -> Unit) {
     val isAmoled = LocalAmoledMode.current
     Surface(
         shape = ShapeTokens.medium,
-        color = if (isAmoled) Color(0xFF2A3E44) else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = AlphaTokens.MEDIUM),
+        color = if (isAmoled) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = AlphaTokens.MEDIUM),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)

@@ -135,7 +135,7 @@ internal fun TerminalKeyRow(keys: List<TerminalKey>) {
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontSize = 13.sp
                     ),
-                    color = if (key.active) Color(0xFF80CBC4) else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (key.active) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
