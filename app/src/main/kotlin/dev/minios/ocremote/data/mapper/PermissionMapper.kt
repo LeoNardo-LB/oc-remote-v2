@@ -61,8 +61,8 @@ object PermissionMapper {
     internal fun parseAlways(always: JsonElement?): Boolean {
         if (always == null) return false
         return when {
+            always is kotlinx.serialization.json.JsonArray -> always.isNotEmpty()
             always.jsonPrimitive.content == "true" -> true
-            always.jsonArray.isNotEmpty() -> true
             else -> false
         }
     }

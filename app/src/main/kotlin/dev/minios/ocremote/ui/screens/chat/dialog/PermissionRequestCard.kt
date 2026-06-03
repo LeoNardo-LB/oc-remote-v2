@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +39,8 @@ import dev.minios.ocremote.ui.theme.ShapeTokens
 import dev.minios.ocremote.ui.components.DialogButtonRole
 import dev.minios.ocremote.ui.components.DialogButtons
 import dev.minios.ocremote.ui.theme.AlphaTokens
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun PermissionCard(
@@ -50,6 +53,7 @@ internal fun PermissionCard(
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
     var submitted by remember(permission.id) { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     // Use error-container colors to signal security sensitivity (distinct from Question's tertiary)
     val containerColor = MaterialTheme.colorScheme.errorContainer
@@ -124,13 +128,22 @@ internal fun PermissionCard(
             DialogButtons(
                 buttons = listOf(
                     Triple(stringResource(R.string.permission_deny), DialogButtonRole.Danger) {
-                        if (!submitted) { performHaptic(hapticView, hapticOn); submitted = true; onReject() }
+                        if (!submitted) {
+                            performHaptic(hapticView, hapticOn); submitted = true; onReject()
+                            scope.launch { delay(5_000); submitted = false }
+                        }
                     },
                     Triple(stringResource(R.string.permission_allow_once), DialogButtonRole.Primary) {
-                        if (!submitted) { performHaptic(hapticView, hapticOn); submitted = true; onOnce() }
+                        if (!submitted) {
+                            performHaptic(hapticView, hapticOn); submitted = true; onOnce()
+                            scope.launch { delay(5_000); submitted = false }
+                        }
                     },
                     Triple(stringResource(R.string.permission_allow_always), DialogButtonRole.Secondary) {
-                        if (!submitted) { performHaptic(hapticView, hapticOn); submitted = true; onAlways() }
+                        if (!submitted) {
+                            performHaptic(hapticView, hapticOn); submitted = true; onAlways()
+                            scope.launch { delay(5_000); submitted = false }
+                        }
                     },
                 )
             )

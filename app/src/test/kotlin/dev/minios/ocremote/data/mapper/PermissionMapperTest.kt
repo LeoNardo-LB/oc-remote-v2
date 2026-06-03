@@ -3,6 +3,7 @@ package dev.minios.ocremote.data.mapper
 import dev.minios.ocremote.data.dto.response.PermissionRequest
 import dev.minios.ocremote.domain.model.SseEvent
 import dev.minios.ocremote.domain.model.ToolRef
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.*
@@ -18,7 +19,7 @@ class PermissionMapperTest {
             permission = "bash",
             patterns = listOf("/home"),
             metadata = mapOf("key" to JsonPrimitive("value")),
-            always = listOf("*"),
+            always = JsonArray(listOf(JsonPrimitive("*"))),
             tool = ToolRef(messageId = "m1", callId = "c1")
         )
 
@@ -62,7 +63,7 @@ class PermissionMapperTest {
         assertEquals(listOf("/home"), dto.patterns)
         assertNotNull(dto.metadata)
         assertEquals("value", dto.metadata!!["key"]!!.jsonPrimitive.content)
-        assertTrue(dto.always.isNotEmpty())
+        assertTrue(dto.always != null)
         assertEquals(ToolRef("m1", "c1"), dto.tool)
     }
 

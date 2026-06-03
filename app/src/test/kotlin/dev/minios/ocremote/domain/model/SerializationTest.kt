@@ -951,7 +951,7 @@ class SerializationTest {
             sessionId = "sess_1",
             permission = "write",
             patterns = listOf("/tmp/*"),
-            always = emptyList(),
+            always = null,
             tool = ToolRef(messageId = "msg_1", callId = "call_1")
         )
         val encoded = json.encodeToString(PermissionRequest.serializer(), req)

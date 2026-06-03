@@ -26,6 +26,8 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -176,7 +178,7 @@ class ChatViewModelPermissionTest {
         permission: String = "bash",
         patterns: List<String> = listOf("/home/user/project"),
         metadata: Map<String, JsonPrimitive>? = null,
-        always: List<String> = emptyList(),
+        always: JsonElement? = null,
         tool: ToolRef? = null
     ): PermissionRequest = PermissionRequest(
         id = id,
@@ -226,7 +228,7 @@ class ChatViewModelPermissionTest {
             permission = "bash",
             patterns = listOf("/home/user"),
             metadata = mapOf("key" to JsonPrimitive("value")),
-            always = listOf("pattern1")
+            always = JsonArray(listOf(JsonPrimitive("pattern1")))
         )
         coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(permRequest)
 
@@ -290,8 +292,8 @@ class ChatViewModelPermissionTest {
     @Test
     fun `loadPendingPermissions maps always field`() = runTest {
         coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
-            createTestPermissionRequest(id = "p-no", always = emptyList()),
-            createTestPermissionRequest(id = "p-yes", always = listOf("pattern"))
+            createTestPermissionRequest(id = "p-no", always = null),
+            createTestPermissionRequest(id = "p-yes", always = JsonArray(listOf(JsonPrimitive("pattern"))))
         )
 
         createViewModel()

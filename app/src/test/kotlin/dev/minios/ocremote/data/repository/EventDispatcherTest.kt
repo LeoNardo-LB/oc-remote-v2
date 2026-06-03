@@ -110,14 +110,15 @@ class EventDispatcherTest {
     // ============ Cross-handler: CommandExecuted resets session status ============
 
     @Test
-    fun `CommandExecuted resets session status to Idle`() = runTest {
+    fun `CommandExecuted does NOT reset session status to Idle`() = runTest {
         val session = testSession("s1")
         dispatcher.processEvent(SseEvent.SessionCreated(session), "server1")
         dispatcher.updateSessionStatus("s1", SessionStatus.Busy)
 
         dispatcher.processEvent(SseEvent.CommandExecuted(name = "bash", sessionId = "s1"), "server1")
 
-        assertEquals(SessionStatus.Idle, dispatcher.sessionStatuses.value["s1"])
+        // P0-4 fix: CommandExecuted no longer forces Idle — session.status SSE event controls state
+        assertEquals(SessionStatus.Busy, dispatcher.sessionStatuses.value["s1"])
     }
 
     // ============ Clear Operations ============
