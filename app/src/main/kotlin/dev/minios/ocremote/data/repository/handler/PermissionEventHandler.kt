@@ -30,8 +30,12 @@ class PermissionEventHandler @Inject constructor() : SseEventHandler {
     private fun handlePermissionAsked(event: SseEvent.PermissionAsked) {
         _permissions.update { current ->
             val sessionPerms = current[event.sessionId]?.toMutableList() ?: mutableListOf()
-            sessionPerms.add(event)
-            current + (event.sessionId to sessionPerms)
+            if (sessionPerms.any { it.id == event.id }) {
+                current // already exists, skip duplicate
+            } else {
+                sessionPerms.add(event)
+                current + (event.sessionId to sessionPerms)
+            }
         }
     }
 

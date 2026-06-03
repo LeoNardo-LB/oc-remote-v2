@@ -31,8 +31,12 @@ class QuestionEventHandler @Inject constructor() : SseEventHandler {
     private fun handleQuestionAsked(event: SseEvent.QuestionAsked) {
         _questions.update { current ->
             val sessionQs = current[event.sessionId]?.toMutableList() ?: mutableListOf()
-            sessionQs.add(event)
-            current + (event.sessionId to sessionQs)
+            if (sessionQs.any { it.id == event.id }) {
+                current // already exists, skip duplicate
+            } else {
+                sessionQs.add(event)
+                current + (event.sessionId to sessionQs)
+            }
         }
     }
 
