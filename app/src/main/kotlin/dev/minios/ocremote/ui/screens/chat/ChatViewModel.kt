@@ -663,10 +663,10 @@ class ChatViewModel @Inject constructor(
                 }
                 eventDispatcher.syncAllSessionStatuses(statusMap)
 
-                // Only mark current session messages as completed if truly idle
+                // Only mark current session messages as completed if truly idle (protected)
                 val currentStatus = statusMap[sessionId]
                 if (currentStatus == null || currentStatus is SessionStatus.Idle) {
-                    eventDispatcher.markSessionIdle(sessionId)
+                    eventDispatcher.markSessionIdleProtected(sessionId)
                 }
             }
         }
