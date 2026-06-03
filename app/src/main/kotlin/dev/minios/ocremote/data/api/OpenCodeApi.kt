@@ -272,6 +272,18 @@ class OpenCodeApi @Inject constructor(
     }
 
     /**
+     * Import a session from a share URL.
+     * POST /session/import
+     */
+    suspend fun importSession(conn: ServerConnection, shareUrl: String): Session {
+        return httpClient.post("${conn.baseUrl}/session/import") {
+            conn.authHeader?.let { header("Authorization", it) }
+            contentType(ContentType.Application.Json)
+            setBody(mapOf("url" to shareUrl))
+        }.body()
+    }
+
+    /**
      * Execute a server-side command in a session.
      * POST /session/{sessionId}/command
      * Body: { command: String, arguments: String, agent?, model?, variant?, parts? }
