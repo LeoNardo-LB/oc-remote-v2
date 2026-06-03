@@ -87,6 +87,7 @@ import dev.minios.ocremote.data.dto.request.PromptPart
 import dev.minios.ocremote.domain.model.Part
 import dev.minios.ocremote.ui.components.ProviderIcon
 import dev.minios.ocremote.ui.screens.chat.ChatMessage
+import dev.minios.ocremote.ui.screens.chat.RevertedDraftPayload
 import dev.minios.ocremote.ui.screens.chat.components.BreathingCircleIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import dev.minios.ocremote.ui.screens.chat.dialog.ImagePreviewDialog
@@ -314,8 +315,17 @@ internal fun ChatInputBar(
     onSlashCommand: (SlashCommand) -> Unit = {},
     inputMode: ChatInputMode = ChatInputMode.NORMAL,
     onInputModeChange: (ChatInputMode) -> Unit = {},
-    onStop: () -> Unit = {}
+    onStop: () -> Unit = {},
+    restoredDraft: RevertedDraftPayload? = null,
+    onConsumeRestoredDraft: () -> Unit = {}
 ) {
+    // Restore draft text when a send failure occurs
+    androidx.compose.runtime.LaunchedEffect(restoredDraft) {
+        restoredDraft?.let { draft ->
+            onTextFieldValueChange(TextFieldValue(draft.text, TextRange(draft.text.length)))
+            onConsumeRestoredDraft()
+        }
+    }
     val isAmoled = isAmoledTheme()
     val isShellMode = inputMode == ChatInputMode.SHELL
     // Rotate placeholder hint every 4 seconds

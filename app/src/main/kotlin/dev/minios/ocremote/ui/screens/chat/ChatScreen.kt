@@ -907,7 +907,9 @@ fun ChatScreen(
 
 
                         },
-                        onStop = { viewModel.abortSession() }
+                        onStop = { viewModel.abortSession() },
+                        restoredDraft = uiState.restoredDraft,
+                        onConsumeRestoredDraft = { viewModel.consumeRestoredDraft() }
                     )
                 }
             }
