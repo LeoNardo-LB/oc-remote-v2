@@ -61,7 +61,20 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.SearchBar
+import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Archive
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import dev.minios.ocremote.ui.components.amoledDialogParams
 import dev.minios.ocremote.ui.components.DialogButtons
 import dev.minios.ocremote.ui.components.DialogButtonRole
@@ -174,6 +187,70 @@ fun SessionListScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Search bar
+            var searchInput by rememberSaveable { mutableStateOf("") }
+            val searchJob = remember { mutableStateOf<Job?>(null) }
+
+            @Suppress("DEPRECATION")
+            SearchBar(
+                query = searchInput,
+                onQueryChange = { newQuery ->
+                    searchInput = newQuery
+                    searchJob.value?.cancel()
+                    searchJob.value = scope.launch {
+                        delay(300)
+                        viewModel.setSearchQuery(newQuery)
+                        viewModel.loadSessions()
+                    }
+                },
+                onSearch = {
+                    viewModel.setSearchQuery(searchInput)
+                    viewModel.loadSessions()
+                },
+                active = false,
+                onActiveChange = {},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                placeholder = { Text("Search sessions...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchInput.isNotEmpty()) {
+                        IconButton(onClick = {
+                            searchInput = ""
+                            viewModel.clearSearchQuery()
+                            viewModel.loadSessions()
+                        }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear search")
+                        }
+                    }
+                },
+                colors = SearchBarDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
+            ) {}
+
+            // Archive filter chip row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = viewModel.showArchived,
+                    onClick = { viewModel.toggleArchivedFilter() },
+                    label = { Text("Archived") },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Archive,
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                        )
+                    }
+                )
+            }
+
             when {
                 uiState.isLoading && uiState.treeNodes.isEmpty() -> {
                     PulsingDotsIndicator(
@@ -217,7 +294,23 @@ fun SessionListScreen(
                 }
                 else -> {
                     val untitledLabel = stringResource(R.string.session_untitled)
+                    val listState = rememberLazyListState()
+                    val shouldLoadMore by remember {
+                        derivedStateOf {
+                            val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            val totalItems = listState.layoutInfo.totalItemsCount
+                            lastVisibleIndex >= totalItems - 3 && totalItems > 0
+                        }
+                    }
+
+                    LaunchedEffect(shouldLoadMore) {
+                        if (shouldLoadMore && viewModel.hasMorePages && !viewModel.isLoadingMore) {
+                            viewModel.loadMore()
+                        }
+                    }
+
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                     ) {
@@ -263,6 +356,23 @@ fun SessionListScreen(
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(
                                             alpha = AlphaTokens.FAINT
                                         )
+                                    )
+                                }
+                            }
+                        }
+
+                        // Load more indicator at the bottom
+                        if (viewModel.isLoadingMore) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp
                                     )
                                 }
                             }
