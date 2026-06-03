@@ -596,6 +596,8 @@ fun ChatScreen(
                             .ifBlank { "session" }
                         attachmentHandler.launchExport("$slug.json")
                     },
+                    currentAgentName = uiState.currentAgentName,
+                    currentModelId = uiState.currentModelId,
                 )
             }
         },

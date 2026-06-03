@@ -92,7 +92,9 @@ data class ChatUiState(
     /** Agent name for this session (e.g. "explore", "general"). Populated for sub-agent sessions. */
     val sessionAgent: String? = null,
     /** Persisted expand/collapse state for tool cards, keyed by Part.Tool.id or Part.Patch.id. */
-    val toolExpandedStates: Map<String, Boolean> = emptyMap()
+    val toolExpandedStates: Map<String, Boolean> = emptyMap(),
+    val currentAgentName: String? = null,
+    val currentModelId: String? = null,
 )
 
 data class RevertedDraftPayload(
@@ -309,7 +311,9 @@ class ChatViewModel @Inject constructor(
         _commands,
         _hasOlderMessages,
         _isLoadingOlder,
-        _toolExpandedStates
+        _toolExpandedStates,
+        eventDispatcher.currentAgent,
+        eventDispatcher.currentModel
     ) { args ->
         @Suppress("UNCHECKED_CAST")
         val allSessions = args[0] as List<Session>
@@ -337,6 +341,10 @@ class ChatViewModel @Inject constructor(
         val isLoadingOlder = args[19] as Boolean
         @Suppress("UNCHECKED_CAST")
         val toolExpandedStates = args[20] as Map<String, Boolean>
+        @Suppress("UNCHECKED_CAST")
+        val currentAgentMap = args[21] as Map<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val currentModelMap = args[22] as Map<String, Pair<String, String>>
 
         val session = allSessions.find { it.id == sessionId }
         val sessionMessages = allMessages[sessionId] ?: emptyList()
@@ -503,6 +511,8 @@ class ChatViewModel @Inject constructor(
             queuedMessageIds = queuedMessageIds,
             sessionParentId = session?.parentId,
             sessionAgent = session?.agent,
+            currentAgentName = currentAgentMap[sessionId],
+            currentModelId = currentModelMap[sessionId]?.second,
             toolExpandedStates = toolExpandedStates
         )
     }.stateIn(
