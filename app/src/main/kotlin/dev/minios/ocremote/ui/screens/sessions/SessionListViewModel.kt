@@ -96,6 +96,9 @@ class SessionListViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     private val _lastToggledDirectory = MutableStateFlow<String?>(null)
     private val _searchQuery = MutableStateFlow<String?>(null)
+    private val _currentCursor = MutableStateFlow<String?>(null)
+    private val _hasMorePages = MutableStateFlow(true)
+    private val _isLoadingMore = MutableStateFlow(false)
 
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<SessionListUiState> = combine(
@@ -170,6 +173,7 @@ class SessionListViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
+            resetPagination()
             try {
                 val projects = api.listProjects(conn)
                 _projects.value = projects
@@ -403,6 +407,48 @@ class SessionListViewModel @Inject constructor(
 
     fun clearSearchQuery() {
         _searchQuery.value = null
+    }
+
+    val currentCursor: String? get() = _currentCursor.value
+    val hasMorePages: Boolean get() = _hasMorePages.value
+    val isLoadingMore: Boolean get() = _isLoadingMore.value
+
+    fun resetPagination() {
+        _currentCursor.value = null
+        _hasMorePages.value = true
+        _isLoadingMore.value = false
+    }
+
+    /**
+     * Load the next page of sessions using cursor-based pagination.
+     * Called by UI when user scrolls near the bottom of the session list.
+     */
+    fun loadMore() {
+        if (_isLoadingMore.value || !_hasMorePages.value) return
+        viewModelScope.launch {
+            _isLoadingMore.value = true
+            try {
+                val cursor = _currentCursor.value
+                val sessions = api.listSessions(
+                    conn,
+                    directory = _baseDirectory.value,
+                    search = _searchQuery.value,
+                    cursor = cursor,
+                    limit = 50
+                )
+                if (sessions.isNotEmpty()) {
+                    eventDispatcher.setSessions(serverId, sessions)
+                    _currentCursor.value = sessions.last().id
+                }
+                if (sessions.size < 50) {
+                    _hasMorePages.value = false
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load more sessions", e)
+            } finally {
+                _isLoadingMore.value = false
+            }
+        }
     }
 
     fun copyToClipboard(text: String, context: Context) {
