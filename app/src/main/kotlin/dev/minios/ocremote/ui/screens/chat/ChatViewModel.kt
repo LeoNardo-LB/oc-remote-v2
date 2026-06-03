@@ -1393,6 +1393,34 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /** Delete a message from the current session. */
+    fun deleteMessage(messageId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val success = manageSessionUseCase.deleteMessage(conn, sessionId, messageId)
+                if (BuildConfig.DEBUG) Log.d(TAG, "Deleted message $messageId: success=$success")
+                onResult(success)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to delete message $messageId", e)
+                onResult(false)
+            }
+        }
+    }
+
+    /** Delete a specific part from a message by index. */
+    fun deleteMessagePart(messageId: String, partIndex: Int, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val success = manageSessionUseCase.deleteMessagePart(conn, sessionId, messageId, partIndex)
+                if (BuildConfig.DEBUG) Log.d(TAG, "Deleted part $partIndex from message $messageId: success=$success")
+                onResult(success)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to delete part $partIndex from message $messageId", e)
+                onResult(false)
+            }
+        }
+    }
+
     /** Fork the current session. Returns the new session or null. */
     fun forkSession(onResult: (Session?) -> Unit) {
         viewModelScope.launch {
