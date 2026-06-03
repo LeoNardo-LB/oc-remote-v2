@@ -17,8 +17,8 @@ import androidx.compose.ui.unit.dp
  * // Primary (Filled Button)
  * Button(colors = ButtonTokens.filledColors(), border = ButtonTokens.amoledBorder())
  *
- * // Secondary (FilledTonalButton — no custom colors needed)
- * FilledTonalButton() // use Material 3 defaults
+ * // Secondary (OutlinedButton — no custom colors needed)
+ * OutlinedButton() // use Material 3 defaults
  *
  * // Danger (Filled Button with error color)
  * Button(colors = ButtonTokens.dangerColors(), border = ButtonTokens.amoledBorder())

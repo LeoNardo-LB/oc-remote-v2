@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,7 +19,7 @@ import dev.minios.ocremote.ui.theme.ButtonTokens
  * Role of a button inside a dialog.
  *
  * - [Primary]:   Main action (confirm, save, create). Filled Button with primary color.
- * - [Secondary]: Cancel / dismiss. FilledTonalButton with Material 3 default colors.
+ * - [Secondary]: Cancel / dismiss. OutlinedButton with Material 3 default colors.
  * - [Danger]:    Destructive action (delete, revert). Filled Button with error color.
  */
 enum class DialogButtonRole {
@@ -95,7 +95,7 @@ private fun DialogActionButton(
             }
         }
         DialogButtonRole.Secondary -> {
-            FilledTonalButton(
+            OutlinedButton(
                 onClick = onClick,
                 modifier = modifier,
                 contentPadding = contentPadding,
