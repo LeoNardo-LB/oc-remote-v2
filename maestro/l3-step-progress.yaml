@@ -1,0 +1,14 @@
+appId: dev.minios.ocremote.dev
+name: L3 - Step Progress Indicator
+tags:
+  - layer3
+  - manual
+---
+# Manual: Requires server connected with active multi-step session
+
+- launchApp
+- extendedWaitUntil:
+    visible: ".*"
+    timeout: 10000
+- takeScreenshot: l3_step_progress
+# Step indicator shows "Step N" during multi-step agent execution

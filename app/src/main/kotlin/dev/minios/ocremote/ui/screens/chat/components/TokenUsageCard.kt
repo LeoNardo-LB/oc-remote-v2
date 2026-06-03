@@ -24,7 +24,7 @@ import dev.minios.ocremote.ui.theme.ShapeTokens
  * Card displaying token usage statistics for the current session.
  */
 @Composable
-internal fun TokenUsageCard(
+fun TokenUsageCard(
     inputTokens: Int,
     outputTokens: Int,
     reasoningTokens: Int,

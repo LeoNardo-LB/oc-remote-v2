@@ -17,7 +17,7 @@ import dev.minios.ocremote.ui.theme.AlphaTokens
  * Displays metadata below an assistant message: model name, duration, token count.
  */
 @Composable
-internal fun MessageMetaInfo(
+fun MessageMetaInfo(
     modelName: String?,
     durationMs: Long?,
     inputTokens: Int?,

@@ -1,0 +1,14 @@
+appId: dev.minios.ocremote.dev
+name: L4 - Copy Button and Message Meta
+tags:
+  - layer4
+  - manual
+---
+# Manual: Requires server connected with assistant messages in chat
+
+- launchApp
+- extendedWaitUntil:
+    visible: ".*"
+    timeout: 10000
+- takeScreenshot: l4_chat_ui
+# CopyButton appears on assistant messages, MessageMetaInfo shows model/tokens

@@ -118,6 +118,8 @@ See `docs/chatscreen-editing-protocol.md`. Rules:
 **Windows Daemon 卡住问题：**
 Gradle Daemon 在 Windows 上间歇性不释放 stdout 管道，导致命令行工具看到 `BUILD SUCCESSFUL` 输出后永不返回。已在 `gradle.properties` 中设置 `org.gradle.daemon=false` 禁用 daemon。如遇到卡住，额外执行 `.\gradlew --stop` 清理残留 daemon。
 
+**注意：** `--no-daemon` 和 `org.gradle.daemon=false` 效果相同——都会 fork 一次性进程，构建结束自动销毁。
+
 ### Verification & Testing
 See `docs/verification-requirements.md` for the full 4-dimension verification framework.
 
@@ -129,6 +131,10 @@ Test infrastructure:
 - E2E flows: Maestro YAML in `maestro/` directory
 - `isReturnDefaultValues = true` — mocks return default values instead of throwing. This can mask bugs where mock data silently returns null/0/false
 - Each Layer requires: compile ✅ + unit tests ✅ + enhanced tests ✅ + Maestro flows (UI) + androidTest (UI)
+
+environment:
+- opencode username: opencode
+- opencode password: save as environment variables ${OPENCODE_SERVER_PASSWORD}
 
 ### Ktor Engine
 Uses **OkHttp engine** explicitly for correct SSE streaming. Do not switch to other engines.
@@ -148,7 +154,7 @@ Uses **OkHttp engine** explicitly for correct SSE streaming. Do not switch to ot
 
 ## Branches & Remotes
 
-| Remote | URL | Role |
+_| Remote | URL | Role |
 |--------|-----|------|
 | `origin` | `github.com:LeoNardo-LB/oc-remote-v2` | Fork (push access, current default) |
 | upstream | `github.com:crim50n/oc-remote` | Upstream (owner: crim50n) — add manually if needed |
@@ -160,7 +166,7 @@ Uses **OkHttp engine** explicitly for correct SSE streaming. Do not switch to ot
 
 15 locales managed via `lokit.yaml`. When editing string resources, run `lokit` to sync translations.
 
-## ProGuard
+## ProGuard_
 
 Release builds use R8 minification. Rules preserve:
 - `kotlinx.serialization` annotated classes

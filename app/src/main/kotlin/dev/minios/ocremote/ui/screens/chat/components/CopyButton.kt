@@ -16,7 +16,7 @@ import dev.minios.ocremote.ui.theme.AlphaTokens
  * Used in assistant message bubbles and tool cards.
  */
 @Composable
-internal fun CopyButton(
+fun CopyButton(
     text: String,
     modifier: Modifier = Modifier,
     contentDescription: String = "Copy"

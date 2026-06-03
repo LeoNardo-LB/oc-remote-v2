@@ -1,0 +1,14 @@
+appId: dev.minios.ocremote.dev
+name: L5 - Token Usage and Permission Settings
+tags:
+  - layer5
+  - manual
+---
+# Manual: TokenUsageCard visible in chat, PermissionRulesSection in Settings
+
+- launchApp
+- extendedWaitUntil:
+    visible: ".*"
+    timeout: 10000
+- takeScreenshot: l5_app_loaded
+# Navigate to Settings to see permission auto-approve rules section

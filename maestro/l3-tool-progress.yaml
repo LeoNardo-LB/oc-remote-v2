@@ -1,0 +1,16 @@
+appId: dev.minios.ocremote.dev
+name: L3 - Tool Progress Card
+tags:
+  - layer3
+  - manual
+---
+# Manual: Requires server connected with active tool execution
+# Setup: Connect to server → Open session → Trigger a tool call (e.g., ask agent to run bash)
+
+- launchApp
+- extendedWaitUntil:
+    visible: ".*"
+    timeout: 10000
+- takeScreenshot: l3_app_loaded
+# Navigate to session with active tool execution
+# The ToolProgressCard appears during tool execution in chat
