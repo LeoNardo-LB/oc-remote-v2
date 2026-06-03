@@ -504,6 +504,14 @@ private fun MessageCardAssistant(
                             )
                         }
                     }
+
+                    // Meta info: model · duration · tokens
+                    MessageMetaInfo(
+                        modelName = modelId,
+                        durationMs = durationMs,
+                        inputTokens = if (hasTokenStats) totalInput else null,
+                        outputTokens = if (hasTokenStats) totalOutput else null,
+                    )
                 }
 
                 // Error display
