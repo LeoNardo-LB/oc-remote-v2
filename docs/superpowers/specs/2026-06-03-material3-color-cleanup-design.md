@@ -55,7 +55,7 @@
 
 Rationale: AMOLED theme defines `surfaceContainerHighest = Color(0xFF2A2A36)`, so the resolved color is identical. The inline code bg becomes slightly darker (was `0xFF353540`, now `0xFF2A2A36`) but the difference is negligible.
 
-### 2.2 DiffHelpers.kt (2 changes)
+### 2.2 DiffHelpers.kt — `ui/screens/chat/tools/DiffHelpers.kt` (2 changes)
 
 | Line | Current | Replace With |
 |------|---------|--------------|
@@ -103,6 +103,8 @@ This works because the AMOLED theme sets:
 - `surfaceContainerLowest = Color.Black`
 - `background = Color.Black`
 
+**Note:** Only `surface`, `surfaceContainerLowest`, and `background` resolve to `Color.Black` in the AMOLED theme. Other tokens like `secondaryContainer`, `primaryContainer`, `tertiaryContainer`, `errorContainer` inherit Material 3 `darkColorScheme()` defaults (e.g., `secondaryContainer ≈ #332E41`, `errorContainer ≈ #8C1D18`). Replacing `Color.Black` with these tokens in AMOLED mode produces a subtle visual shift from pure black to Material 3's intended dark tint — this is acceptable and aligns with Material Design guidelines.
+
 ### Mapping Guide
 
 | Current AMOLED fallback | Use semantic token |
@@ -114,7 +116,7 @@ This works because the AMOLED theme sets:
 ### Affected Files
 
 **Cards/Components** (each has 1-3 instances):
-- `AmoledCard.kt`, `ServerCard.kt`, `MessageCard.kt`, `FileCard.kt`, `ReasoningBlock.kt`
+- `ServerCard.kt`, `MessageCard.kt`, `FileCard.kt`, `ReasoningBlock.kt`
 - `PermissionRequestCard.kt`, `QuestionCard.kt`, `TodoListCard.kt`, `PatchCard.kt`, `EditToolCard.kt`
 - `ErrorPayloadContent.kt`, `ProviderRow.kt`, `LocalRuntimeCard.kt`
 
@@ -143,7 +145,8 @@ This works because the AMOLED theme sets:
 **Other**:
 - `AppPickerList.kt` (selected item bg)
 - `ChatColors.kt` (tool output container)
-- `DiffHelpers.kt` (unchanged line bg)
+- Tool card callers (must update `toolOutputContainerColor()` argument): `ToolCardRenderer.kt`, `WriteToolCard.kt`, `ReadToolCard.kt`, `TaskToolCard.kt`, `SearchToolCard.kt`, `BashToolCard.kt`
+- `DiffHelpers.kt` in `ui/screens/chat/tools/` (unchanged line bg)
 - `MarkdownContent.kt` (already handled in section 2.1)
 
 ### Important Notes
@@ -168,6 +171,8 @@ These have valid reasons to keep custom colors:
 | Terminal UI colors (handle, cursor in `SessionTerminalInline.kt`) | Must match terminal theme |
 | `Color.Transparent` (8 instances) | Standard Compose constant, not a custom color |
 | AlphaTokens usages (~150 instances) | Already part of the design token system |
+| TerminalEmulator default background (2 unconditional `Color.Black`) | Terminal always has black background, not AMOLED-specific |
+| `AmoledCard.kt` (`Color.Black` in AMOLED branch) | `surfaceContainerHighest` in AMOLED is `0xFF2A2A36`, not `Color.Black`; component exists specifically for this distinction |
 
 ---
 

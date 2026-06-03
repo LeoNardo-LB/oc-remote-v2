@@ -4,9 +4,26 @@
 
 **Goal:** Eliminate all hardcoded color values and AMOLED `Color.Black` branches, replacing them with Material 3 semantic tokens.
 
-**Architecture:** Pure token replacement — no logic changes. Each `if (isAmoled) Color.Black else X` simplifies to just `X` because the AMOLED theme already defines those tokens as `Color.Black`. Buttons switch from custom overrides to Material 3 defaults.
+**Architecture:** Token replacement — simplify `if (isAmoled) Color.Black else X` to just `X`. Only `surface`/`surfaceContainerLowest`/`background` resolve to `Color.Black` in AMOLED; other tokens (secondaryContainer, primaryContainer, etc.) inherit Material 3 dark defaults. This produces a subtle shift from pure black to Material 3's intended dark tints — acceptable per user decision.
 
 **Tech Stack:** Kotlin, Jetpack Compose, Material 3
+
+---
+
+## Task Dependencies
+
+```
+Task 1 (ButtonTokens) → Task 2 (DialogButtons)   [sequential, compile fail between them]
+Task 3 (AlphaTokens)                             [independent]
+Task 4 (MarkdownContent)                         [independent]
+Task 5 (RevertBanner/TerminalKeyboard)           [independent]
+Task 6 (Chat Color.Black)                        [independent]
+Task 7 (Terminal Color.Black)                    [independent]
+Task 8 (Screens Color.Black)                     [independent]
+Task 9 (Build & Release)                         [depends on all above]
+```
+
+Tasks 3-8 have no inter-dependencies and can execute in parallel. Tasks 1-2 must execute sequentially.
 
 ---
 
@@ -301,7 +318,7 @@ const val DIFF_BG = 0.1f
 
 - [ ] **Step 2: Update DiffHelpers.kt**
 
-**File:** `app/src/main/kotlin/dev/minios/ocremote/ui/screens/chat/markdown/DiffHelpers.kt`
+**File:** `app/src/main/kotlin/dev/minios/ocremote/ui/screens/chat/tools/DiffHelpers.kt`
 
 Change line 64-65 from:
 ```kotlin
@@ -433,6 +450,12 @@ git commit -m "refactor: RevertBanner and TerminalKeyboardOverlay use Material 3
 - Modify: `EditToolCard.kt`
 - Modify: `TodoListCard.kt`
 - Modify: `PatchCard.kt`
+- Modify: `ToolCardRenderer.kt`
+- Modify: `WriteToolCard.kt`
+- Modify: `ReadToolCard.kt`
+- Modify: `TaskToolCard.kt`
+- Modify: `SearchToolCard.kt`
+- Modify: `BashToolCard.kt`
 
 All under: `app/src/main/kotlin/dev/minios/ocremote/ui/screens/chat/`
 
@@ -571,17 +594,7 @@ git commit -m "refactor: terminal components — remove Color.Black AMOLED branc
 
 - [ ] **Step 2: Switch track colors (5 files, same pattern)**
 
-All Switch track colors in AMOLED branches set `checkedTrackColor = Color.Black` and `uncheckedTrackColor = Color.Black`. Since AMOLED theme's `surface` is `Color.Black`, replace:
-
-```kotlin
-// Before (inside if (isAmoled) block)
-checkedTrackColor = Color.Black,
-uncheckedTrackColor = Color.Black,
-
-// After — remove these overrides entirely. The AMOLED branch can use
-// SwitchDefaults.colors() with only thumbColor override, or just use
-// the default SwitchDefaults.colors() for AMOLED too.
-```
+All Switch track colors in AMOLED branches set `checkedTrackColor = Color.Black` and `uncheckedTrackColor = Color.Black`. In AMOLED mode, the track becomes invisible against the black background. Removing these overrides lets the track use Material 3 default colors, which are slightly visible dark tones — an improvement.
 
 Files:
 - `LocalLaunchOptionsDialog.kt` lines 85, 88
@@ -590,39 +603,13 @@ Files:
 - `LocalServerLaunchOptionsDialog.kt` lines 98, 101
 - `ServerModelFilterScreen.kt` lines 157, 160
 
-**⚠️ Important:** For Switch in AMOLED mode, the track color being `Color.Black` makes the track invisible against the black background. Removing this override means the track will use the default AMOLED-themed `surfaceContainer` color (which is `0xFF0D0D12` — very dark but slightly visible). This is actually better than invisible. However, verify visually after the change. If the default track color looks wrong, add a specific semantic override rather than hardcoding `Color.Black`.
-
-The simplest approach: For each `if (isAmoled)` Switch block, simplify to remove the track color overrides:
+For each file, replace the entire `if (isAmoled) { ... } else { ... }` SwitchDefaults.colors() block with:
 
 ```kotlin
-// Before
-if (isAmoled) {
-    SwitchDefaults.colors(
-        checkedThumbColor = MaterialTheme.colorScheme.primary,
-        checkedTrackColor = Color.Black,
-        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-        uncheckedTrackColor = Color.Black,
-    )
-} else {
-    SwitchDefaults.colors()
-}
-
-// After — use same colors for all themes
-SwitchDefaults.colors(
-    checkedThumbColor = MaterialTheme.colorScheme.primary,
-)
-```
-
-Actually, `checkedThumbColor = primary` is already the default. So just use `SwitchDefaults.colors()` unconditionally:
-
-```kotlin
-// After — remove entire if/else
 SwitchDefaults.colors()
 ```
 
-Wait — this would lose the `checkedThumbColor = primary` override in AMOLED. But `primary` is already the default checked thumb color in Material 3. So just removing the entire `if (isAmoled)` block and using `SwitchDefaults.colors()` should work for all themes.
-
-**Read each file first** to verify the exact context before simplifying.
+This works because `checkedThumbColor = primary` is already the Material 3 default. Read each file first to verify the exact context.
 
 - [ ] **Step 3: AppPickerList.kt line 63**
 
