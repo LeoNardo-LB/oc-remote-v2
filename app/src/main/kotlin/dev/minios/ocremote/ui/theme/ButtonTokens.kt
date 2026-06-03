@@ -20,8 +20,8 @@ import androidx.compose.ui.unit.dp
  * // Secondary (FilledTonalButton — no custom colors needed)
  * FilledTonalButton() // use Material 3 defaults
  *
- * // Danger (FilledTonalButton with error tonal)
- * FilledTonalButton(colors = ButtonTokens.dangerColors(), border = ButtonTokens.amoledBorder())
+ * // Danger (Filled Button with error color)
+ * Button(colors = ButtonTokens.dangerColors(), border = ButtonTokens.amoledBorder())
  * ```
  */
 object ButtonTokens {
@@ -58,26 +58,26 @@ object ButtonTokens {
         }
     }
 
-    // ── Danger FilledTonalButton Colors ───────────────────────────────
+    // ── Danger Filled Button Colors ───────────────────────────────────
 
     /**
-     * Colors for danger [FilledTonalButton] (delete / destructive).
+     * Colors for danger [Button] (delete / destructive).
      *
-     * - **Light / Dark**: `errorContainer` / `onErrorContainer` (Material 3 tonal error).
+     * - **Light / Dark**: `error` / `onError` (Material 3 error).
      * - **AMOLED**: Black container + error content.
      */
     @Composable
     fun dangerColors(): ButtonColors {
         val isAmoled = LocalAmoledMode.current
         return if (isAmoled) {
-            ButtonDefaults.filledTonalButtonColors(
+            ButtonDefaults.buttonColors(
                 containerColor = Color.Black,
                 contentColor = MaterialTheme.colorScheme.error,
             )
         } else {
-            ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer,
-                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
             )
         }
     }

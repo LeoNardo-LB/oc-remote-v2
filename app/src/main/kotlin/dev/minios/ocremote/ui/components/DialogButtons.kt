@@ -20,7 +20,7 @@ import dev.minios.ocremote.ui.theme.ButtonTokens
  *
  * - [Primary]:   Main action (confirm, save, create). Filled Button with primary color.
  * - [Secondary]: Cancel / dismiss. FilledTonalButton with Material 3 default colors.
- * - [Danger]:    Destructive action (delete, revert). FilledTonalButton with errorContainer color.
+ * - [Danger]:    Destructive action (delete, revert). Filled Button with error color.
  */
 enum class DialogButtonRole {
     Primary,
@@ -104,7 +104,7 @@ private fun DialogActionButton(
             }
         }
         DialogButtonRole.Danger -> {
-            FilledTonalButton(
+            Button(
                 onClick = onClick,
                 modifier = modifier,
                 colors = ButtonTokens.dangerColors(),
