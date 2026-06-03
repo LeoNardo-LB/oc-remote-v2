@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,7 +31,6 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -52,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.Part
 import dev.minios.ocremote.ui.components.ConfirmDialog
+import dev.minios.ocremote.ui.components.DialogButtonRole
+import dev.minios.ocremote.ui.components.DialogButtons
 import dev.minios.ocremote.ui.screens.chat.ChatMessage
 import dev.minios.ocremote.ui.screens.chat.ChatUiState
 import dev.minios.ocremote.ui.screens.chat.ChatViewModel
@@ -396,14 +396,12 @@ private fun PermissionBatchActionBar(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onRejectAll) {
-                    Text("全部拒绝")
-                }
-                FilledTonalButton(onClick = onAllowAll) {
-                    Text("全部允许")
-                }
-            }
+            DialogButtons(
+                buttons = listOf(
+                    Triple("全部拒绝", DialogButtonRole.Danger) { onRejectAll() },
+                    Triple("全部允许", DialogButtonRole.Primary) { onAllowAll() },
+                )
+            )
         }
     }
 }
@@ -434,9 +432,11 @@ private fun QuestionBatchActionBar(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onTertiaryContainer,
             )
-            TextButton(onClick = onSkipAll) {
-                Text("全部跳过")
-            }
+            DialogButtons(
+                buttons = listOf(
+                    Triple("全部跳过", DialogButtonRole.Secondary) { onSkipAll() },
+                )
+            )
         }
     }
 }

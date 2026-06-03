@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,7 +19,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -31,7 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -50,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.SseEvent
 import dev.minios.ocremote.ui.components.AmoledCard
+import dev.minios.ocremote.ui.components.DialogButtonRole
+import dev.minios.ocremote.ui.components.DialogButtons
 import dev.minios.ocremote.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.performHaptic
@@ -385,34 +384,22 @@ internal fun QuestionCard(
             }
 
             // Bottom actions
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
-            ) {
-                TextButton(
-                    onClick = {
-                        performHaptic(hapticView, hapticOn)
-                        submitted = true
-                        onReject()
-                    },
-                    enabled = !submitted
-                ) {
-                    Text(stringResource(R.string.chat_dismiss), style = MaterialTheme.typography.labelMedium)
-                }
-                if (!isSingle) {
-                    FilledTonalButton(
-                        onClick = {
-                            performHaptic(hapticView, hapticOn)
-                            submitted = true
-                            onSubmit(answersPerQuestion.map { it.toList() })
-                        },
-                        enabled = answersPerQuestion.any { it.isNotEmpty() } && !submitted,
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
-                    ) {
-                        Text(stringResource(R.string.question_submit), style = MaterialTheme.typography.labelMedium)
+            DialogButtons(
+                buttons = buildList {
+                    add(Triple(stringResource(R.string.chat_dismiss), DialogButtonRole.Secondary) {
+                        if (!submitted) { performHaptic(hapticView, hapticOn); submitted = true; onReject() }
+                    })
+                    if (!isSingle) {
+                        add(Triple(stringResource(R.string.question_submit), DialogButtonRole.Primary) {
+                            if (!submitted && answersPerQuestion.any { it.isNotEmpty() }) {
+                                performHaptic(hapticView, hapticOn)
+                                submitted = true
+                                onSubmit(answersPerQuestion.map { it.toList() })
+                            }
+                        })
                     }
                 }
-            }
+            )
         }
     }
 }

@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -36,6 +35,8 @@ import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.performHaptic
 import dev.minios.ocremote.ui.theme.CodeTypography
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.components.DialogButtonRole
+import dev.minios.ocremote.ui.components.DialogButtons
 import dev.minios.ocremote.ui.theme.AlphaTokens
 
 @Composable
@@ -120,47 +121,19 @@ internal fun PermissionCard(
                 )
             }
             // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilledTonalButton(
-                    onClick = {
-                        if (submitted) return@FilledTonalButton
-                        performHaptic(hapticView, hapticOn)
-                        submitted = true
-                        onReject()
+            DialogButtons(
+                buttons = listOf(
+                    Triple(stringResource(R.string.permission_deny), DialogButtonRole.Danger) {
+                        if (!submitted) { performHaptic(hapticView, hapticOn); submitted = true; onReject() }
                     },
-                    modifier = Modifier.weight(1f),
-                    enabled = !submitted
-                ) {
-                    Text(stringResource(R.string.permission_deny), maxLines = 1)
-                }
-                FilledTonalButton(
-                    onClick = {
-                        if (submitted) return@FilledTonalButton
-                        performHaptic(hapticView, hapticOn)
-                        submitted = true
-                        onOnce()
+                    Triple(stringResource(R.string.permission_allow_once), DialogButtonRole.Primary) {
+                        if (!submitted) { performHaptic(hapticView, hapticOn); submitted = true; onOnce() }
                     },
-                    modifier = Modifier.weight(1f),
-                    enabled = !submitted
-                ) {
-                    Text(stringResource(R.string.permission_allow_once), maxLines = 1)
-                }
-                FilledTonalButton(
-                    onClick = {
-                        if (submitted) return@FilledTonalButton
-                        performHaptic(hapticView, hapticOn)
-                        submitted = true
-                        onAlways()
+                    Triple(stringResource(R.string.permission_allow_always), DialogButtonRole.Secondary) {
+                        if (!submitted) { performHaptic(hapticView, hapticOn); submitted = true; onAlways() }
                     },
-                    modifier = Modifier.weight(1f),
-                    enabled = !submitted
-                ) {
-                    Text(stringResource(R.string.permission_allow_always), maxLines = 1)
-                }
-            }
+                )
+            )
         }
     }
 }
