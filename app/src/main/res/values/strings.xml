@@ -478,6 +478,9 @@
     <string name="retry">Retry</string>
     <string name="delete">Delete</string>
     <string name="close">Close</string>
+    <string name="chat_context_usage">Context: %1$d%%</string>
+    <string name="chat_system_prompt_title">System Prompt</string>
+    <string name="chat_system_prompt_empty">No system prompt configured for this session.</string>
     <string name="back">Back</string>
     <string name="more_options">More options</string>
     <string name="open">Open</string>
