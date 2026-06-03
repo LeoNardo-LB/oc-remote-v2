@@ -12,7 +12,7 @@ data class PermissionRequest(
     val permission: String,
     val patterns: List<String> = emptyList(),
     val metadata: Map<String, JsonElement>? = null,
-    val always: List<String> = emptyList(),
+    val always: JsonElement? = null,
     val tool: ToolRef? = null
 )
 

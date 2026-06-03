@@ -150,6 +150,11 @@ class SseConnectionManager @Inject constructor(
                 // Pre-load sessions via REST API for all projects
                 preLoadSessions(server, conn)
 
+                // On reconnect (not first connection), recover messages missed during disconnection
+                if (attempt > 1) {
+                    recoverMessages(server, conn)
+                }
+
                 try {
                     sseClient.connectToGlobalEvents(conn)
                         .catch { error ->
@@ -213,6 +218,30 @@ class SseConnectionManager @Inject constructor(
         } catch (e: Exception) {
             Log.w(TAG, "[${server.displayName}] Failed to pre-load sessions: ${e.message}")
         }
+    }
+
+    /**
+     * Recover messages for all active sessions of a server after SSE reconnection.
+     * Uses mergeMessages to fill gaps from missed SSE events without overwriting
+     * existing local state. Also marks sessions idle to fix stuck streaming states.
+     */
+    private suspend fun recoverMessages(server: ServerConfig, conn: ServerConnection) {
+        val sessionIds = eventDispatcher.serverSessions.value[server.id] ?: return
+        if (sessionIds.isEmpty()) return
+
+        Log.i(TAG, "[${server.displayName}] Recovering messages for ${sessionIds.size} sessions")
+        var recoveredCount = 0
+        for (sessionId in sessionIds) {
+            try {
+                val messages = api.listMessages(conn, sessionId)
+                eventDispatcher.mergeMessages(sessionId, messages)
+                eventDispatcher.markSessionIdle(sessionId)
+                recoveredCount++
+            } catch (e: Exception) {
+                Log.w(TAG, "[${server.displayName}] Failed to recover messages for session $sessionId: ${e.message}")
+            }
+        }
+        Log.i(TAG, "[${server.displayName}] Recovered messages for $recoveredCount/${sessionIds.size} sessions")
     }
 
     private fun updateServerConnected(serverId: String, connected: Boolean) {
