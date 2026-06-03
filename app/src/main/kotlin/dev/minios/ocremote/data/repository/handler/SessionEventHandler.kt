@@ -142,6 +142,17 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         if (BuildConfig.DEBUG) Log.d(TAG, "Manually updated session $sessionId status to $status")
     }
 
+    /**
+     * Batch-update session statuses from REST data.
+     * Used when fetchSessionStatus returns all session states at once.
+     */
+    fun updateAllSessionStatuses(statuses: Map<String, SessionStatus>) {
+        _sessionStatuses.update { current ->
+            current + statuses
+        }
+        if (BuildConfig.DEBUG) Log.d(TAG, "Batch updated ${statuses.size} session statuses")
+    }
+
     fun clearForServer(serverId: String) {
         val sessionIds = _serverSessions.value[serverId] ?: emptySet()
         if (sessionIds.isEmpty()) {
