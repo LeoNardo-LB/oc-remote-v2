@@ -17,6 +17,7 @@ import dev.minios.ocremote.data.api.OpenCodeApi
 import dev.minios.ocremote.data.dto.request.PromptPart
 import dev.minios.ocremote.data.dto.response.ProviderInfo
 import dev.minios.ocremote.data.api.ServerConnection
+import dev.minios.ocremote.data.mapper.PermissionMapper
 import dev.minios.ocremote.data.repository.Draft
 import dev.minios.ocremote.data.repository.DraftRepository
 import dev.minios.ocremote.data.repository.EventDispatcher
@@ -631,13 +632,21 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val result = api.fetchSessionStatus(conn)
             result.onSuccess { statuses ->
-                val statusInfo = statuses[sessionId]
-                if (statusInfo != null && statusInfo.type == "idle") {
-                    _isLoading.value = false
-                    eventDispatcher.markSessionIdle(sessionId)
+                val statusInfo = statuses[sessionId] ?: return@onSuccess
+                _isLoading.value = false
+                when (statusInfo.type) {
+                    "idle" -> eventDispatcher.markSessionIdle(sessionId)
+                    "busy" -> eventDispatcher.updateSessionStatus(sessionId, SessionStatus.Busy)
+                    "retry" -> eventDispatcher.updateSessionStatus(
+                        sessionId,
+                        SessionStatus.Retry(
+                            attempt = statusInfo.attempt ?: 0,
+                            message = statusInfo.message ?: "",
+                            next = statusInfo.next ?: 0L
+                        )
+                    )
                 }
             }
-            // On failure: silently keep current UI state, rely on future SSE events
         }
     }
 
@@ -719,8 +728,6 @@ class ChatViewModel @Inject constructor(
                 } else {
                     if (BuildConfig.DEBUG) Log.d(TAG, "All ${sessionQuestions.size} REST questions already present via SSE for session $sessionId")
                 }
-            } else {
-                if (BuildConfig.DEBUG) Log.d(TAG, "No pending questions for session $sessionId")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load pending questions: ${e.javaClass.simpleName}: ${e.message}", e)
@@ -755,7 +762,7 @@ class ChatViewModel @Inject constructor(
                                 else -> v.toString()
                             }
                         },
-                        always = req.always.isNotEmpty(), // List<String> → Boolean: non-empty means "always"
+                        always = PermissionMapper.parseAlways(req.always),
                         tool = req.tool,
                         sourceSessionTitle = if (isChild) {
                             eventDispatcher.sessions.value.find { it.id == req.sessionId }?.title
@@ -763,18 +770,20 @@ class ChatViewModel @Inject constructor(
                     )
                 }
             if (sessionPermissions.isNotEmpty()) {
-                // 合并 SSE 已有的权限 + REST 恢复的权限（去重），防止覆盖 SSE 新推送的权限
-                val existingSsePerms = eventDispatcher.permissions.value[sessionId] ?: emptyList()
-                val existingIds = existingSsePerms.map { it.id }.toSet()
-                val newPerms = sessionPermissions.filter { it.id !in existingIds }
-                if (newPerms.isNotEmpty()) {
-                    eventDispatcher.setPermissions(sessionId, existingSsePerms + newPerms)
-                    if (BuildConfig.DEBUG) Log.d(TAG, "Merged ${newPerms.size} new + ${existingSsePerms.size} existing permissions for session $sessionId")
-                } else {
-                    if (BuildConfig.DEBUG) Log.d(TAG, "All ${sessionPermissions.size} REST permissions already present via SSE for session $sessionId")
+                // Group permissions by their target sessionId to match SSE storage pattern
+                // SSE stores child session permissions under childSessionId, REST should do the same
+                val permissionsByTarget = sessionPermissions.groupBy { it.sessionId }
+                for ((targetSessionId, perms) in permissionsByTarget) {
+                    val existingSsePerms = eventDispatcher.permissions.value[targetSessionId] ?: emptyList()
+                    val existingIds = existingSsePerms.map { it.id }.toSet()
+                    val newPerms = perms.filter { it.id !in existingIds }
+                    if (newPerms.isNotEmpty()) {
+                        eventDispatcher.setPermissions(targetSessionId, existingSsePerms + newPerms)
+                        if (BuildConfig.DEBUG) Log.d(TAG, "Merged ${newPerms.size} new + ${existingSsePerms.size} existing permissions for session $targetSessionId")
+                    } else {
+                        if (BuildConfig.DEBUG) Log.d(TAG, "All ${perms.size} REST permissions already present via SSE for session $targetSessionId")
+                    }
                 }
-            } else {
-                if (BuildConfig.DEBUG) Log.d(TAG, "No pending permissions for session $sessionId")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load pending permissions: ${e.javaClass.simpleName}: ${e.message}", e)
