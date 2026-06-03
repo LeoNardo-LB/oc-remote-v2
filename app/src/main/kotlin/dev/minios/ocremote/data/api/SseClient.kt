@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.*
+import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -80,7 +81,7 @@ class SseClient @Inject constructor(
         val statement = httpClient.prepareGet(sseUrl) {
             conn.authHeader?.let { header("Authorization", it) }
             header("Accept", "text/event-stream")
-            directory?.let { header("x-opencode-directory", it) }
+            directory?.let { header("x-opencode-directory", URLEncoder.encode(it, "UTF-8")) }
 
             timeout {
                 requestTimeoutMillis = Long.MAX_VALUE
@@ -172,7 +173,7 @@ class SseClient @Inject constructor(
         val statement = httpClient.prepareGet(sseUrl) {
             conn.authHeader?.let { header("Authorization", it) }
             header("Accept", "text/event-stream")
-            directory?.let { header("x-opencode-directory", it) }
+            directory?.let { header("x-opencode-directory", URLEncoder.encode(it, "UTF-8")) }
 
             timeout {
                 requestTimeoutMillis = Long.MAX_VALUE
