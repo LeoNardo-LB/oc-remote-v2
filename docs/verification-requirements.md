@@ -67,6 +67,48 @@ maestro test maestro/l{n}-{feature}.yaml
 
 **约束：** 无模拟器时至少生成 flow 文件，标注待验证。
 
+### 维度 2b: 模拟器实机调用 + 截屏验证（铁律）
+
+> **本维度是整个验证体系中最重要的环节。没有通过本维度的验证，任何 Layer 的完成声明无效。**
+
+**适用范围：** 任何涉及 UI 变更或与 UI 有关联的能力（包括但不限于：新增/修改 Composable、ViewModel 状态变更影响 UI、事件处理导致 UI 更新、Repository 状态影响 UI 展示）。
+
+**前置条件：**
+- Android 模拟器运行中（`adb devices` 可见 `emulator-XXXX device`）
+- App 已安装到模拟器（`.\gradlew :app:installDevDebug`）
+- Maestro CLI 已安装（`maestro --version`）
+
+**验证步骤：**
+
+| 步骤 | 命令 | 超时 | 通过标准 |
+|------|------|------|----------|
+| 1. 安装 App | `.\gradlew :app:installDevDebug` | 300s | `Installed on 1 device` |
+| 2. 运行 Maestro flow | `maestro test maestro/l{n}-{feature}.yaml` | 120s/flow | 所有步骤 COMPLETED |
+| 3. 运行 androidTest | `.\gradlew :app:connectedDevDebugAndroidTest` | 300s | `Finished N tests`, BUILD SUCCESSFUL |
+| 4. 截屏确认 | 检查 Maestro 输出中的 `takeScreenshot` 步骤 | — | COMPLETED |
+
+**Maestro flow 实机运行要求：**
+- 每个 Layer 中涉及 UI 的功能，其 Maestro flow **必须在模拟器上实际运行并全部通过**
+- `manual: true` 标记的 flow（需要外部依赖如服务器连接）记录在 `maestro/README.md` 中，标注为 "需手动环境验证"
+- Flow 中的 `takeScreenshot` 步骤必须全部 COMPLETED（截图成功生成）
+- Flow 中的 `assertVisible` 断言必须全部通过
+
+**androidTest 实机运行要求：**
+- 所有 `androidTest` 文件中的测试**必须在模拟器上实际执行**
+- 通过 `connectedDevDebugAndroidTest` 运行，不允许仅编译检查
+- 0 failures, BUILD SUCCESSFUL
+
+**禁止的替代行为：**
+- ❌ 仅 `compileDevDebugAndroidTestKotlin`（编译通过不等于运行通过）
+- ❌ 仅创建 Maestro YAML 文件而不实际运行
+- ❌ "上次运行是通过的"（必须当前消息中执行）
+- ❌ 跳过模拟器测试直接声称 UI 功能完成
+
+**特殊情况处理：**
+- 无模拟器可用时：在 Layer 完成报告中明确标注 "⚠️ 未进行实机验证"，列出需要补测的 items
+- Maestro flow 需要外部依赖（如服务器）：标注 `manual` 并记录在 README 中
+- androidTest 因环境问题失败：记录失败原因，作为 known issue 跟踪
+
 ### 维度 3: 代码分支日志输出验证 (Log Branch Verification)
 
 通过 instrumented test 验证关键代码路径的日志输出。
@@ -158,7 +200,9 @@ Task 开始
 - [ ] **V2**: `testDevDebugUnitTest --rerun` 全部通过，0 failures（当前消息中执行）
 - [ ] **V3**: 新增代码有对应的增强单元测试（边界/异常/并发）
 - [ ] **V4**: 涉及 UI 的变更有 Maestro flow 文件
+- [ ] **V4b**: Maestro flow **在模拟器上实际运行并全部通过**（维度 2b 铁律）
 - [ ] **V5**: 涉及 UI 的变更有 androidTest 文件
+- [ ] **V5b**: `connectedDevDebugAndroidTest` **在模拟器上实际执行通过**（维度 2b 铁律）
 - [ ] **V6**: `compileDevDebugAndroidTestKotlin` 编译通过
 - [ ] **V7**: 关键业务路径有 Log 输出
 - [ ] **V8**: git diff 审查——无预期外的文件改动
