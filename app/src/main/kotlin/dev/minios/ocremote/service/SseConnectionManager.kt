@@ -271,10 +271,10 @@ class SseConnectionManager @Inject constructor(
                 }
                 eventDispatcher.syncAllSessionStatuses(statusMap)
 
-                // Only mark truly idle sessions with message completion fix
+                // Only mark truly idle sessions with message completion fix (protected)
                 for ((sessionId, status) in statusMap) {
                     if (status is SessionStatus.Idle) {
-                        eventDispatcher.markSessionIdle(sessionId)
+                        eventDispatcher.markSessionIdleProtected(sessionId)
                     }
                 }
                 Log.i(TAG, "Synced statuses for ${statusMap.size} sessions from REST")
