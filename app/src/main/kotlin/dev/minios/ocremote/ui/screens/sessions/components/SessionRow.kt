@@ -250,8 +250,8 @@ private fun SessionDetailsDialog(
                 Spacer(Modifier.height(16.dp))
                 DialogButtons(
                     buttons = listOf(
-                        Triple(stringResource(R.string.menu_copy_session_id), DialogButtonRole.Secondary, onCopyId),
-                        Triple(stringResource(R.string.session_rename), DialogButtonRole.Secondary) { onDismiss(); onRename() },
+                        Triple(stringResource(R.string.menu_copy_session_id), DialogButtonRole.Primary, onCopyId),
+                        Triple(stringResource(R.string.session_rename), DialogButtonRole.Primary) { onDismiss(); onRename() },
                         Triple(stringResource(R.string.session_delete), DialogButtonRole.Danger) { onDismiss(); onDelete() },
                     )
                 )

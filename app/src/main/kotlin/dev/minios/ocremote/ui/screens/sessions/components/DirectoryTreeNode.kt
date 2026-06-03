@@ -169,7 +169,7 @@ private fun DirectoryDetailsDialog(
                 Spacer(Modifier.height(16.dp))
                 DialogButtons(
                     buttons = listOf(
-                        Triple(stringResource(R.string.session_copy_path), DialogButtonRole.Secondary, onCopyPath),
+                        Triple(stringResource(R.string.session_copy_path), DialogButtonRole.Primary, onCopyPath),
                     )
                 )
             }

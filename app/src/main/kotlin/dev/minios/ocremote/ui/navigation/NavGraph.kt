@@ -364,9 +364,7 @@ fun NavGraph(
             route = ChatNav.routePattern,
             arguments = ChatNav.navArguments
         ) { entry ->
-            Log.d("P0-1-DEBUG", "NavGraph Chat composable: ENTER, entry.route=${entry.destination?.route}")
             val params = ChatNav.fromEntry(entry)
-            Log.d("P0-1-DEBUG", "NavGraph Chat composable: params parsed — sessionId='${params.sessionId}', serverId='${params.server.serverId}', serverUrl='${params.server.serverUrl}', serverName='${params.server.serverName}', openTerminal=${params.openTerminal}")
 
             // Only pass shared images to the targeted session, then clear them
             val imagesForThisSession = if (pendingShareSessionId == params.sessionId && pendingShareUris.isNotEmpty()) {
@@ -375,7 +373,6 @@ fun NavGraph(
                 emptyList()
             }
 
-            Log.d("P0-1-DEBUG", "NavGraph Chat composable: BEFORE ChatScreen composable (will create ChatViewModel via hiltViewModel)")
             ChatScreen(
                 onNavigateBack = {
                     navController.popBackStack()
@@ -431,7 +428,6 @@ fun NavGraph(
                 },
                 startInTerminalMode = params.openTerminal
             )
-            Log.d("P0-1-DEBUG", "NavGraph Chat composable: AFTER ChatScreen composable returned")
         }
     }
 }

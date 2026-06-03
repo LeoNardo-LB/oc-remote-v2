@@ -12,6 +12,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private const val TAG = "CrashLogger"
+private const val CRASH_DIR = "oc_remote_crash"
+private const val MAX_LOG_FILES = 10
+
 /**
  * OC Remote Application
  * Entry point for Hilt dependency injection
@@ -22,16 +26,17 @@ class OpenCodeApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Crash log path: /Download/oc_remote_crash.txt
-        val crashLogFile = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "oc_remote_crash.txt")
+        val crashDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), CRASH_DIR)
 
         // ---- Global uncaught exception handler ----
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
-                crashLogFile.parentFile?.mkdirs()
-                crashLogFile.writeText(buildString {
-                    append("App: OC Remote dev debug\n")
+                crashDir.mkdirs()
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val logFile = File(crashDir, "crash_${timestamp}.txt")
+                logFile.writeText(buildString {
+                    append("App: ${packageName} (${BuildConfig.VERSION_NAME})\n")
                     append("Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})\n")
                     append("Device: ${Build.MANUFACTURER} ${Build.MODEL}\n")
                     append("Time: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date())}\n")
@@ -52,20 +57,24 @@ class OpenCodeApp : Application() {
                         depth++
                     }
                 })
-            } catch (_: Exception) {}
+
+                // Prune old logs, keep only the newest MAX_LOG_FILES
+                crashDir.listFiles()
+                    ?.filter { it.name.startsWith("crash_") && it.name.endsWith(".txt") }
+                    ?.sortedByDescending { it.name }
+                    ?.drop(MAX_LOG_FILES)
+                    ?.forEach { it.delete() }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to write crash log", e)
+            }
             defaultHandler?.uncaughtException(thread, throwable)
         }
 
-        // ---- Notify user on next launch ----
-        if (crashLogFile.exists()) {
-            try {
-                val crashLog = crashLogFile.readText()
-                Log.e("P0-1-CRASH", "Previous crash found:\n$crashLog")
-                Toast.makeText(this, "崩溃日志已保存到 Download/oc_remote_crash.txt", Toast.LENGTH_LONG).show()
-                crashLogFile.renameTo(File(crashLogFile.parent, "oc_remote_crash_read.txt"))
-            } catch (e: Exception) {
-                Log.e("P0-1-CRASH", "Failed to read crash log", e)
-            }
+        // ---- Notify user on next launch if crash logs exist ----
+        val hasUnreadCrash = crashDir.listFiles()
+            ?.any { it.name.startsWith("crash_") && it.name.endsWith(".txt") } == true
+        if (hasUnreadCrash) {
+            Toast.makeText(this, "崩溃日志在 Download/$CRASH_DIR/", Toast.LENGTH_LONG).show()
         }
     }
 }

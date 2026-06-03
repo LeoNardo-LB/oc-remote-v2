@@ -243,20 +243,12 @@ class SessionListViewModel @Inject constructor(
     }
 
     fun createNewSession(directory: String? = null) {
-        Log.d("P0-1-DEBUG", "createNewSession: ENTER directory=$directory")
         viewModelScope.launch {
             try {
-                Log.d("P0-1-DEBUG", "createNewSession: BEFORE API call")
                 val session = manageSessionUseCase.createSession(conn, directory = directory)
-                Log.d("P0-1-DEBUG", "createNewSession: AFTER API call, session=${session.id}, title='${session.title}', dir='${session.directory}'")
-                Log.d("P0-1-DEBUG", "createNewSession: BEFORE eventDispatcher.setSessions serverId=$serverId")
                 eventDispatcher.setSessions(serverId, listOf(session))
-                Log.d("P0-1-DEBUG", "createNewSession: AFTER eventDispatcher.setSessions")
-                Log.d("P0-1-DEBUG", "createNewSession: BEFORE navigateToSession.tryEmit sessionId=${session.id}")
                 _navigateToSession.tryEmit(session.id)
-                Log.d("P0-1-DEBUG", "createNewSession: AFTER navigateToSession.tryEmit, DONE")
             } catch (e: Exception) {
-                Log.e("P0-1-DEBUG", "createNewSession: EXCEPTION", e)
                 _error.value = e.message ?: "Failed to create session"
             }
         }
