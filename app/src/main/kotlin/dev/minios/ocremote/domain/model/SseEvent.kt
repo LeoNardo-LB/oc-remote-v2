@@ -235,6 +235,10 @@ sealed class SseEvent {
 
     @Serializable
     data class WorktreeFailed(val path: String, val error: String? = null) : SseEvent()
+
+    // Session Next events — fine-grained real-time status
+    @Serializable
+    data class SessionNext(val event: SessionNextEvent) : SseEvent()
 }
 
 /**

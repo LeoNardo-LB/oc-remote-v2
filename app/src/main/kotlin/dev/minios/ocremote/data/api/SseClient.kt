@@ -565,7 +565,10 @@ class SseClient @Inject constructor(
                     )
                 }
 
-                else -> {
+                else -> if (type.startsWith("session.next.")) {
+                    val nextEvent = parseSessionNextEvent(type, props)
+                    SseEvent.SessionNext(nextEvent)
+                } else {
                     if (BuildConfig.DEBUG) Log.d(TAG, "Unhandled event: $type")
                     null
                 }
@@ -573,6 +576,30 @@ class SseClient @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse $type: ${e.message}", e)
             null
+        }
+    }
+
+    // ============ Session Next Event Parsing ============
+
+    /**
+     * Parse a session.next.* event from type string and properties.
+     * Called when the SSE event type starts with "session.next.".
+     * Uses kotlinx.serialization Json to decode into the appropriate SessionNextEvent variant.
+     */
+    fun parseSessionNextEvent(type: String, props: JsonObject): SessionNextEvent {
+        return try {
+            // Inject the type into props so the discriminator can select the correct variant
+            val propsWithType = JsonObject(props + ("type" to JsonPrimitive(type)))
+            val result = json.decodeFromString<SessionNextEvent>(propsWithType.toString())
+            // Serializer routes unknown types to Unknown but doesn't populate rawType from "type"
+            if (result is SessionNextEvent.Unknown && result.rawType.isEmpty()) {
+                result.copy(rawType = type, rawJson = props.toString())
+            } else {
+                result
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse session.next event: $type — ${e.message}")
+            SessionNextEvent.Unknown(rawType = type, rawJson = props.toString())
         }
     }
 
