@@ -262,6 +262,13 @@
     <string name="chat_default_variant">Default</string>
     <string name="chat_type_answer">Type your answer…</string>
     <string name="chat_image">Image</string>
+    <string name="chat_token_usage_total">%,d tokens</string>
+    <string name="chat_token_context_usage">%,d / %,d context</string>
+    <string name="chat_token_input">Input</string>
+    <string name="chat_token_output">Output</string>
+    <string name="chat_token_reasoning">Reasoning</string>
+    <string name="chat_token_cache_read">Cache read</string>
+    <string name="chat_token_cache_write">Cache write</string>
     
     <!-- Slash Commands -->
     <string name="cmd_new">Create a new session</string>
@@ -330,6 +337,15 @@
     <string name="settings_auto_approve_rules">Auto-approve rules</string>
     <string name="settings_no_auto_approve_rules">No saved auto-approve rules</string>
     <string name="settings_delete_rule">Delete rule</string>
+    
+    <!-- Token Usage -->
+    <string name="chat_token_usage_total">%,d tokens</string>
+    <string name="chat_token_context_usage">%,d / %,d context</string>
+    <string name="chat_token_input">Input</string>
+    <string name="chat_token_output">Output</string>
+    <string name="chat_token_reasoning">Reasoning</string>
+    <string name="chat_token_cache_read">Cache read</string>
+    <string name="chat_token_cache_write">Cache write</string>
     
     <!-- Questions -->
     <string name="question_submit">Submit</string>
