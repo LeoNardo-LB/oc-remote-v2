@@ -122,7 +122,7 @@ data class ChatMessage(
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val eventDispatcher: EventDispatcher,
+    val eventDispatcher: EventDispatcher,
     private val sendMessageUseCase: SendMessageUseCase,
     private val manageSessionUseCase: ManageSessionUseCase,
     private val managePermissionUseCase: ManagePermissionUseCase,

@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,9 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
+import dev.minios.ocremote.data.repository.handler.CompactionStateInfo
+import dev.minios.ocremote.data.repository.handler.StepProgressInfo
+import dev.minios.ocremote.data.repository.handler.ToolProgressInfo
 import dev.minios.ocremote.domain.model.Part
 import dev.minios.ocremote.ui.components.ConfirmDialog
 import dev.minios.ocremote.ui.components.DialogButtonRole
@@ -92,6 +96,15 @@ fun ChatMessageList(
     modifier: Modifier = Modifier,
 ) {
     val turnGroups = computeTurnGroups(rawMessages)
+
+    // Real-time status from EventDispatcher
+    val toolProgress by viewModel.eventDispatcher.activeToolProgress.collectAsState()
+    val stepProgress by viewModel.eventDispatcher.stepProgress.collectAsState()
+    val compactionState by viewModel.eventDispatcher.compactionState.collectAsState()
+    val currentSessionId = viewModel.sessionId
+    val activeTools = toolProgress[currentSessionId].orEmpty()
+    val currentStep = stepProgress[currentSessionId]
+    val currentCompaction = compactionState[currentSessionId]
 
     Column(modifier = modifier.fillMaxSize()) {
         Box(
@@ -198,6 +211,30 @@ fun ChatMessageList(
                                     }
                                 }
                             })
+                        }
+                    }
+
+                    // Compaction banner
+                    if (currentCompaction != null && currentCompaction.isActive) {
+                        item(key = "compaction_banner") {
+                            CompactionBanner(state = currentCompaction)
+                        }
+                    }
+
+                    // Tool progress cards
+                    if (activeTools.isNotEmpty()) {
+                        items(
+                            activeTools,
+                            key = { "tool_progress_${it.callId}" }
+                        ) { toolInfo ->
+                            ToolProgressCard(toolInfo = toolInfo)
+                        }
+                    }
+
+                    // Step progress indicator
+                    if (currentStep != null) {
+                        item(key = "step_progress") {
+                            StepProgressIndicator(stepInfo = currentStep)
                         }
                     }
 
