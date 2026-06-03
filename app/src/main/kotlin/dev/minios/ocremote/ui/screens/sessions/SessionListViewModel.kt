@@ -32,7 +32,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.net.URLDecoder
 import javax.inject.Inject
@@ -82,6 +84,7 @@ class SessionListViewModel @Inject constructor(
     )
 
     private val conn = ServerConnection.from(serverUrl, username, password.ifEmpty { null })
+    private val pollingJobs = mutableMapOf<String, Job>()
 
     private val _error = MutableStateFlow<String?>(null)
     private val _isLoading = MutableStateFlow(true)
@@ -244,15 +247,11 @@ class SessionListViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Sync session statuses from server via REST API.
-     * Batch-updates all session statuses so the session list shows correct
-     * busy/idle/retry states even after cold start or background recovery.
-     */
-    private suspend fun syncSessionStatusesFromServer() {
+    private suspend fun syncSessionStatuses(directory: String? = null) {
         try {
-            val result = api.fetchSessionStatus(conn)
+            val result = api.fetchSessionStatus(conn, directory = directory)
             result.onSuccess { statuses ->
+                if (BuildConfig.DEBUG) Log.d(TAG, "Polled ${statuses.size} session statuses for directory: ${directory ?: "all"}")
                 val statusMap = statuses.mapValues { (_, info) ->
                     when (info.type) {
                         "busy" -> SessionStatus.Busy
@@ -270,6 +269,8 @@ class SessionListViewModel @Inject constructor(
             Log.w(TAG, "Failed to sync session statuses: ${e.message}")
         }
     }
+
+    private suspend fun syncSessionStatusesFromServer() = syncSessionStatuses()
 
     fun deleteSession(sessionId: String) {
         viewModelScope.launch {
@@ -349,8 +350,36 @@ class SessionListViewModel @Inject constructor(
         val normalized = path.replace('\\', '/')
         _lastToggledDirectory.value = normalized
         _expandedPaths.update { paths ->
-            if (normalized in paths) paths - normalized else paths + normalized
+            if (normalized in paths) {
+                stopDirectoryPolling(normalized)
+                paths - normalized
+            } else {
+                startDirectoryPolling(normalized)
+                paths + normalized
+            }
         }
+    }
+
+    private fun startDirectoryPolling(path: String) {
+        pollingJobs[path]?.cancel()
+        if (BuildConfig.DEBUG) Log.d(TAG, "Start polling directory: $path")
+        pollingJobs[path] = viewModelScope.launch {
+            while (isActive) {
+                syncSessionStatuses(directory = path)
+                delay(5000L)
+            }
+        }
+    }
+
+    private fun stopDirectoryPolling(path: String) {
+        if (BuildConfig.DEBUG) Log.d(TAG, "Stop polling directory: $path")
+        pollingJobs.remove(path)?.cancel()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        pollingJobs.values.forEach { it.cancel() }
+        pollingJobs.clear()
     }
 
     fun setBaseDirectory(directory: String?) {
