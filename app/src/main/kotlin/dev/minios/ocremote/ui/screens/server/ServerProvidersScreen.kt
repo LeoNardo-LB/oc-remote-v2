@@ -31,9 +31,9 @@ import androidx.compose.material3.OutlinedTextField
 
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -67,6 +67,7 @@ import dev.minios.ocremote.ui.components.amoledDialogParams
 import dev.minios.ocremote.ui.components.amoledOutlinedTextFieldColors
 import dev.minios.ocremote.ui.screens.settings.components.SectionHeader
 import dev.minios.ocremote.ui.theme.AlphaTokens
+import dev.minios.ocremote.ui.theme.ButtonTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 import dev.minios.ocremote.ui.theme.ShapeTokens
 
@@ -174,7 +175,7 @@ fun ServerProvidersScreen(
                     )
 
                     methods.forEachIndexed { idx, method ->
-                        FilledTonalButton(
+                        Button(
                             onClick = {
                                 if (method.type == "api") {
                                     connectProvider = null
@@ -185,6 +186,8 @@ fun ServerProvidersScreen(
                             },
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !uiState.isSaving,
+                            colors = ButtonTokens.filledColors(),
+                            border = ButtonTokens.amoledBorder(),
                         ) {
                             Text(method.label)
                         }
@@ -354,12 +357,14 @@ fun ServerProvidersScreen(
                         )
                     }
                     if (pending.authorization.url.isNotBlank()) {
-                        FilledTonalButton(
+                        Button(
                             onClick = {
                                 oauthBrowserOpened = true
                                 uriHandler.openUri(pending.authorization.url)
                             },
                             modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonTokens.filledColors(),
+                            border = ButtonTokens.amoledBorder(),
                         ) {
                             Text(stringResource(R.string.server_settings_oauth_open_browser))
                         }
@@ -456,7 +461,7 @@ fun ServerProvidersScreen(
                         },
                         trailingContent = {
                             if (provider.source != "env") {
-                                TextButton(onClick = { viewModel.disconnectProvider(provider.providerId) }, enabled = !uiState.isSaving) {
+                                OutlinedButton(onClick = { viewModel.disconnectProvider(provider.providerId) }, enabled = !uiState.isSaving) {
                                     Text(stringResource(R.string.disconnect))
                                 }
                             } else {
@@ -485,7 +490,7 @@ fun ServerProvidersScreen(
                             )
                         },
                         trailingContent = {
-                            TextButton(onClick = { viewModel.clearError(); connectProvider = provider }, enabled = !uiState.isSaving) {
+                            OutlinedButton(onClick = { viewModel.clearError(); connectProvider = provider }, enabled = !uiState.isSaving) {
                                 Text(stringResource(R.string.connect))
                             }
                         }
