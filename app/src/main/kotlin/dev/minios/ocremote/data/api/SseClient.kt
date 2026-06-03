@@ -11,6 +11,7 @@ import io.ktor.utils.io.*
 import io.ktor.utils.io.ClosedReadChannelException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -636,6 +637,59 @@ class SseClient @Inject constructor(
     /** Nullable string extraction. */
     private fun JsonObject.strOrNull(key: String): String? =
         this[key]?.jsonPrimitive?.contentOrNull
+}
+
+// ============ SSE Read Timeout Tracking ============
+
+/**
+ * Constants for SSE read timeout behavior.
+ */
+object SseClientDefaults {
+    const val DEFAULT_READ_TIMEOUT_MS = 30_000L
+    const val MAX_CONSECUTIVE_TIMEOUTS = 5
+    const val COOLDOWN_DURATION_MS = 300_000L
+}
+
+/**
+ * Tracks consecutive SSE read timeouts and manages cooldown state.
+ *
+ * After [maxConsecutiveTimeouts] consecutive timeouts, the tracker enters
+ * a cooldown period ([cooldownDurationMs]) during which reconnection is delayed.
+ */
+class SseReadTimeoutTracker(
+    val maxConsecutiveTimeouts: Int = SseClientDefaults.MAX_CONSECUTIVE_TIMEOUTS,
+    val cooldownDurationMs: Long = SseClientDefaults.COOLDOWN_DURATION_MS
+) {
+    var consecutiveTimeouts: Int = 0
+        private set
+    private var cooldownUntilMs: Long = 0L
+
+    /** Record a read timeout event. */
+    fun recordTimeout() {
+        consecutiveTimeouts++
+    }
+
+    /** Record a successful read — resets the consecutive counter. */
+    fun recordSuccess() {
+        consecutiveTimeouts = 0
+    }
+
+    /** Whether the tracker has reached the threshold for cooldown. */
+    fun shouldEnterCooldown(): Boolean = consecutiveTimeouts >= maxConsecutiveTimeouts
+
+    /** Enter cooldown mode. */
+    fun enterCooldown() {
+        cooldownUntilMs = System.currentTimeMillis() + cooldownDurationMs
+    }
+
+    /** Whether currently in the cooldown period. */
+    fun isInCooldown(): Boolean = System.currentTimeMillis() < cooldownUntilMs
+
+    /** Fully reset the tracker (clears both timeouts and cooldown). */
+    fun reset() {
+        consecutiveTimeouts = 0
+        cooldownUntilMs = 0L
+    }
 }
 
 /** Thrown when SSE returns 401 */
