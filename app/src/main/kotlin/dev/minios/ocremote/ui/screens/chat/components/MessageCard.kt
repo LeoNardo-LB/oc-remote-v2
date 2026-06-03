@@ -524,9 +524,9 @@ private fun MessageCardAssistant(
                 // Error display
                 if (errorText != null) {
                     Surface(
-                        color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
+                        color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.errorContainer.copy(alpha = AlphaTokens.FAINT),
                         shape = ShapeTokens.mediumSmall,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = if (isAmoled) 0.75f else 0.35f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = if (isAmoled) AlphaTokens.HIGH else AlphaTokens.FAINT)),
                         tonalElevation = 0.dp,
                     ) {
                         ErrorPayloadContent(

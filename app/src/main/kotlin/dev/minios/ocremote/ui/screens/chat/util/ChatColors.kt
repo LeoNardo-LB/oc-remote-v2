@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import dev.minios.ocremote.data.dto.response.AgentInfo
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
 
 @Composable
@@ -15,7 +16,7 @@ internal fun toolOutputContainerColor(isAmoled: Boolean): Color {
     return when {
         isAmoled -> Color.Black
         isSystemInDarkTheme() -> MaterialTheme.colorScheme.secondaryContainer
-        else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.82f)
+        else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = AlphaTokens.AMOLED)
     }
 }
 

@@ -192,7 +192,7 @@ internal fun ServerDialog(
 
                     Surface(
                         shape = ShapeTokens.medium,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.FAINT),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)),
                         modifier = Modifier.fillMaxWidth()
                     ) {

@@ -64,6 +64,7 @@ import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.components.DialogButtonRole
 import dev.minios.ocremote.ui.components.DialogButtons
 import dev.minios.ocremote.ui.components.amoledDialogParams
+import dev.minios.ocremote.ui.components.amoledOutlinedTextFieldColors
 import dev.minios.ocremote.ui.screens.settings.components.SectionHeader
 import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
@@ -230,11 +231,7 @@ fun ServerProvidersScreen(
                         placeholder = { Text(stringResource(R.string.server_settings_api_key_placeholder)) },
                         singleLine = true,
                         colors = if (isAmoled) {
-                            androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = Color.Black,
-                                unfocusedContainerColor = Color.Black,
-                                disabledContainerColor = Color.Black,
-                            )
+                            amoledOutlinedTextFieldColors()
                         } else androidx.compose.material3.OutlinedTextFieldDefaults.colors()
                     )
                     DialogButtons(
@@ -375,11 +372,7 @@ fun ServerProvidersScreen(
                             placeholder = { Text(stringResource(R.string.server_settings_oauth_code_placeholder)) },
                             singleLine = true,
                             colors = if (isAmoled) {
-                                androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = Color.Black,
-                                    unfocusedContainerColor = Color.Black,
-                                    disabledContainerColor = Color.Black,
-                                )
+                                amoledOutlinedTextFieldColors()
                             } else androidx.compose.material3.OutlinedTextFieldDefaults.colors()
                         )
                     }

@@ -151,7 +151,7 @@ internal fun QuestionCard(
                                 .fillMaxWidth()
                                 .clip(ShapeTokens.small)
                                 .background(
-                                    if (checked) accentColor.copy(alpha = 0.12f)
+                                    if (checked) accentColor.copy(alpha = AlphaTokens.SELECTED)
                                     else Color.Transparent
                                 )
                                 .toggleable(
@@ -213,7 +213,7 @@ internal fun QuestionCard(
                             },
                                 enabled = !submitted,
                                 shape = ShapeTokens.small,
-                                color = if (isSelected) accentColor.copy(alpha = 0.12f) else if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
+                                color = if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
                                 border = if (!isSelected && isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MUTED)) else null,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -256,7 +256,7 @@ internal fun QuestionCard(
                         // Show selected custom answer
                          Surface(
                             shape = ShapeTokens.small,
-                            color = accentColor.copy(alpha = 0.12f),
+                            color = accentColor.copy(alpha = AlphaTokens.SELECTED),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(

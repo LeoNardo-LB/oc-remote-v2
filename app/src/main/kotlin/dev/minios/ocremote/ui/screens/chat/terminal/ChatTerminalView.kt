@@ -429,7 +429,7 @@ fun ChatTerminalView(
                                                         modifier = Modifier.size(34.dp),
                                                         colors = IconButtonDefaults.iconButtonColors(
                                                             containerColor = if (isAmoled) {
-                                                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+                                                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.FAINT)
                                                             } else {
                                                                 MaterialTheme.colorScheme.secondaryContainer.copy(alpha = AlphaTokens.MEDIUM)
                                                             }
@@ -443,7 +443,7 @@ fun ChatTerminalView(
                                                     modifier = Modifier.size(34.dp),
                                                     colors = IconButtonDefaults.iconButtonColors(
                                                         containerColor = if (isAmoled) {
-                                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+                                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.FAINT)
                                                         } else {
                                                             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
                                                         }

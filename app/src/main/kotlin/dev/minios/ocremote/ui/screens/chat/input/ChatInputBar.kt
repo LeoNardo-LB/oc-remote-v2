@@ -534,7 +534,7 @@ internal fun ChatInputBar(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
                                     .clip(ShapeTokens.smallMedium)
-                                    .background(agentColor.copy(alpha = 0.18f))
+                                    .background(agentColor.copy(alpha = AlphaTokens.FAINT))
                                     .clickable {
                                         val currentIndex = agents.indexOfFirst { it.name == selectedAgent }
                                         val nextIndex = (currentIndex + 1) % agents.size
@@ -657,7 +657,7 @@ internal fun ChatInputBar(
                                     .size(18.dp)
                                     .clickable { onRemoveAttachment(index) },
                                 shape = ShapeTokens.mediumSmall,
-                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.9f)
+                                color = MaterialTheme.colorScheme.error.copy(alpha = AlphaTokens.AMOLED)
                             ) {
                                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                     Icon(
@@ -747,7 +747,7 @@ internal fun ChatInputBar(
             ) {
                 // Text field — minimal style, no heavy outline
                 val mentionHighlightColor = MaterialTheme.colorScheme.primary
-                val mentionBgColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                val mentionBgColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.SELECTED)
                 val visualTransformation = remember(confirmedFilePaths, mentionHighlightColor, mentionBgColor) {
                     if (isShellMode) {
                         VisualTransformation.None
@@ -772,7 +772,7 @@ internal fun ChatInputBar(
                                 isShellMode -> Modifier.border(
                                     width = if (isAmoled) 1.5.dp else 1.dp,
                                     color = if (isAmoled) {
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                                        MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.AMOLED)
                                     } else {
                                         MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM)
                                     },
@@ -823,12 +823,12 @@ internal fun ChatInputBar(
                         .clip(ShapeTokens.largeMedium)
                         .background(
                             if (showStop) {
-                                MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+                                MaterialTheme.colorScheme.error.copy(alpha = AlphaTokens.SELECTED)
                             } else if (isShellMode && !isSending) {
                                 if (isAmoled) {
                                     Color.Black
                                 } else {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                    MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.FAINT)
                                 }
                             } else if (isAmoled) {
                                 Color.Black
@@ -846,7 +846,7 @@ internal fun ChatInputBar(
                             } else if (isShellMode && !isSending) {
                                 Modifier.border(
                                     width = if (isAmoled) 1.2.dp else 1.dp,
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = if (isAmoled) 0.88f else 0.75f),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = if (isAmoled) AlphaTokens.AMOLED else AlphaTokens.HIGH),
                                     shape = ShapeTokens.largeMedium,
                                 )
                             } else if (isAmoled) {

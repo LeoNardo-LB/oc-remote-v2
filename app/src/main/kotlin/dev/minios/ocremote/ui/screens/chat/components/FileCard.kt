@@ -41,7 +41,7 @@ internal fun FileCardFallback(file: Part.File) {
     val borderColor = if (isAmoled) {
         MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.HIGH)
     } else {
-        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f)
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.AMOLED)
     }
     val contentColor = if (isAmoled) {
         MaterialTheme.colorScheme.onSurface

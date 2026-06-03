@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.components.amoledOutlinedTextFieldColors
 import dev.minios.ocremote.ui.screens.settings.components.SectionHeader
 import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.LocalAmoledMode
@@ -93,11 +94,7 @@ fun ServerModelFilterScreen(
                 placeholder = { Text(stringResource(R.string.server_settings_search_placeholder)) },
                 singleLine = true,
                 colors = if (isAmoled) {
-                    androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.Black,
-                        unfocusedContainerColor = Color.Black,
-                        disabledContainerColor = Color.Black,
-                    )
+                    amoledOutlinedTextFieldColors()
                 } else {
                     androidx.compose.material3.OutlinedTextFieldDefaults.colors()
                 }

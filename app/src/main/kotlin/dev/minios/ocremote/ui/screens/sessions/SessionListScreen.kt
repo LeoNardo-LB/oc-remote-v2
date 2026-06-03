@@ -240,7 +240,7 @@ fun SessionListScreen(
                                     )
                                     HorizontalDivider(
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(
-                                            alpha = if (isAmoled) AlphaTokens.FAINT else 0.2f
+                                            alpha = AlphaTokens.FAINT
                                         )
                                     )
                                 }
@@ -267,7 +267,7 @@ fun SessionListScreen(
                                     )
                                     HorizontalDivider(
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(
-                                            alpha = if (isAmoled) AlphaTokens.FAINT else 0.2f
+                                            alpha = AlphaTokens.FAINT
                                         )
                                     )
                                 }

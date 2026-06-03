@@ -46,6 +46,7 @@ import dev.minios.ocremote.R
 import dev.minios.ocremote.data.dto.response.FileNode
 import dev.minios.ocremote.domain.model.Project
 import dev.minios.ocremote.ui.components.amoledDialogParams
+import dev.minios.ocremote.ui.components.amoledOutlinedTextFieldColors
 import dev.minios.ocremote.ui.components.DialogButtons
 import dev.minios.ocremote.ui.components.DialogButtonRole
 import dev.minios.ocremote.ui.components.indicators.PulsingDotsIndicator
@@ -69,11 +70,7 @@ internal fun OpenProjectDialog(
 ) {
     val isAmoled = isAmoledTheme()
     val fieldColors = if (isAmoled) {
-        OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = Color.Black,
-            unfocusedContainerColor = Color.Black,
-            disabledContainerColor = Color.Black,
-        )
+        amoledOutlinedTextFieldColors()
     } else {
         OutlinedTextFieldDefaults.colors()
     }

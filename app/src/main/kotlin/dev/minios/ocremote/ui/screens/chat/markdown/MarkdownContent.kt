@@ -154,7 +154,7 @@ internal fun MarkdownContent(
 
     val inlineCodeBg = when {
         isAmoled -> Color(0xFF353540)
-        isUser -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f)
+        isUser -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = AlphaTokens.SELECTED)
         else -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = AlphaTokens.FAINT)
     }
 

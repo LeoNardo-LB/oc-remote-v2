@@ -2,6 +2,8 @@ package dev.minios.ocremote.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -56,4 +58,17 @@ fun amoledDialogParams(
             shape = shape,
         )
     }
+}
+
+/**
+ * [TextFieldColors] for AMOLED mode — pure black container.
+ * Use inside `if (isAmoled)` branches to eliminate per-site Color.Black repetition.
+ */
+@Composable
+fun amoledOutlinedTextFieldColors(): TextFieldColors {
+    return OutlinedTextFieldDefaults.colors(
+        focusedContainerColor = Color.Black,
+        unfocusedContainerColor = Color.Black,
+        disabledContainerColor = Color.Black,
+    )
 }
