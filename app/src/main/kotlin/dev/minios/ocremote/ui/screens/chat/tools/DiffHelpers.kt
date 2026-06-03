@@ -61,8 +61,8 @@ internal fun DiffView(before: String, after: String) {
     val isAmoled = isAmoledTheme()
     val addColor = DiffAdded
     val delColor = DiffRemoved
-    val addBg = DiffAdded.copy(alpha = 0.1f)
-    val delBg = DiffRemoved.copy(alpha = 0.1f)
+    val addBg = DiffAdded.copy(alpha = AlphaTokens.DIFF_BG)
+    val delBg = DiffRemoved.copy(alpha = AlphaTokens.DIFF_BG)
 
     // Simple diff: show removed lines, then added lines
     // For a proper diff we'd need a diff library, but line-level comparison works for edit tools

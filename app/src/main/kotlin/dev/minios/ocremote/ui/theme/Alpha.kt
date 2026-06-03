@@ -15,6 +15,7 @@ package dev.minios.ocremote.ui.theme
  */
 object AlphaTokens {
     const val SELECTED = 0.12f
+    const val DIFF_BG = 0.1f
     const val FAINT = 0.35f
     const val MUTED = 0.50f
     const val MEDIUM = 0.70f
