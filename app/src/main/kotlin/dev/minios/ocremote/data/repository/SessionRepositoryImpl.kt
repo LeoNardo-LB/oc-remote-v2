@@ -3,11 +3,14 @@ package dev.minios.ocremote.data.repository
 import dev.minios.ocremote.data.api.OpenCodeApi
 import dev.minios.ocremote.data.api.ServerConnection
 import dev.minios.ocremote.domain.model.CreateSessionOpts
+import dev.minios.ocremote.domain.model.MessageWithParts
 import dev.minios.ocremote.domain.model.Session
+import dev.minios.ocremote.domain.model.SessionStatus
 import dev.minios.ocremote.domain.repository.SessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import java.io.OutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -40,7 +43,17 @@ class SessionRepositoryImpl @Inject constructor(
         }
     }
 
-    // ============ Network Operations ============
+    override fun getSessionStatusesFlow(serverId: String): Flow<Map<String, SessionStatus>> {
+        return combine(
+            eventDispatcher.serverSessions,
+            eventDispatcher.sessionStatuses
+        ) { mapping, statuses ->
+            val sessionIds = mapping[serverId] ?: emptySet()
+            statuses.filterKeys { it in sessionIds }
+        }
+    }
+
+    // ============ CRUD ============
 
     override suspend fun createSession(serverId: String, opts: CreateSessionOpts): Result<Session> = runCatching {
         val conn = resolveConnection(serverId)
@@ -52,8 +65,8 @@ class SessionRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun deleteSession(sessionId: String): Result<Unit> = runCatching {
-        val conn = resolveConnectionForSession(sessionId)
+    override suspend fun deleteSession(serverId: String, sessionId: String): Result<Unit> = runCatching {
+        val conn = resolveConnection(serverId)
         api.deleteSession(conn, sessionId)
     }
 
@@ -63,18 +76,114 @@ class SessionRepositoryImpl @Inject constructor(
         Unit
     }
 
+    override suspend fun getSession(serverId: String, sessionId: String): Result<Session> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.getSession(conn, sessionId)
+    }
+
+    // ============ Session Lifecycle ============
+
+    override suspend fun abort(serverId: String, sessionId: String, directory: String?): Result<Unit> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.abortSession(conn, sessionId, directory)
+    }
+
+    override suspend fun rename(serverId: String, sessionId: String, title: String): Result<Unit> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.updateSession(conn, sessionId, title)
+    }
+
+    override suspend fun fork(serverId: String, sessionId: String): Result<Session> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.forkSession(conn, sessionId)
+    }
+
+    // ============ Archive ============
+
+    override suspend fun archive(serverId: String, sessionId: String): Result<Session> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.updateSessionFields(conn, sessionId, mapOf("archived" to true))
+    }
+
+    override suspend fun unarchive(serverId: String, sessionId: String): Result<Session> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.updateSessionFields(conn, sessionId, mapOf("archived" to false))
+    }
+
+    // ============ Share / Export ============
+
+    override suspend fun shareSession(serverId: String, sessionId: String): Result<Session> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.shareSession(conn, sessionId)
+    }
+
+    override suspend fun unshareSession(serverId: String, sessionId: String): Result<Unit> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.unshareSession(conn, sessionId)
+    }
+
+    override suspend fun compactSession(
+        serverId: String,
+        sessionId: String,
+        providerId: String,
+        modelId: String
+    ): Result<Unit> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.summarizeSession(conn, sessionId, providerId, modelId)
+    }
+
+    override suspend fun exportSessionToStream(
+        serverId: String,
+        sessionId: String,
+        outputStream: OutputStream,
+        onProgress: (Long) -> Unit
+    ): Result<Unit> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.exportSessionToStream(conn, sessionId, outputStream, onProgress)
+    }
+
+    // ============ Import ============
+
+    override suspend fun importSession(serverId: String, shareUrl: String): Result<Session> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.importSession(conn, shareUrl)
+    }
+
+    // ============ Message Operations ============
+
+    override suspend fun deleteMessage(
+        serverId: String,
+        sessionId: String,
+        messageId: String
+    ): Result<Boolean> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.deleteMessage(conn, sessionId, messageId)
+    }
+
+    override suspend fun deleteMessagePart(
+        serverId: String,
+        sessionId: String,
+        messageId: String,
+        partIndex: Int
+    ): Result<Boolean> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.deleteMessagePart(conn, sessionId, messageId, partIndex)
+    }
+
+    override suspend fun listMessages(
+        serverId: String,
+        sessionId: String,
+        limit: Int
+    ): Result<List<MessageWithParts>> = runCatching {
+        val conn = resolveConnection(serverId)
+        api.listMessages(conn, sessionId, limit)
+    }
+
     // ============ Private Helpers ============
 
     private suspend fun resolveConnection(serverId: String): ServerConnection {
         val config = serverRepo.getServer(serverId)
             ?: throw IllegalStateException("Server config not found: $serverId")
         return ServerConnection.from(config.url, config.username, config.password)
-    }
-
-    private suspend fun resolveConnectionForSession(sessionId: String): ServerConnection {
-        val serverId = eventDispatcher.serverSessions.value.entries
-            .find { sessionId in it.value }?.key
-            ?: throw IllegalStateException("No server found for session $sessionId")
-        return resolveConnection(serverId)
     }
 }

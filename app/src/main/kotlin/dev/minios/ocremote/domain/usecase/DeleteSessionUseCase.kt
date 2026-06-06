@@ -10,7 +10,7 @@ import javax.inject.Inject
 class DeleteSessionUseCase @Inject constructor(
     private val sessionRepository: SessionRepository
 ) {
-    suspend operator fun invoke(id: String): Result<Unit> {
-        return sessionRepository.deleteSession(id)
+    suspend operator fun invoke(serverId: String, id: String): Result<Unit> {
+        return sessionRepository.deleteSession(serverId, id)
     }
 }

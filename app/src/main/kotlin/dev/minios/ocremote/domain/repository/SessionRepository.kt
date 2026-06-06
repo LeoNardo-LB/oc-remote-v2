@@ -1,8 +1,11 @@
 package dev.minios.ocremote.domain.repository
 
 import dev.minios.ocremote.domain.model.CreateSessionOpts
+import dev.minios.ocremote.domain.model.MessageWithParts
 import dev.minios.ocremote.domain.model.Session
+import dev.minios.ocremote.domain.model.SessionStatus
 import kotlinx.coroutines.flow.Flow
+import java.io.OutputStream
 
 /**
  * Repository interface for session management.
@@ -11,11 +14,21 @@ import kotlinx.coroutines.flow.Flow
  */
 interface SessionRepository {
 
+    // ============ State Observations ============
+
     /**
      * Observe sessions for a specific server connection.
      * Phase 3 impl: delegates to EventDispatcher.sessions filtered by serverId.
      */
     fun getSessionsFlow(serverId: String): Flow<List<Session>>
+
+    /**
+     * Observe session statuses for a specific server connection.
+     * Delegates to EventDispatcher.sessionStatuses.
+     */
+    fun getSessionStatusesFlow(serverId: String): Flow<Map<String, SessionStatus>>
+
+    // ============ CRUD ============
 
     /**
      * Create a new session on the specified server with the given options.
@@ -26,11 +39,97 @@ interface SessionRepository {
     /**
      * Delete a session by its ID.
      */
-    suspend fun deleteSession(sessionId: String): Result<Unit>
+    suspend fun deleteSession(serverId: String, sessionId: String): Result<Unit>
 
     /**
      * Switch the active session.
      * Phase 3 impl: delegates to OpenCodeApi or connection service.
      */
     suspend fun switchSession(sessionId: String): Result<Unit>
+
+    /**
+     * Get a single session by ID.
+     */
+    suspend fun getSession(serverId: String, sessionId: String): Result<Session>
+
+    // ============ Session Lifecycle ============
+
+    /**
+     * Abort a running session.
+     */
+    suspend fun abort(serverId: String, sessionId: String, directory: String?): Result<Unit>
+
+    /**
+     * Rename a session.
+     */
+    suspend fun rename(serverId: String, sessionId: String, title: String): Result<Unit>
+
+    /**
+     * Fork a session, creating a new session from a message point.
+     */
+    suspend fun fork(serverId: String, sessionId: String): Result<Session>
+
+    // ============ Archive ============
+
+    /**
+     * Archive a session.
+     */
+    suspend fun archive(serverId: String, sessionId: String): Result<Session>
+
+    /**
+     * Unarchive a session.
+     */
+    suspend fun unarchive(serverId: String, sessionId: String): Result<Session>
+
+    // ============ Share / Export ============
+
+    /**
+     * Share a session, creating a shareable link.
+     */
+    suspend fun shareSession(serverId: String, sessionId: String): Result<Session>
+
+    /**
+     * Unshare a session, removing the shareable link.
+     */
+    suspend fun unshareSession(serverId: String, sessionId: String): Result<Unit>
+
+    /**
+     * Summarize (compact) a session to reduce context.
+     */
+    suspend fun compactSession(serverId: String, sessionId: String, providerId: String, modelId: String): Result<Unit>
+
+    /**
+     * Stream session export JSON directly to an OutputStream.
+     * @param onProgress called with bytes written so far.
+     */
+    suspend fun exportSessionToStream(
+        serverId: String,
+        sessionId: String,
+        outputStream: OutputStream,
+        onProgress: (Long) -> Unit
+    ): Result<Unit>
+
+    // ============ Import ============
+
+    /**
+     * Import a session from a share URL.
+     */
+    suspend fun importSession(serverId: String, shareUrl: String): Result<Session>
+
+    // ============ Message Operations ============
+
+    /**
+     * Delete a message from a session.
+     */
+    suspend fun deleteMessage(serverId: String, sessionId: String, messageId: String): Result<Boolean>
+
+    /**
+     * Delete a specific part from a message by index.
+     */
+    suspend fun deleteMessagePart(serverId: String, sessionId: String, messageId: String, partIndex: Int): Result<Boolean>
+
+    /**
+     * List messages in a session.
+     */
+    suspend fun listMessages(serverId: String, sessionId: String, limit: Int): Result<List<MessageWithParts>>
 }
