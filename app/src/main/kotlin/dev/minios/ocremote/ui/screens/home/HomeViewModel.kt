@@ -14,8 +14,9 @@ import dev.minios.ocremote.R
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.minios.ocremote.data.repository.LocalServerManager
-import dev.minios.ocremote.data.repository.ServerDataStore
 import dev.minios.ocremote.domain.model.AppSettings
+import dev.minios.ocremote.domain.repository.ServerRepository
+import java.util.UUID
 import dev.minios.ocremote.domain.model.ServerConfig
 import dev.minios.ocremote.domain.usecase.GetSettingsFlowUseCase
 import dev.minios.ocremote.domain.usecase.ManageServerProvidersUseCase
@@ -82,7 +83,7 @@ private data class LocalRuntimeErrorInfo(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     application: Application,
-    private val serverDataStore: ServerDataStore,
+    private val serverRepository: ServerRepository,
     private val localServerManager: LocalServerManager,
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
     private val updateSettingsUseCase: UpdateSettingsUseCase,
