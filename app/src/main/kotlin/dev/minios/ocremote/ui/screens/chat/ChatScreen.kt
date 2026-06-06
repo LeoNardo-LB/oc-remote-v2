@@ -418,13 +418,8 @@ fun ChatScreen(
     val fileSearchResults by viewModel.fileSearchResults.collectAsStateWithLifecycle()
     val confirmedFilePaths by viewModel.confirmedFilePaths.collectAsStateWithLifecycle()
 
-    // Settings
-    val chatFontSize by viewModel.chatFontSize.collectAsStateWithLifecycle()
-    val codeWordWrap by viewModel.codeWordWrap.collectAsStateWithLifecycle()
+    // Settings used directly in ChatScreen
     val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsStateWithLifecycle()
-    val compactMessages by viewModel.compactMessages.collectAsStateWithLifecycle()
-    val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
-    val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
     val hapticEnabled by viewModel.hapticFeedback.collectAsStateWithLifecycle()
     val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
     val compressImageAttachments by viewModel.compressImageAttachments.collectAsStateWithLifecycle()
@@ -511,12 +506,11 @@ fun ChatScreen(
     }
 
 
+    // CompositionLocalProvider collects settings flows here (sunk from ChatScreen level).
+    // ChatScreen itself does NOT read these settings, so setting changes don't trigger
+    // ChatScreen recomposition — only this wrapper recomposes.
+    ChatSettingsProvider(viewModel = viewModel) {
     CompositionLocalProvider(
-        LocalChatFontSize provides chatFontSize,
-        LocalCodeWordWrap provides codeWordWrap,
-        LocalCompactMessages provides compactMessages,
-        LocalCollapseTools provides collapseTools,
-        LocalExpandReasoning provides expandReasoning,
         LocalHapticFeedbackEnabled provides hapticEnabled,
         LocalImageSaveRequest provides attachmentHandler.requestSaveImage,
         LocalToolExpandedStates provides messageState.toolExpandedStates,
@@ -1070,6 +1064,7 @@ fun ChatScreen(
         )
     }
     } // CompositionLocalProvider
+    } // ChatSettingsProvider
 }
 
 /**
@@ -1085,5 +1080,32 @@ private suspend fun LazyListState.snapToBottom() {
         delay(16)
         if (!canScrollBackward) return
         scroll { scrollBy(-10_000f) }
+    }
+}
+
+/**
+ * Wrapper composable that collects settings flows and provides them via CompositionLocals.
+ * Sunk from ChatScreen to prevent settings changes from triggering ChatScreen recomposition.
+ * Only this wrapper recomposes when settings change.
+ */
+@Composable
+private fun ChatSettingsProvider(
+    viewModel: ChatViewModel,
+    content: @Composable () -> Unit,
+) {
+    val chatFontSize by viewModel.chatFontSize.collectAsStateWithLifecycle()
+    val codeWordWrap by viewModel.codeWordWrap.collectAsStateWithLifecycle()
+    val compactMessages by viewModel.compactMessages.collectAsStateWithLifecycle()
+    val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
+    val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
+
+    CompositionLocalProvider(
+        LocalChatFontSize provides chatFontSize,
+        LocalCodeWordWrap provides codeWordWrap,
+        LocalCompactMessages provides compactMessages,
+        LocalCollapseTools provides collapseTools,
+        LocalExpandReasoning provides expandReasoning,
+    ) {
+        content()
     }
 }
