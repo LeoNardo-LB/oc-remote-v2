@@ -224,6 +224,8 @@ import dev.minios.ocremote.ui.screens.chat.input.rememberAttachmentHandler
 import dev.minios.ocremote.ui.screens.chat.input.buildPromptParts
 import dev.minios.ocremote.ui.screens.chat.components.MessageCard
 import dev.minios.ocremote.ui.screens.chat.components.MessageCardRole
+import dev.minios.ocremote.ui.screens.chat.components.ChatEmptyState
+import dev.minios.ocremote.ui.screens.chat.components.ChatErrorState
 import dev.minios.ocremote.ui.screens.chat.components.ChatMessageList
 import dev.minios.ocremote.ui.screens.chat.components.ChatTopBar
 import dev.minios.ocremote.ui.screens.chat.components.ErrorPayloadContent
@@ -940,48 +942,16 @@ fun ChatScreen(
                     )
                 }
                 uiState.error != null && uiState.messages.isEmpty() -> {
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        ErrorPayloadContent(
-                            text = uiState.error ?: stringResource(R.string.session_unknown_error),
-                            textStyle = MaterialTheme.typography.bodyLarge,
-                            textColor = MaterialTheme.colorScheme.error,
-                        )
-                        Button(onClick = { viewModel.loadMessages() }) {
-                            Text(stringResource(R.string.retry))
-                        }
-                    }
+                    ChatErrorState(
+                        modifier = Modifier.align(Alignment.Center),
+                        error = uiState.error,
+                        onRetry = { viewModel.loadMessages() }
+                    )
                 }
                 uiState.messages.isEmpty() && !uiState.isLoading -> {
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.chat_empty),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MEDIUM)
-                        )
-                        Text(
-                            text = stringResource(R.string.chat_type_message),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                        )
-                    }
+                    ChatEmptyState(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
                 else -> {
                      val messageSpacing = if (LocalCompactMessages.current) 2.dp else 8.dp
