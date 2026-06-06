@@ -1,5 +1,6 @@
 package dev.minios.ocremote.data.repository
 
+import android.util.Log
 import dev.minios.ocremote.data.api.OpenCodeApi
 import dev.minios.ocremote.data.api.ServerConnection
 import dev.minios.ocremote.domain.model.CreateSessionOpts
@@ -8,6 +9,7 @@ import dev.minios.ocremote.domain.model.Session
 import dev.minios.ocremote.domain.model.SessionStatus
 import dev.minios.ocremote.domain.repository.SessionRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.io.OutputStream
@@ -41,6 +43,10 @@ class SessionRepositoryImpl @Inject constructor(
             if (sessionIds.isEmpty()) emptyList()
             else allSessions.filter { it.id in sessionIds }
         }
+            .catch { e ->
+                Log.e("SessionRepository", "Error in getSessionsFlow", e)
+                emit(emptyList())
+            }
     }
 
     override fun getSessionStatusesFlow(serverId: String): Flow<Map<String, SessionStatus>> {
@@ -51,6 +57,10 @@ class SessionRepositoryImpl @Inject constructor(
             val sessionIds = mapping[serverId] ?: emptySet()
             statuses.filterKeys { it in sessionIds }
         }
+            .catch { e ->
+                Log.e("SessionRepository", "Error in getSessionStatusesFlow", e)
+                emit(emptyMap())
+            }
     }
 
     // ============ CRUD ============

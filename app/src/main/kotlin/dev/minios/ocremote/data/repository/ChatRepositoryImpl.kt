@@ -9,7 +9,9 @@ import dev.minios.ocremote.data.repository.handler.StepProgressInfo
 import dev.minios.ocremote.data.repository.handler.ToolProgressInfo
 import dev.minios.ocremote.domain.model.*
 import dev.minios.ocremote.domain.repository.ChatRepository
+import android.util.Log
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,30 +36,58 @@ class ChatRepositoryImpl @Inject constructor(
 
     override fun getMessagesFlow(sessionId: String): Flow<List<Message>> =
         eventDispatcher.messages.map { it[sessionId] ?: emptyList() }
+            .catch { e ->
+                Log.e("ChatRepository", "Error in getMessagesFlow", e)
+                emit(emptyList())
+            }
 
     override fun getParts(sessionId: String): Flow<List<Part>> =
         eventDispatcher.parts.map { it[sessionId] ?: emptyList() }
+            .catch { e ->
+                Log.e("ChatRepository", "Error in getParts", e)
+                emit(emptyList())
+            }
 
     override fun getPermissionsFlow(sessionId: String): Flow<List<PermissionState>> =
         eventDispatcher.permissions.map { events ->
             (events[sessionId] ?: emptyList()).map { it.toPermissionState() }
         }
+            .catch { e ->
+                Log.e("ChatRepository", "Error in getPermissionsFlow", e)
+                emit(emptyList())
+            }
 
     override fun getQuestionsFlow(sessionId: String): Flow<List<QuestionState>> =
         eventDispatcher.questions.map { events ->
             (events[sessionId] ?: emptyList()).map { it.toQuestionState() }
         }
+            .catch { e ->
+                Log.e("ChatRepository", "Error in getQuestionsFlow", e)
+                emit(emptyList())
+            }
 
     // ============ EventDispatcher Flow Exposure ============
 
     override fun getActiveToolProgress(serverId: String): Flow<List<ToolProgressInfo>?> =
         eventDispatcher.activeToolProgress.map { it[serverId] }
+            .catch { e ->
+                Log.e("ChatRepository", "Error in getActiveToolProgress", e)
+                emit(null)
+            }
 
     override fun getStepProgress(serverId: String): Flow<StepProgressInfo?> =
         eventDispatcher.stepProgress.map { it[serverId] }
+            .catch { e ->
+                Log.e("ChatRepository", "Error in getStepProgress", e)
+                emit(null)
+            }
 
     override fun getCompactionState(serverId: String): Flow<CompactionStateInfo?> =
         eventDispatcher.compactionState.map { it[serverId] }
+            .catch { e ->
+                Log.e("ChatRepository", "Error in getCompactionState", e)
+                emit(null)
+            }
 
     // ============ Network Operations ============
 
