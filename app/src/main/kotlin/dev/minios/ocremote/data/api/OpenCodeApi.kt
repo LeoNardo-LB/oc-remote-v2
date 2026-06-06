@@ -79,7 +79,7 @@ class OpenCodeApi @Inject constructor(
      * GET /agent
      * Returns agents filtered to primary/visible ones for the mode selector.
      */
-    suspend fun listAgents(conn: ServerConnection): List<AgentInfo> {
+    suspend fun listAgents(conn: ServerConnection): List<dev.minios.ocremote.data.dto.response.AgentInfo> {
         return httpClient.get("${conn.baseUrl}/agent") {
             conn.authHeader?.let { header("Authorization", it) }
         }.body()
@@ -850,7 +850,7 @@ class OpenCodeApi @Inject constructor(
      * List available slash commands.
      * GET /command
      */
-    suspend fun listCommands(conn: ServerConnection): List<CommandInfo> {
+    suspend fun listCommands(conn: ServerConnection): List<dev.minios.ocremote.data.dto.response.CommandInfo> {
         return httpClient.get("${conn.baseUrl}/command") {
             conn.authHeader?.let { header("Authorization", it) }
         }.body()
