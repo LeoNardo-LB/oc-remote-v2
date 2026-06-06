@@ -261,6 +261,10 @@ fun ChatScreen(
     startInTerminalMode: Boolean = false,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
+    val messageState by viewModel.messageListState.collectAsState()
+    val sessionMeta by viewModel.sessionMetaState.collectAsState()
+    val interaction by viewModel.interactionState.collectAsState()
+    val tokenStats by viewModel.tokenStatsState.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val draftText by viewModel.draftText.collectAsState()
     val draftAttachmentUris by viewModel.draftAttachmentUris.collectAsState()
@@ -307,13 +311,13 @@ fun ChatScreen(
     // causing unreliable restoration when the composable is recomposed (not recreated).
     LaunchedEffect(viewModel.scrollRestoreVersion) {
         val version = viewModel.scrollRestoreVersion
-        Log.w("CHAT_DEBUG", "[scrollRestore] LaunchedEffect fired: version=$version msgs=${uiState.messages.size}")
+        Log.w("CHAT_DEBUG", "[scrollRestore] LaunchedEffect fired: version=$version msgs=${messageState.messages.size}")
         if (version > 0) {
             val savedId = viewModel.savedMessageId
             if (savedId != null) {
                 // Reconstruct displayItems filtering to find the target's LazyColumn index.
                 // With reverseLayout=true + displayItems.reversed(), the adapter index differs.
-                val msgs = uiState.messages
+                val msgs = messageState.messages
                 var displayIndex = -1
                 var count = 0
                 for (i in msgs.indices) {
@@ -350,7 +354,7 @@ fun ChatScreen(
                     }
                     val reversedIndex = totalDisplay - 1 - displayIndex
                     // Account for auxiliary items declared before messages in reverseLayout
-                    val auxOffset = uiState.pendingQuestions.size + uiState.pendingPermissions.size + (if (uiState.revert != null) 1 else 0)
+                    val auxOffset = interaction.pendingQuestions.size + interaction.pendingPermissions.size + (if (sessionMeta.revert != null) 1 else 0)
                     listState.scrollToItem(reversedIndex + auxOffset, viewModel.savedScrollOffset)
                     Log.w("CHAT_DEBUG", "[scrollRestore] restored to reversedIndex=$reversedIndex auxOffset=$auxOffset")
                 } else {
@@ -459,9 +463,9 @@ fun ChatScreen(
     val attachments = attachmentHandler.attachments
 
     // Show errors as snackbar when messages are already loaded
-    LaunchedEffect(uiState.error) {
-        val error = uiState.error
-        if (error != null && uiState.messages.isNotEmpty()) {
+    LaunchedEffect(interaction.error) {
+        val error = interaction.error
+        if (error != null && messageState.messages.isNotEmpty()) {
             snackbarHostState.showSnackbar(
                 message = error,
                 duration = SnackbarDuration.Short
@@ -496,7 +500,7 @@ fun ChatScreen(
     // scroll to absolute bottom if user is already at/near bottom.
     LaunchedEffect(Unit) {
         var lastCount = 0
-        snapshotFlow { uiState.messages.size }
+        snapshotFlow { messageState.messages.size }
             .collect { count ->
                 if (count > lastCount && lastCount > 0 && isAtBottom) {
                     // New messages appeared while user is at bottom → stay at bottom
@@ -515,7 +519,7 @@ fun ChatScreen(
         LocalExpandReasoning provides expandReasoning,
         LocalHapticFeedbackEnabled provides hapticEnabled,
         LocalImageSaveRequest provides attachmentHandler.requestSaveImage,
-        LocalToolExpandedStates provides uiState.toolExpandedStates,
+        LocalToolExpandedStates provides messageState.toolExpandedStates,
         LocalOnToggleToolExpanded provides { toolId, defaultExpanded -> viewModel.toggleToolExpanded(toolId, defaultExpanded) },
         LocalToolCardResolver provides viewModel.toolCardResolver,
     ) {
@@ -524,18 +528,18 @@ fun ChatScreen(
         topBar = {
             if (!isTerminalMode) {
                 ChatTopBar(
-                    sessionTitle = uiState.sessionTitle,
-                    messageCount = uiState.messageCount,
-                    totalInputTokens = uiState.totalInputTokens,
-                    totalOutputTokens = uiState.totalOutputTokens,
-                    totalReasoningTokens = uiState.totalReasoningTokens,
-                    totalCacheReadTokens = uiState.totalCacheReadTokens,
-                    totalCacheWriteTokens = uiState.totalCacheWriteTokens,
-                    totalCost = uiState.totalCost,
-                    sessionParentId = uiState.sessionParentId,
-                    shareUrl = uiState.shareUrl,
-                    contextWindow = uiState.contextWindow,
-                    lastContextTokens = uiState.lastContextTokens,
+                    sessionTitle = sessionMeta.sessionTitle,
+                    messageCount = messageState.messageCount,
+                    totalInputTokens = tokenStats.totalInputTokens,
+                    totalOutputTokens = tokenStats.totalOutputTokens,
+                    totalReasoningTokens = tokenStats.totalReasoningTokens,
+                    totalCacheReadTokens = tokenStats.totalCacheReadTokens,
+                    totalCacheWriteTokens = tokenStats.totalCacheWriteTokens,
+                    totalCost = tokenStats.totalCost,
+                    sessionParentId = sessionMeta.sessionParentId,
+                    shareUrl = sessionMeta.shareUrl,
+                    contextWindow = tokenStats.contextWindow,
+                    lastContextTokens = tokenStats.lastContextTokens,
                     onNavigateBack = onNavigateBack,
                     onTerminalMode = { isTerminalMode = true },
                     onOpenInWebView = onOpenInWebView,
@@ -594,20 +598,20 @@ fun ChatScreen(
                     },
                     onRename = { showRenameDialog = true },
                     onExport = {
-                        val slug = uiState.sessionTitle
+                        val slug = sessionMeta.sessionTitle
                             .take(30)
                             .replace(Regex("[^a-zA-Z0-9_-]"), "_")
                             .ifBlank { "session" }
                         attachmentHandler.launchExport("$slug.json")
                     },
-                    currentAgentName = uiState.currentAgentName,
-                    currentModelId = uiState.currentModelId,
+                    currentAgentName = sessionMeta.currentAgentName,
+                    currentModelId = sessionMeta.currentModelId,
                 )
             }
         },
         bottomBar = {
-            if (uiState.sessionParentId == null && !isTerminalMode &&
-                (uiState.messages.isNotEmpty() || !uiState.isLoading) && uiState.error == null
+            if (sessionMeta.sessionParentId == null && !isTerminalMode &&
+                (messageState.messages.isNotEmpty() || !interaction.isLoading) && interaction.error == null
             ) {
                 val modelLabel = if (uiState.selectedModelId != null && uiState.providers.isNotEmpty()) {
                     val provider = uiState.providers.find { it.id == uiState.selectedProviderId }
@@ -774,9 +778,9 @@ fun ChatScreen(
                                 viewModel.clearFileSearch()
                             }
                         },
-                        isSending = uiState.isSending,
-                        isBusy = uiState.sessionStatus is SessionStatus.Busy,
-                        messages = uiState.messages,
+                        isSending = interaction.isSending,
+                        isBusy = sessionMeta.sessionStatus is SessionStatus.Busy,
+                        messages = messageState.messages,
                         attachments = attachments,
                         onAttach = { attachmentHandler.pickImages() },
                         onRemoveAttachment = { index ->
@@ -936,19 +940,19 @@ fun ChatScreen(
                         snackbarHostState = snackbarHostState,
                     )
                 }
-                uiState.isLoading && uiState.messages.isEmpty() -> {
+                interaction.isLoading && messageState.messages.isEmpty() -> {
                     PulsingDotsIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                uiState.error != null && uiState.messages.isEmpty() -> {
+                interaction.error != null && messageState.messages.isEmpty() -> {
                     ChatErrorState(
                         modifier = Modifier.align(Alignment.Center),
-                        error = uiState.error,
+                        error = interaction.error,
                         onRetry = { viewModel.loadMessages() }
                     )
                 }
-                uiState.messages.isEmpty() && !uiState.isLoading -> {
+                messageState.messages.isEmpty() && !interaction.isLoading -> {
                     ChatEmptyState(
                         modifier = Modifier.align(Alignment.Center)
                     )
@@ -957,7 +961,7 @@ fun ChatScreen(
                      val messageSpacing = if (LocalCompactMessages.current) 2.dp else 8.dp
 
                         // Use raw messages directly — each Message is one LazyColumn item.
-                        val rawMessages = uiState.messages
+                        val rawMessages = messageState.messages
 
                         // Compute turn groups every recompose (no remember!).
                         // SSE text-delta updates Part content without changing message IDs,
@@ -980,10 +984,12 @@ fun ChatScreen(
 
 
 
-                        if (uiState.sessionParentId == null) {
+                        if (sessionMeta.sessionParentId == null) {
                             ChatMessageList(
                                 listState = listState,
-                                uiState = uiState,
+                                messageState = messageState,
+                                sessionMeta = sessionMeta,
+                                interaction = interaction,
                                 rawMessages = rawMessages,
                                 displayItems = displayItems,
                                 isAtBottom = isAtBottom,
@@ -1002,7 +1008,9 @@ fun ChatScreen(
                         } else {
                             ChatMessageList(
                                 listState = listState,
-                                uiState = uiState,
+                                messageState = messageState,
+                                sessionMeta = sessionMeta,
+                                interaction = interaction,
                                 rawMessages = rawMessages,
                                 displayItems = displayItems,
                                 isAtBottom = isAtBottom,
@@ -1041,7 +1049,7 @@ fun ChatScreen(
     // Rename dialog
     if (showRenameDialog) {
         RenameSessionDialog(
-            initialTitle = uiState.sessionTitle,
+            initialTitle = sessionMeta.sessionTitle,
             onRename = { newTitle ->
                 viewModel.renameSession(newTitle) { ok ->
                     coroutineScope.launch {

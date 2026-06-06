@@ -1,6 +1,7 @@
 ﻿package dev.minios.ocremote.ui.screens.chat
 
 import android.util.Log
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -33,6 +34,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CompletableDeferred
@@ -45,6 +47,67 @@ import java.net.URLDecoder
 import javax.inject.Inject
 
 private const val TAG = "ChatViewModel"
+
+/**
+ * Split state: message list and pagination data.
+ * Changes on every new message/part update — highest frequency.
+ */
+@Immutable
+data class MessageListState(
+    val messages: List<ChatMessage> = emptyList(),
+    val messageCount: Int = 0,
+    val hasOlderMessages: Boolean = false,
+    val isLoadingOlder: Boolean = false,
+    val toolExpandedStates: Map<String, Boolean> = emptyMap(),
+    val queuedMessageIds: Set<String> = emptySet(),
+    val pendingMessageIds: Set<String> = emptySet(),
+)
+
+/**
+ * Split state: session metadata.
+ * Changes when session info is updated (title, status, agent).
+ */
+@Immutable
+data class SessionMetaState(
+    val sessionTitle: String = "",
+    val serverName: String = "",
+    val sessionStatus: SessionStatus = SessionStatus.Idle,
+    val revert: Session.Revert? = null,
+    val sessionParentId: String? = null,
+    val sessionAgent: String? = null,
+    val currentAgentName: String? = null,
+    val currentModelId: String? = null,
+    val shareUrl: String? = null,
+)
+
+/**
+ * Split state: user interaction state.
+ * Changes on loading/sending/error and pending permissions/questions.
+ */
+@Immutable
+data class InteractionState(
+    val isLoading: Boolean = true,
+    val isSending: Boolean = false,
+    val error: String? = null,
+    val pendingPermissions: List<SseEvent.PermissionAsked> = emptyList(),
+    val pendingQuestions: List<SseEvent.QuestionAsked> = emptyList(),
+)
+
+/**
+ * Split state: token usage statistics.
+ * Changes on every streaming token update — high frequency during generation.
+ */
+@Immutable
+data class TokenStatsState(
+    val totalCost: Double = 0.0,
+    val totalInputTokens: Int = 0,
+    val totalOutputTokens: Int = 0,
+    val totalReasoningTokens: Int = 0,
+    val totalCacheReadTokens: Int = 0,
+    val totalCacheWriteTokens: Int = 0,
+    val contextWindow: Int = 0,
+    val lastContextTokens: Int = 0,
+)
 
 data class ChatUiState(
     val sessionTitle: String = "",
@@ -527,6 +590,169 @@ class ChatViewModel @Inject constructor(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
         ChatUiState()
+    )
+
+    // ============ Split State Flows (independent combines for fine-grained recomposition) ============
+
+    /**
+     * Message list state — changes on every message/part/update.
+     * Independent from the main [uiState] combine to limit recomposition scope.
+     */
+    val messageListState: StateFlow<MessageListState> = combine(
+        eventDispatcher.sessions,
+        messagePaging.observeMessages(sessionId),
+        eventDispatcher.parts,
+        _isLoading,
+        _hasOlderMessages,
+        _isLoadingOlder,
+        _toolExpandedStates,
+        _pendingMessageIds,
+    ) { args ->
+        @Suppress("UNCHECKED_CAST")
+        val allSessions = args[0] as List<Session>
+        val sessionMessages = args[1] as List<Message>
+        val allParts = args[2] as Map<String, List<Part>>
+        val loading = args[3] as Boolean
+        val hasOlderMessages = args[4] as Boolean
+        val isLoadingOlder = args[5] as Boolean
+        @Suppress("UNCHECKED_CAST")
+        val toolExpandedStates = args[6] as Map<String, Boolean>
+        @Suppress("UNCHECKED_CAST")
+        val pendingMessageIds = args[7] as Set<String>
+
+        val session = allSessions.find { it.id == sessionId }
+        val revertState = session?.revert
+
+        val chatMessages = if (loading && sessionMessages.size < 3) {
+            emptyList()
+        } else {
+            val sorted = sessionMessages.sortedBy { it.time.created }
+            val visible = if (revertState != null) {
+                sorted.filter { it.id < revertState.messageId }
+            } else {
+                sorted
+            }
+            visible.map { msg ->
+                ChatMessage(
+                    message = msg,
+                    parts = allParts[msg.id] ?: emptyList()
+                )
+            }
+        }
+
+        val pendingAssistantIndex = chatMessages.indexOfLast {
+            it.message is Message.Assistant && it.message.time.completed == null
+        }
+        val queuedMessageIds = if (pendingAssistantIndex >= 0) {
+            chatMessages.drop(pendingAssistantIndex + 1)
+                .filter { it.isUser }
+                .map { it.message.id }
+                .toSet()
+        } else {
+            emptySet<String>()
+        }
+
+        MessageListState(
+            messages = chatMessages,
+            messageCount = chatMessages.size,
+            hasOlderMessages = hasOlderMessages,
+            isLoadingOlder = isLoadingOlder,
+            toolExpandedStates = toolExpandedStates,
+            queuedMessageIds = queuedMessageIds,
+            pendingMessageIds = pendingMessageIds,
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        MessageListState()
+    )
+
+    /**
+     * Session metadata — changes when session info is updated (title, status, agent).
+     */
+    val sessionMetaState: StateFlow<SessionMetaState> = combine(
+        eventDispatcher.sessions,
+        eventDispatcher.sessionStatuses,
+        eventDispatcher.currentAgent,
+        eventDispatcher.currentModel,
+    ) { args ->
+        @Suppress("UNCHECKED_CAST")
+        val allSessions = args[0] as List<Session>
+        @Suppress("UNCHECKED_CAST")
+        val statuses = args[1] as Map<String, SessionStatus>
+        @Suppress("UNCHECKED_CAST")
+        val currentAgentMap = args[2] as Map<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val currentModelMap = args[3] as Map<String, Pair<String, String>>
+
+        val session = allSessions.find { it.id == sessionId }
+
+        SessionMetaState(
+            sessionTitle = session?.title ?: "",
+            serverName = serverName,
+            sessionStatus = statuses[sessionId] ?: SessionStatus.Idle,
+            revert = session?.revert,
+            sessionParentId = session?.parentId,
+            sessionAgent = session?.agent,
+            currentAgentName = currentAgentMap[sessionId],
+            currentModelId = currentModelMap[sessionId]?.second,
+            shareUrl = session?.share?.url,
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        SessionMetaState()
+    )
+
+    /**
+     * Interaction state — loading, sending, error, and pending permission/question cards.
+     */
+    val interactionState: StateFlow<InteractionState> = combine(
+        _isLoading,
+        _error,
+        _isSending,
+        eventDispatcher.permissions,
+        eventDispatcher.questions,
+        eventDispatcher.sessions,
+    ) { args ->
+        val loading = args[0] as Boolean
+        val error = args[1] as String?
+        val sending = args[2] as Boolean
+        @Suppress("UNCHECKED_CAST")
+        val allSessions = args[5] as List<Session>
+
+        InteractionState(
+            isLoading = loading,
+            isSending = sending,
+            error = error,
+            pendingPermissions = eventDispatcher.getPermissionsWithChildren(sessionId, allSessions),
+            pendingQuestions = eventDispatcher.getQuestionsWithChildren(sessionId, allSessions),
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        InteractionState()
+    )
+
+    /**
+     * Token usage statistics — changes on every streaming token update.
+     * Directly mapped from [TokenStatsTracker.stats].
+     */
+    val tokenStatsState: StateFlow<TokenStatsState> = tokenStatsTracker.stats.map { stats ->
+        TokenStatsState(
+            totalCost = stats.totalCost,
+            totalInputTokens = stats.totalInputTokens,
+            totalOutputTokens = stats.totalOutputTokens,
+            totalReasoningTokens = stats.totalReasoningTokens,
+            totalCacheReadTokens = stats.totalCacheReadTokens,
+            totalCacheWriteTokens = stats.totalCacheWriteTokens,
+            contextWindow = stats.contextWindow,
+            lastContextTokens = stats.lastContextTokens,
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        TokenStatsState()
     )
 
     init {

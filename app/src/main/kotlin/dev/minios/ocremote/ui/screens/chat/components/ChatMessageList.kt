@@ -57,8 +57,10 @@ import dev.minios.ocremote.ui.components.ConfirmDialog
 import dev.minios.ocremote.ui.components.DialogButtonRole
 import dev.minios.ocremote.ui.components.DialogButtons
 import dev.minios.ocremote.ui.screens.chat.ChatMessage
-import dev.minios.ocremote.ui.screens.chat.ChatUiState
 import dev.minios.ocremote.ui.screens.chat.ChatViewModel
+import dev.minios.ocremote.ui.screens.chat.InteractionState
+import dev.minios.ocremote.ui.screens.chat.MessageListState
+import dev.minios.ocremote.ui.screens.chat.SessionMetaState
 import dev.minios.ocremote.ui.screens.chat.dialog.PermissionCard
 import dev.minios.ocremote.ui.screens.chat.dialog.QuestionCard
 import dev.minios.ocremote.ui.screens.chat.components.AlwaysConfirmDialog
@@ -79,7 +81,9 @@ import dev.minios.ocremote.ui.theme.AlphaTokens
 @Composable
 fun ChatMessageList(
     listState: LazyListState,
-    uiState: ChatUiState,
+    messageState: MessageListState,
+    sessionMeta: SessionMetaState,
+    interaction: InteractionState,
     rawMessages: List<ChatMessage>,
     displayItems: List<Pair<Int, ChatMessage>>,
     isAtBottom: Boolean,
@@ -115,9 +119,9 @@ fun ChatMessageList(
             var showAlwaysDialog by remember { mutableStateOf<SseEvent.PermissionAsked?>(null) }
             val pullToRefreshState = rememberPullToRefreshState()
             PullToRefreshBox(
-                isRefreshing = uiState.isLoadingOlder,
+                isRefreshing = messageState.isLoadingOlder,
                 onRefresh = {
-                    if (uiState.hasOlderMessages) viewModel.loadOlderMessages()
+                    if (messageState.hasOlderMessages) viewModel.loadOlderMessages()
                 },
                 state = pullToRefreshState,
                 modifier = Modifier.fillMaxSize()
@@ -141,12 +145,12 @@ fun ChatMessageList(
 
                     // Pending questions (declared first = bottom-most visually)
                     // 批量问题操作栏 - 当有2个及以上问题时显示
-                    if (uiState.pendingQuestions.size > 1) {
+                    if (interaction.pendingQuestions.size > 1) {
                         item(key = "question_batch_actions") {
                             QuestionBatchActionBar(
-                                count = uiState.pendingQuestions.size,
+                                count = interaction.pendingQuestions.size,
                                 onSkipAll = {
-                                    uiState.pendingQuestions.forEach { question ->
+                                    interaction.pendingQuestions.forEach { question ->
                                         viewModel.rejectQuestion(question.id)
                                     }
                                 }
@@ -154,7 +158,7 @@ fun ChatMessageList(
                         }
                     }
                     items(
-                        uiState.pendingQuestions.reversed(),
+                        interaction.pendingQuestions.reversed(),
                         key = { "question_${it.id}" }
                     ) { question ->
                         QuestionCard(
@@ -169,17 +173,17 @@ fun ChatMessageList(
                     }
 
                     // 批量权限操作栏 - 当有2个及以上权限时显示
-                    if (uiState.pendingPermissions.size > 1) {
+                    if (interaction.pendingPermissions.size > 1) {
                         item(key = "perm_batch_actions") {
                             PermissionBatchActionBar(
-                                count = uiState.pendingPermissions.size,
+                                count = interaction.pendingPermissions.size,
                                 onAllowAll = {
-                                    uiState.pendingPermissions.forEach { perm ->
+                                    interaction.pendingPermissions.forEach { perm ->
                                         viewModel.replyToPermission(perm.id, "once")
                                     }
                                 },
                                 onRejectAll = {
-                                    uiState.pendingPermissions.forEach { perm ->
+                                    interaction.pendingPermissions.forEach { perm ->
                                         viewModel.replyToPermission(perm.id, "reject")
                                     }
                                 }
@@ -188,7 +192,7 @@ fun ChatMessageList(
                     }
                     // Pending permissions
                     items(
-                        uiState.pendingPermissions.reversed(),
+                        interaction.pendingPermissions.reversed(),
                         key = { "perm_${it.id}" }
                     ) { permission ->
                         PermissionCard(
@@ -200,7 +204,7 @@ fun ChatMessageList(
                     }
 
                     // Revert banner
-                    if (uiState.revert != null) {
+                    if (sessionMeta.revert != null) {
                         item(key = "revert_banner") {
                             RevertBanner(onRedo = {
                                 viewModel.redoMessage { ok ->
@@ -325,7 +329,7 @@ fun ChatMessageList(
                                 MessageCard(
                                     role = MessageCardRole.USER,
                                     currentMessage = chatMessage,
-                                    isQueued = chatMessage.message.id in uiState.queuedMessageIds,
+                                    isQueued = chatMessage.message.id in messageState.queuedMessageIds,
                                     onViewSubSession = navigateToChildSession,
                                     onRevert = if (isMainSession) {
                                         {
