@@ -172,7 +172,6 @@ import androidx.compose.ui.res.stringResource
 import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.components.ProviderIcon
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
-import dev.minios.ocremote.ui.screens.chat.util.computeTurnGroups
 import dev.minios.ocremote.ui.screens.chat.util.toolOutputContainerColor
 import dev.minios.ocremote.ui.screens.chat.util.agentColor
 import dev.minios.ocremote.ui.screens.chat.util.agentColorCycle
@@ -964,13 +963,7 @@ fun ChatScreen(
                         // Use raw messages directly — each Message is one LazyColumn item.
                         val rawMessages = messageState.messages
 
-                        // Compute turn groups every recompose (no remember!).
-                        // SSE text-delta updates Part content without changing message IDs,
-                        // so a remembered turnGroups would hold stale ChatMessage objects,
-                        // breaking streaming (content appears in chunks) and causing flicker.
-                        val turnGroups = computeTurnGroups(rawMessages)
-
-                       // Filter: keep user messages + first assistant in each turn group
+                        // Filter: keep user messages + first assistant in each turn group
                        // to avoid zero-height items creating blank gaps from spacedBy
                        val displayItems = rawMessages.mapIndexedNotNull { index, msg ->
                            when {

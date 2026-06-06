@@ -100,7 +100,7 @@ fun ChatMessageList(
     navigateToChildSession: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val turnGroups = computeTurnGroups(rawMessages)
+    val turnGroups = remember(rawMessages) { computeTurnGroups(rawMessages) }
 
     // Real-time status from EventDispatcher
     val toolProgress by viewModel.eventDispatcher.activeToolProgress.collectAsStateWithLifecycle()
