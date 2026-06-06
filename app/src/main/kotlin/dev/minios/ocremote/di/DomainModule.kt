@@ -4,8 +4,12 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dev.minios.ocremote.data.repository.AgentRepositoryImpl
 import dev.minios.ocremote.data.repository.DraftDataStore
+import dev.minios.ocremote.data.repository.TerminalRepositoryImpl
+import dev.minios.ocremote.domain.repository.AgentRepository
 import dev.minios.ocremote.domain.repository.DraftRepository
+import dev.minios.ocremote.domain.repository.TerminalRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -13,4 +17,10 @@ abstract class DomainModule {
 
     @Binds
     abstract fun bindDraftRepository(impl: DraftDataStore): DraftRepository
+
+    @Binds
+    abstract fun bindTerminalRepository(impl: TerminalRepositoryImpl): TerminalRepository
+
+    @Binds
+    abstract fun bindAgentRepository(impl: AgentRepositoryImpl): AgentRepository
 }
