@@ -131,6 +131,7 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import dev.minios.ocremote.domain.model.*
 import dev.minios.ocremote.domain.model.AgentInfo
@@ -261,13 +262,13 @@ fun ChatScreen(
     startInTerminalMode: Boolean = false,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
-    val messageState by viewModel.messageListState.collectAsState()
-    val sessionMeta by viewModel.sessionMetaState.collectAsState()
-    val interaction by viewModel.interactionState.collectAsState()
-    val tokenStats by viewModel.tokenStatsState.collectAsState()
-    val uiState by viewModel.uiState.collectAsState()
-    val draftText by viewModel.draftText.collectAsState()
-    val draftAttachmentUris by viewModel.draftAttachmentUris.collectAsState()
+    val messageState by viewModel.messageListState.collectAsStateWithLifecycle()
+    val sessionMeta by viewModel.sessionMetaState.collectAsStateWithLifecycle()
+    val interaction by viewModel.interactionState.collectAsStateWithLifecycle()
+    val tokenStats by viewModel.tokenStatsState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val draftText by viewModel.draftText.collectAsStateWithLifecycle()
+    val draftAttachmentUris by viewModel.draftAttachmentUris.collectAsStateWithLifecycle()
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
     // Sync inputText once from draft on first composition
     var draftTextInitialized by remember { mutableStateOf(false) }
@@ -415,21 +416,21 @@ fun ChatScreen(
     // keyboard push content naturally without explicit scroll.
 
     // @ file mention state
-    val fileSearchResults by viewModel.fileSearchResults.collectAsState()
-    val confirmedFilePaths by viewModel.confirmedFilePaths.collectAsState()
+    val fileSearchResults by viewModel.fileSearchResults.collectAsStateWithLifecycle()
+    val confirmedFilePaths by viewModel.confirmedFilePaths.collectAsStateWithLifecycle()
 
     // Settings
-    val chatFontSize by viewModel.chatFontSize.collectAsState()
-    val codeWordWrap by viewModel.codeWordWrap.collectAsState()
-    val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsState()
-    val compactMessages by viewModel.compactMessages.collectAsState()
-    val collapseTools by viewModel.collapseTools.collectAsState()
-    val expandReasoning by viewModel.expandReasoning.collectAsState()
-    val hapticEnabled by viewModel.hapticFeedback.collectAsState()
-    val keepScreenOn by viewModel.keepScreenOn.collectAsState()
-    val compressImageAttachments by viewModel.compressImageAttachments.collectAsState()
-    val imageAttachmentMaxLongSide by viewModel.imageAttachmentMaxLongSide.collectAsState()
-    val imageAttachmentWebpQuality by viewModel.imageAttachmentWebpQuality.collectAsState()
+    val chatFontSize by viewModel.chatFontSize.collectAsStateWithLifecycle()
+    val codeWordWrap by viewModel.codeWordWrap.collectAsStateWithLifecycle()
+    val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsStateWithLifecycle()
+    val compactMessages by viewModel.compactMessages.collectAsStateWithLifecycle()
+    val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
+    val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
+    val hapticEnabled by viewModel.hapticFeedback.collectAsStateWithLifecycle()
+    val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
+    val compressImageAttachments by viewModel.compressImageAttachments.collectAsStateWithLifecycle()
+    val imageAttachmentMaxLongSide by viewModel.imageAttachmentMaxLongSide.collectAsStateWithLifecycle()
+    val imageAttachmentWebpQuality by viewModel.imageAttachmentWebpQuality.collectAsStateWithLifecycle()
     var showSendConfirmDialog by remember { mutableStateOf(false) }
     // Pending send action: stored so the confirm dialog can trigger it
     var pendingSendAction by remember { mutableStateOf<(() -> Unit)?>(null) }

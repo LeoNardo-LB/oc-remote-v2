@@ -56,6 +56,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -106,11 +107,11 @@ fun ChatTerminalView(
     onNavigateBack: () -> Unit,
     snackbarHostState: androidx.compose.material3.SnackbarHostState,
 ) {
-    val terminalVersion by viewModel.terminalVersion.collectAsState()
-    val terminalConnected by viewModel.terminalConnected.collectAsState()
-    val terminalTabs by viewModel.terminalTabs.collectAsState()
-    val activeTerminalTabId by viewModel.activeTerminalTabId.collectAsState()
-    val terminalFontSizeSp by viewModel.terminalFontSizeSp.collectAsState()
+    val terminalVersion by viewModel.terminalVersion.collectAsStateWithLifecycle()
+    val terminalConnected by viewModel.terminalConnected.collectAsStateWithLifecycle()
+    val terminalTabs by viewModel.terminalTabs.collectAsStateWithLifecycle()
+    val activeTerminalTabId by viewModel.activeTerminalTabId.collectAsStateWithLifecycle()
+    val terminalFontSizeSp by viewModel.terminalFontSizeSp.collectAsStateWithLifecycle()
 
     // isTerminalMode is hoisted — changes go through onTerminalModeChanged
     var terminalCtrlLatched by rememberSaveable { mutableStateOf(false) }

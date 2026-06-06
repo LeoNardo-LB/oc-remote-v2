@@ -44,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,38 +83,38 @@ fun SettingsScreen(
     viewModel: SettingsViewModel,
     onNavigateBack: () -> Unit,
 ) {
-    val currentLanguage by viewModel.appLanguage.collectAsState()
-    val currentTheme by viewModel.appTheme.collectAsState()
-    val dynamicColor by viewModel.dynamicColor.collectAsState()
-    val chatFontSize by viewModel.chatFontSize.collectAsState()
-    val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
+    val currentLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
+    val currentTheme by viewModel.appTheme.collectAsStateWithLifecycle()
+    val dynamicColor by viewModel.dynamicColor.collectAsStateWithLifecycle()
+    val chatFontSize by viewModel.chatFontSize.collectAsStateWithLifecycle()
+    val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
 
-    val initialMessageCount by viewModel.initialMessageCount.collectAsState()
-    val codeWordWrap by viewModel.codeWordWrap.collectAsState()
-    val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsState()
-    val amoledDark by viewModel.amoledDark.collectAsState()
-    val compactMessages by viewModel.compactMessages.collectAsState()
-    val collapseTools by viewModel.collapseTools.collectAsState()
-    val expandReasoning by viewModel.expandReasoning.collectAsState()
-    val hapticFeedback by viewModel.hapticFeedback.collectAsState()
-    val reconnectMode by viewModel.reconnectMode.collectAsState()
-    val keepScreenOn by viewModel.keepScreenOn.collectAsState()
-    val silentNotifications by viewModel.silentNotifications.collectAsState()
-    val compressImageAttachments by viewModel.compressImageAttachments.collectAsState()
-    val imageAttachmentMaxLongSide by viewModel.imageAttachmentMaxLongSide.collectAsState()
-    val imageAttachmentWebpQuality by viewModel.imageAttachmentWebpQuality.collectAsState()
-    val showLocalRuntime by viewModel.showLocalRuntime.collectAsState()
-    val terminalFontSize by viewModel.terminalFontSize.collectAsState()
-    val localProxyEnabled by viewModel.localProxyEnabled.collectAsState()
-    val localProxyUrl by viewModel.localProxyUrl.collectAsState()
-    val localProxyNoProxy by viewModel.localProxyNoProxy.collectAsState()
-    val localServerAllowLan by viewModel.localServerAllowLan.collectAsState()
-    val localServerUsername by viewModel.localServerUsername.collectAsState()
-    val localServerPassword by viewModel.localServerPassword.collectAsState()
-    val localServerRunInBackground by viewModel.localServerRunInBackground.collectAsState()
-    val localServerAutoStart by viewModel.localServerAutoStart.collectAsState()
-    val localServerStartupTimeoutSec by viewModel.localServerStartupTimeoutSec.collectAsState()
-    val autoApproveRules by viewModel.autoApproveRules.collectAsState()
+    val initialMessageCount by viewModel.initialMessageCount.collectAsStateWithLifecycle()
+    val codeWordWrap by viewModel.codeWordWrap.collectAsStateWithLifecycle()
+    val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsStateWithLifecycle()
+    val amoledDark by viewModel.amoledDark.collectAsStateWithLifecycle()
+    val compactMessages by viewModel.compactMessages.collectAsStateWithLifecycle()
+    val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
+    val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
+    val hapticFeedback by viewModel.hapticFeedback.collectAsStateWithLifecycle()
+    val reconnectMode by viewModel.reconnectMode.collectAsStateWithLifecycle()
+    val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
+    val silentNotifications by viewModel.silentNotifications.collectAsStateWithLifecycle()
+    val compressImageAttachments by viewModel.compressImageAttachments.collectAsStateWithLifecycle()
+    val imageAttachmentMaxLongSide by viewModel.imageAttachmentMaxLongSide.collectAsStateWithLifecycle()
+    val imageAttachmentWebpQuality by viewModel.imageAttachmentWebpQuality.collectAsStateWithLifecycle()
+    val showLocalRuntime by viewModel.showLocalRuntime.collectAsStateWithLifecycle()
+    val terminalFontSize by viewModel.terminalFontSize.collectAsStateWithLifecycle()
+    val localProxyEnabled by viewModel.localProxyEnabled.collectAsStateWithLifecycle()
+    val localProxyUrl by viewModel.localProxyUrl.collectAsStateWithLifecycle()
+    val localProxyNoProxy by viewModel.localProxyNoProxy.collectAsStateWithLifecycle()
+    val localServerAllowLan by viewModel.localServerAllowLan.collectAsStateWithLifecycle()
+    val localServerUsername by viewModel.localServerUsername.collectAsStateWithLifecycle()
+    val localServerPassword by viewModel.localServerPassword.collectAsStateWithLifecycle()
+    val localServerRunInBackground by viewModel.localServerRunInBackground.collectAsStateWithLifecycle()
+    val localServerAutoStart by viewModel.localServerAutoStart.collectAsStateWithLifecycle()
+    val localServerStartupTimeoutSec by viewModel.localServerStartupTimeoutSec.collectAsStateWithLifecycle()
+    val autoApproveRules by viewModel.autoApproveRules.collectAsStateWithLifecycle()
 
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }

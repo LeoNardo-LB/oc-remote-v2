@@ -35,6 +35,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -102,9 +103,9 @@ fun ChatMessageList(
     val turnGroups = computeTurnGroups(rawMessages)
 
     // Real-time status from EventDispatcher
-    val toolProgress by viewModel.eventDispatcher.activeToolProgress.collectAsState()
-    val stepProgress by viewModel.eventDispatcher.stepProgress.collectAsState()
-    val compactionState by viewModel.eventDispatcher.compactionState.collectAsState()
+    val toolProgress by viewModel.eventDispatcher.activeToolProgress.collectAsStateWithLifecycle()
+    val stepProgress by viewModel.eventDispatcher.stepProgress.collectAsStateWithLifecycle()
+    val compactionState by viewModel.eventDispatcher.compactionState.collectAsStateWithLifecycle()
     val currentSessionId = viewModel.sessionId
     val activeTools = toolProgress[currentSessionId].orEmpty()
     val currentStep = stepProgress[currentSessionId]
