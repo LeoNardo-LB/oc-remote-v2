@@ -428,14 +428,3 @@ internal class ServerTerminalWorkspace(
         _activeFontSizeSp.value = active.fontSizeSp
     }
 }
-
-internal object ServerTerminalRegistry {
-    private val lock = Any()
-    private val byServer = mutableMapOf<String, ServerTerminalWorkspace>()
-
-    fun workspaceFor(serverId: String, api: OpenCodeApi, conn: ServerConnection): ServerTerminalWorkspace {
-        synchronized(lock) {
-            return byServer.getOrPut(serverId) { ServerTerminalWorkspace(api, conn) }
-        }
-    }
-}

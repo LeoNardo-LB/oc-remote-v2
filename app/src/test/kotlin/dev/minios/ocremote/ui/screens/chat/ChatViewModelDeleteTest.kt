@@ -1,7 +1,7 @@
 package dev.minios.ocremote.ui.screens.chat
 
 import android.util.Log
-import dev.minios.ocremote.data.api.OpenCodeApi
+import dev.minios.ocremote.data.repository.ServerTerminalRegistry
 import dev.minios.ocremote.domain.model.AppSettings
 import dev.minios.ocremote.domain.model.ProvidersResponse
 import dev.minios.ocremote.domain.repository.ChatRepository
@@ -41,7 +41,7 @@ class ChatViewModelDeleteTest {
     private val testDispatcher = UnconfinedTestDispatcher()
 
     private lateinit var eventDispatcher: EventDispatcher
-    private lateinit var api: OpenCodeApi
+    private lateinit var terminalRegistry: ServerTerminalRegistry
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var sendMessageUseCase: SendMessageUseCase
     private lateinit var manageSessionUseCase: ManageSessionUseCase
@@ -78,7 +78,7 @@ class ChatViewModelDeleteTest {
         every { Log.w(any(), any<String>(), any()) } returns 0
         every { Log.i(any(), any()) } returns 0
 
-        api = mockk(relaxed = true)
+        terminalRegistry = mockk(relaxed = true)
         settingsRepository = mockk()
 
         sendMessageUseCase = mockk(relaxed = true)
@@ -198,7 +198,7 @@ class ChatViewModelDeleteTest {
             shareExportUseCase = shareExportUseCase,
             undoRedoUseCase = undoRedoUseCase,
             settingsRepository = settingsRepository,
-            api = api,
+            terminalRegistry = terminalRegistry,
             toolCardResolver = dev.minios.ocremote.ui.screens.chat.tools.DefaultToolCardResolver(),
             chatRepository = mockk<ChatRepository>(relaxed = true),
             sessionRepository = mockk<SessionRepository>(relaxed = true),

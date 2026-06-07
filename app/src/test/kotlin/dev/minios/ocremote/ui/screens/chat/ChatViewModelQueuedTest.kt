@@ -1,7 +1,7 @@
 ﻿package dev.minios.ocremote.ui.screens.chat
 
 import android.util.Log
-import dev.minios.ocremote.data.api.OpenCodeApi
+import dev.minios.ocremote.data.repository.ServerTerminalRegistry
 import dev.minios.ocremote.domain.model.AppSettings
 import dev.minios.ocremote.domain.model.ProvidersResponse
 import dev.minios.ocremote.data.repository.EventDispatcher
@@ -51,7 +51,7 @@ class ChatViewModelQueuedTest {
     // === Mock and infrastructure ===
 
     private lateinit var eventDispatcher: EventDispatcher
-    private val api: OpenCodeApi = mockk(relaxed = true)
+    private val terminalRegistry: ServerTerminalRegistry = mockk(relaxed = true)
     private val settingsRepository: SettingsRepository = mockk()
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -210,7 +210,7 @@ class ChatViewModelQueuedTest {
             shareExportUseCase = shareExportUseCase,
             undoRedoUseCase = undoRedoUseCase,
             settingsRepository = settingsRepository,
-            api = api,
+            terminalRegistry = terminalRegistry,
             toolCardResolver = dev.minios.ocremote.ui.screens.chat.tools.DefaultToolCardResolver(),
             chatRepository = mockk<ChatRepository>(relaxed = true),
             sessionRepository = mockk<SessionRepository>(relaxed = true),

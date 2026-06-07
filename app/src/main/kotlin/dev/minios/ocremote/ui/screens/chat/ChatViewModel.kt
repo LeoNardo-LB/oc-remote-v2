@@ -16,10 +16,9 @@ import dev.minios.ocremote.domain.model.CommandInfo
 import dev.minios.ocremote.domain.model.ModelSelection
 import dev.minios.ocremote.domain.model.PromptPart
 import dev.minios.ocremote.domain.model.ProviderCatalog
-import dev.minios.ocremote.data.api.OpenCodeApi
+import dev.minios.ocremote.data.repository.ServerTerminalRegistry
 import dev.minios.ocremote.ui.navigation.routes.ChatNav
 import dev.minios.ocremote.ui.screens.chat.tools.ToolCardResolver
-import dev.minios.ocremote.data.api.ServerConnection
 import dev.minios.ocremote.domain.model.Draft
 import dev.minios.ocremote.domain.repository.DraftRepository
 import dev.minios.ocremote.data.repository.EventDispatcher
@@ -218,9 +217,7 @@ class ChatViewModel @Inject constructor(
     private val shareExportUseCase: ShareExportUseCase,
     private val undoRedoUseCase: UndoRedoUseCase,
     private val settingsRepository: SettingsRepository,
-    // OpenCodeApi still needed for ServerTerminalRegistry (terminal subsystem)
-    // TODO: migrate terminal subsystem to use TerminalRepository exclusively
-    private val api: OpenCodeApi,
+    private val terminalRegistry: ServerTerminalRegistry,
     val toolCardResolver: ToolCardResolver,
     private val chatRepository: ChatRepository,
     private val sessionRepository: SessionRepository,
@@ -254,8 +251,6 @@ class ChatViewModel @Inject constructor(
     init {
     }
 
-    private val conn = ServerConnection.from(serverUrl, username, password.ifEmpty { null })
-
     private val _isLoading = MutableStateFlow(true)
     private val _error = MutableStateFlow<String?>(null)
     private val _isSending = MutableStateFlow(false)
@@ -279,7 +274,9 @@ class ChatViewModel @Inject constructor(
     private val _selectedAgent = MutableStateFlow("build" to false)
     private val _selectedVariant = MutableStateFlow<String?>(null)
     private val _commands = MutableStateFlow<List<CommandInfo>>(emptyList())
-    private val terminalWorkspace = ServerTerminalRegistry.workspaceFor(serverId, api, conn).also {
+    private val terminalWorkspace = terminalRegistry.workspaceFor(
+        serverId, serverUrl, username, password.ifEmpty { null }
+    ).also {
         if (BuildConfig.DEBUG) {
             Log.d("TerminalZoom", "ChatViewModel init: workspaceId=${System.identityHashCode(it)} flowId=${System.identityHashCode(it.activeFontSizeSp)} serverId=$serverId vmId=${System.identityHashCode(this)}")
         }
@@ -691,6 +688,7 @@ class ChatViewModel @Inject constructor(
      * Legacy uiState for backward compatibility (tests).
      * Lightweight assembly from the 5 split StateFlows — no business logic.
      */
+    // TODO: Replace positional args[] with a data class or structured combine sources for type safety
     val uiState: StateFlow<ChatUiState> = combine(
         messageListState,
         sessionMetaState,

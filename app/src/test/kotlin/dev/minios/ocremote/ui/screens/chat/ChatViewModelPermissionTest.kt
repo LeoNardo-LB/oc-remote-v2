@@ -2,7 +2,7 @@
 
 import android.util.Log
 import app.cash.turbine.test
-import dev.minios.ocremote.data.api.OpenCodeApi
+import dev.minios.ocremote.data.repository.ServerTerminalRegistry
 import dev.minios.ocremote.domain.model.AppSettings
 import dev.minios.ocremote.domain.model.ProvidersResponse
 import dev.minios.ocremote.domain.model.PermissionState
@@ -51,7 +51,7 @@ class ChatViewModelPermissionTest {
     private val testDispatcher = UnconfinedTestDispatcher()
 
     private lateinit var eventDispatcher: EventDispatcher
-    private lateinit var api: OpenCodeApi
+    private lateinit var terminalRegistry: ServerTerminalRegistry
     private lateinit var settingsRepository: SettingsRepository
     // UseCase mocks
     private lateinit var sendMessageUseCase: SendMessageUseCase
@@ -91,7 +91,7 @@ class ChatViewModelPermissionTest {
         every { Log.i(any(), any()) } returns 0
 
         // Create fresh mocks per test to avoid stub ordering issues
-        api = mockk(relaxed = true)
+        terminalRegistry = mockk(relaxed = true)
         settingsRepository = mockk()
 
         // Create UseCase mocks (all relaxed so unimportant methods don't need stubs)
@@ -173,7 +173,7 @@ class ChatViewModelPermissionTest {
             shareExportUseCase = shareExportUseCase,
             undoRedoUseCase = undoRedoUseCase,
             settingsRepository = settingsRepository,
-            api = api,
+            terminalRegistry = terminalRegistry,
             toolCardResolver = dev.minios.ocremote.ui.screens.chat.tools.DefaultToolCardResolver(),
             chatRepository = mockk<ChatRepository>(relaxed = true),
             sessionRepository = mockk<SessionRepository>(relaxed = true),
