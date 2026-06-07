@@ -248,7 +248,11 @@ class ChatRepositoryImpl @Inject constructor(
         api.runShellCommand(conn, sessionId, command, agent, model, directory)
     }
 
-    override fun getToolExpandedStates(): MutableMap<String, Boolean> = toolExpandedStates
+    override fun getToolExpandedStates(): Map<String, Boolean> = toolExpandedStates
+
+    override fun setToolExpanded(toolId: String, expanded: Boolean) {
+        toolExpandedStates[toolId] = expanded
+    }
 
     // ============ Private Helpers ============
 

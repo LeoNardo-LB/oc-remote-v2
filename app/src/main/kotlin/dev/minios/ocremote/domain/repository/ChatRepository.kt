@@ -182,8 +182,13 @@ interface ChatRepository {
     // ============ UI State ============
 
     /**
-     * Get the mutable map of tool expanded states for the current session.
+     * Get the read-only map of tool expanded states for the current session.
      * Used by UI to track which tool cards are expanded.
      */
-    fun getToolExpandedStates(): MutableMap<String, Boolean>
+    fun getToolExpandedStates(): Map<String, Boolean>
+
+    /**
+     * Set the expanded state for a specific tool card.
+     */
+    fun setToolExpanded(toolId: String, expanded: Boolean)
 }

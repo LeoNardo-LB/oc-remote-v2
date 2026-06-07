@@ -123,9 +123,8 @@ class ChatRepositoryImplTest {
     // ============ getToolExpandedStates ============
 
     @Test
-    fun `getToolExpandedStates returns mutable map`() {
-        val states = repo.getToolExpandedStates()
-        states["tool1"] = true
+    fun `getToolExpandedStates returns map and setToolExpanded works`() {
+        repo.setToolExpanded("tool1", true)
         assertTrue(repo.getToolExpandedStates()["tool1"] == true)
     }
 
