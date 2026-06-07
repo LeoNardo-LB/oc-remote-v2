@@ -79,7 +79,8 @@ class SseClient @Inject constructor(
     )
 
     /** Public accessor for the session.next parser (used by tests). */
-    val sessionNextParser: SessionNextEventParser get() = parsers.filterIsInstance<SessionNextEventParser>().first()
+    val sessionNextParser: SessionNextEventParser get() = parsers.filterIsInstance<SessionNextEventParser>().firstOrNull()
+        ?: throw IllegalStateException("SessionNextEventParser not found in parser list")
 
     /**
      * Connect to the global event stream.

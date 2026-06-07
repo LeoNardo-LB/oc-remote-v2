@@ -98,15 +98,19 @@ fun NavGraph(
                 }
             }
 
-            // Otherwise, show the session picker
-            sharePickerServers = serverRepository.getServersFlow().firstOrNull() ?: emptyList()
+            // Otherwise, show the session picker.
+            // Use local vars to avoid mid-coroutine state writes triggering
+            // recomposition before all data is ready.
+            val servers = serverRepository.getServersFlow().firstOrNull() ?: emptyList()
             val allSessions = mutableListOf<Session>()
             val sessionMap = mutableMapOf<String, Set<String>>()
-            for (sv in sharePickerServers) {
+            for (sv in servers) {
                 val serverSessions = sessionRepository.getSessionsFlow(sv.id).firstOrNull() ?: emptyList()
                 allSessions.addAll(serverSessions)
                 sessionMap[sv.id] = serverSessions.map { it.id }.toSet()
             }
+            // Batch state updates at the end — atomic from recomposition's perspective
+            sharePickerServers = servers
             sharePickerSessions = allSessions
             sharePickerServerSessions = sessionMap
             showSharePicker = true

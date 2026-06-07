@@ -19,12 +19,8 @@ class AgentRepositoryImpl @Inject constructor(
         api.listAgents(conn).map { it.toDomain() }
     }
 
-    override suspend fun switchAgent(serverId: String, sessionId: String, agentId: String): Result<Unit> = runCatching {
-        // TODO: No dedicated switchAgent endpoint exists in OpenCodeApi.
-        // Agent switching may be done via promptAsync with agent parameter,
-        // or a dedicated endpoint needs to be added.
-        val conn = resolveConnection(serverId)
-        // api.switchAgent(conn, sessionId, agentId)
+    override suspend fun switchAgent(serverId: String, sessionId: String, agentId: String): Result<Unit> {
+        return Result.failure(UnsupportedOperationException("switchAgent not yet supported by API"))
     }
 
     override suspend fun loadCommands(serverId: String): Result<List<CommandInfo>> = runCatching {
