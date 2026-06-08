@@ -144,7 +144,17 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
     // ============ Batch Operations ============
 
     fun setMessages(sessionId: String, newMessages: List<MessageWithParts>) {
-        _messages.update { it + (sessionId to newMessages.map { m -> m.info }.sortedBy { m -> m.time.created }) }
+        _messages.update { current ->
+            val existing = current[sessionId] ?: emptyList()
+            val incomingById = newMessages.associateBy { it.info.id }
+            // Merge: keep SSE messages not in REST response (may be streaming),
+            // prefer SSE version for messages present in both (SSE is fresher).
+            val merged = (existing + newMessages.map { it.info })
+                .distinctBy { it.id }
+                .map { msg -> incomingById[msg.id]?.info ?: msg }
+                .sortedBy { it.time.created }
+            current + (sessionId to merged)
+        }
         val partsMap = newMessages.associate { it.info.id to it.parts }
         _parts.update { current ->
             val merged = partsMap.mapValues { (messageId, incomingParts) ->
@@ -180,10 +190,19 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
      * Replace all messages and parts for a session with REST data.
      * Unlike [mergeMessages], this treats REST as the source of truth,
      * overwriting any existing local data. Used for SSE reconnection recovery.
+     *
+     * SSE-only messages (not in REST response) are preserved to handle
+     * the window between REST snapshot and new SSE connection establishment.
      */
     fun replaceMessages(sessionId: String, newMessages: List<MessageWithParts>) {
-        _messages.update {
-            it + (sessionId to newMessages.map { m -> m.info }.sortedBy { m -> m.time.created })
+        _messages.update { current ->
+            val existing = current[sessionId] ?: emptyList()
+            val incomingById = newMessages.associateBy { it.info.id }
+            val merged = (existing + newMessages.map { it.info })
+                .distinctBy { it.id }
+                .map { msg -> incomingById[msg.id]?.info ?: msg }
+                .sortedBy { it.time.created }
+            current + (sessionId to merged)
         }
         val partsMap = newMessages.associate { it.info.id to it.parts }
         _parts.update { current ->

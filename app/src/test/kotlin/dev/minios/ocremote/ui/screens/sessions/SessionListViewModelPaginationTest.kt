@@ -27,7 +27,6 @@ class SessionListViewModelPaginationTest {
     private val eventDispatcher: EventDispatcher = mockk(relaxed = true)
     private val manageSessionUseCase: ManageSessionUseCase = mockk()
     private val deleteSessionUseCase: DeleteSessionUseCase = mockk()
-    private val draftRepository: DraftRepository = mockk(relaxed = true)
 
     @Before
     fun setup() {
@@ -84,7 +83,7 @@ class SessionListViewModelPaginationTest {
             api = api,
             manageSessionUseCase = manageSessionUseCase,
             deleteSessionUseCase = deleteSessionUseCase,
-            draftRepository = draftRepository
+            draftRepository = mockk(relaxed = true)
         )
     }
 }
