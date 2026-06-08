@@ -944,11 +944,7 @@ class ChatViewModel @Inject constructor(
      */
     fun refreshSession() {
         viewModelScope.launch {
-            loadSession()
-            refreshMessages()
-            loadPendingQuestions()
-            loadPendingPermissions()
-            lastRefreshTimeMs = System.currentTimeMillis()
+            refreshAndSync()
         }
     }
 
@@ -960,7 +956,6 @@ class ChatViewModel @Inject constructor(
         val elapsed = System.currentTimeMillis() - lastRefreshTimeMs
         if (elapsed >= REFRESH_COOLDOWN_MS) {
             refreshSession()
-            syncSessionStatus()
         }
     }
 
@@ -1015,6 +1010,38 @@ class ChatViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Combined refresh + sync — runs in a single coroutine to avoid
+     * state conflicts between parallel REST responses.
+     */
+    private suspend fun refreshAndSync() {
+        // 1. Load session info first (needed for sessionDirectory)
+        loadSession()
+
+        // 2. Refresh messages (uses _isRefreshing, not _isLoading)
+        refreshMessages()
+
+        // 3. Sync session statuses AFTER messages are loaded
+        //    so we have the latest data when checking idle state
+        if (sessionId.isNotBlank()) {
+            sessionLoaded.await()
+        }
+        val result = sessionRepository.fetchSessionStatuses(serverId, directory = sessionDirectory)
+        result.onSuccess { statusMap ->
+            sessionRepository.syncAllSessionStatuses(statusMap)
+            val currentStatus = statusMap[sessionId]
+            if (currentStatus is SessionStatus.Idle) {
+                sessionRepository.markSessionIdleProtected(sessionId)
+            }
+        }
+
+        // 4. Load pending items
+        loadPendingQuestions()
+        loadPendingPermissions()
+
+        lastRefreshTimeMs = System.currentTimeMillis()
     }
 
     /**
