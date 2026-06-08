@@ -145,6 +145,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.jsonArray
@@ -519,7 +520,7 @@ fun ChatScreen(
                 }
             }
             Triple(items, fingerprint, msgs.size)
-        }.collect { (count, fingerprint, _) ->
+        }.conflate().collect { (count, fingerprint, _) ->
             if (count > lastCount && lastCount > 0 && isAtBottom) {
                 // New items appeared while user is at bottom → stay at bottom
                 listState.snapToBottom()
@@ -1097,16 +1098,18 @@ fun ChatScreen(
 /**
  * Scrolls the LazyColumn to the absolute bottom.
  * With reverseLayout=true, "bottom" = item 0.
- * Uses scrollToItem(0) + scrollBy to overcome any remaining offset.
+ * Retries up to 300ms to handle complex Markdown layout delays.
  */
 private suspend fun LazyListState.snapToBottom() {
     scrollToItem(0)
-    // Small delay lets LazyColumn complete layout after new items appear,
-    // then retry until fully at bottom (no remaining sub-pixel offset).
-    repeat(3) {
-        delay(16)
+    // Retry loop: complex Markdown (code blocks, tables) may need multiple
+    // layout passes before the content height stabilizes.
+    var attempts = 0
+    while (canScrollBackward && attempts < 10) {
+        delay(30)
         if (!canScrollBackward) return
         scroll { scrollBy(-10_000f) }
+        attempts++
     }
 }
 
