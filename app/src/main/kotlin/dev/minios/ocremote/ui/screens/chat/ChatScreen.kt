@@ -483,14 +483,11 @@ fun ChatScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && viewModel.sessionId.isNotBlank()) {
-                viewModel.refreshSession()
-                viewModel.syncSessionStatus()
+                viewModel.refreshIfNeeded()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Auto-scroll: stay at bottom when total items increase (messages, tool cards, etc.)

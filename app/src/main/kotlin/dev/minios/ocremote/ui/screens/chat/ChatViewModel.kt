@@ -256,6 +256,8 @@ class ChatViewModel @Inject constructor(
 
     private val _isLoading = MutableStateFlow(true)
     private val _isRefreshing = MutableStateFlow(false)  // Background refresh — no UI wipe
+    /** Timestamp of last successful refresh. Used to skip unnecessary ON_RESUME refreshes. */
+    private var lastRefreshTimeMs: Long = 0L
     private val _error = MutableStateFlow<String?>(null)
     private val _isSending = MutableStateFlow(false)
     private val _allProviders = MutableStateFlow<List<ProviderCatalog>>(emptyList())
@@ -946,6 +948,19 @@ class ChatViewModel @Inject constructor(
             refreshMessages()
             loadPendingQuestions()
             loadPendingPermissions()
+            lastRefreshTimeMs = System.currentTimeMillis()
+        }
+    }
+
+    /**
+     * Refresh session only if enough time has passed since last refresh.
+     * Called from ON_RESUME — avoids unnecessary REST calls during brief app-switches.
+     */
+    fun refreshIfNeeded() {
+        val elapsed = System.currentTimeMillis() - lastRefreshTimeMs
+        if (elapsed >= REFRESH_COOLDOWN_MS) {
+            refreshSession()
+            syncSessionStatus()
         }
     }
 
@@ -2012,6 +2027,8 @@ class ChatViewModel @Inject constructor(
          * Survives session switching (ViewModel recreation) but clears on app restart (process death).
          */
         private val sessionModelCache = mutableMapOf<String, Pair<String, String>>()
+
+        const val REFRESH_COOLDOWN_MS = 5_000L  // Skip refresh if last one was < 5s ago
     }
 }
 
