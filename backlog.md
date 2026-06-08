@@ -100,11 +100,11 @@ SSE 流式输出完成后，对话界面中最后一条消息（通常是 Agent 
 
 #### 根因
 
-`ChatScreen.kt` 自动滚动逻辑只在 `messageState.messages.size` 增加时触发 `snapToBottom()`。但流式过程中最后一条消息的内容通过 delta 增长（文本变长、气泡高度增加），消息数量不变。在 `reverseLayout=true` 的 LazyColumn 中，item 高度增长会导致布局偏移重算，可能把内容推出视口。而自动滚动不覆盖此场景。
+`loadMessages()` 调用 `setMessages()` 时**完全替换**该 session 的消息列表。如果 REST 返回的数据不包含 SSE 刚推送的最新消息（服务端最终一致性延迟），该消息从 `_messages` StateFlow 中消失，UI 不可见。之前的自动滚动修复无效，因为问题不在 UI 滚动层而在数据层。
 
 #### 修复
 
-修改 `ChatScreen.kt` 自动滚动逻辑，除了监听消息数量变化，还监听**最后一条消息的文本指纹**（Text/Reasoning Part 的文本总长度）。当消息数量不变但内容增长且用户在底部时，同样触发 `snapToBottom()`。
+修改 `MessageEventHandler.kt` 中 `setMessages()` 和 `replaceMessages()` 的 `_messages` 更新逻辑：对 SSE 已有但 REST 未返回的消息予以保留（合并而非替换），避免流式过程中 REST 调用丢失最新消息。
 
 #### 状态
 
