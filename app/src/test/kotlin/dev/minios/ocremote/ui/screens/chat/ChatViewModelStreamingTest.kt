@@ -1,0 +1,287 @@
+package dev.minios.ocremote.ui.screens.chat
+
+import android.util.Log
+import androidx.lifecycle.SavedStateHandle
+import dev.minios.ocremote.data.repository.ServerTerminalRegistry
+import dev.minios.ocremote.domain.model.AppSettings
+import dev.minios.ocremote.domain.model.Message
+import dev.minios.ocremote.domain.model.ProvidersResponse
+import dev.minios.ocremote.domain.model.Session
+import dev.minios.ocremote.domain.model.TimeInfo
+import dev.minios.ocremote.domain.repository.ChatRepository
+import dev.minios.ocremote.domain.repository.SessionRepository
+import dev.minios.ocremote.domain.repository.SettingsRepository
+import dev.minios.ocremote.domain.usecase.*
+import dev.minios.ocremote.domain.tracker.TokenStatsTracker
+import dev.minios.ocremote.ui.screens.chat.tools.DefaultToolCardResolver
+import io.mockk.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class ChatViewModelStreamingTest {
+
+    private val terminalRegistry: ServerTerminalRegistry = mockk(relaxed = true)
+    private val settingsRepository: SettingsRepository = mockk()
+    private val testDispatcher = UnconfinedTestDispatcher()
+
+    private val sendMessageUseCase: SendMessageUseCase = mockk()
+    private val manageSessionUseCase: ManageSessionUseCase = mockk(relaxed = true)
+    private val managePermissionUseCase: ManagePermissionUseCase = mockk(relaxed = true)
+    private val selectModelUseCase: SelectModelUseCase = mockk(relaxed = true)
+    private val manageAgentUseCase: ManageAgentUseCase = mockk(relaxed = true)
+    private val manageTerminalUseCase: ManageTerminalUseCase = mockk(relaxed = true)
+    private val draftUseCase: DraftUseCase = mockk(relaxed = true)
+    private val shareExportUseCase: ShareExportUseCase = mockk(relaxed = true)
+    private val undoRedoUseCase: UndoRedoUseCase = mockk(relaxed = true)
+    private val messagePaging: MessagePaginationUseCase = mockk(relaxed = true)
+    private val tokenStatsTracker = TokenStatsTracker()
+
+    private val messagesFlow = MutableStateFlow<List<Message>>(emptyList())
+    private val partsFlow = MutableStateFlow<Map<String, List<dev.minios.ocremote.domain.model.Part>>>(emptyMap())
+    private lateinit var chatRepository: ChatRepository
+    private lateinit var sessionRepository: SessionRepository
+
+    @Before
+    fun setup() {
+        Dispatchers.setMain(testDispatcher)
+
+        mockkStatic(Log::class)
+        every { Log.d(any(), any()) } returns 0
+        every { Log.e(any(), any()) } returns 0
+        every { Log.e(any(), any(), any()) } returns 0
+        every { Log.w(any(), any<String>()) } returns 0
+        every { Log.w(any(), any<String>(), any()) } returns 0
+        every { Log.i(any(), any()) } returns 0
+
+        every { draftUseCase.getDraft(any()) } returns null
+
+        every { settingsRepository.hiddenModels(any()) } returns flowOf(emptySet())
+        every { settingsRepository.getSettingsFlow() } returns flowOf(
+            AppSettings(
+                terminalFontSize = 13f,
+                initialMessageCount = 50,
+                chatFontSize = "medium",
+                codeWordWrap = false,
+                confirmBeforeSend = false,
+                compactMessages = false,
+                collapseTools = false,
+                expandReasoning = false,
+                hapticFeedback = true,
+                keepScreenOn = false,
+                compressImageAttachments = true,
+                imageAttachmentMaxLongSide = 1440,
+                imageAttachmentWebpQuality = 60,
+            )
+        )
+
+        coEvery { manageSessionUseCase.getSession(any(), any()) } returns createTestSession()
+        coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns emptyList()
+        coEvery { managePermissionUseCase.listPendingQuestions(any(), any()) } returns emptyList()
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns emptyList()
+        coEvery { selectModelUseCase.loadProviders(any()) } returns ProvidersResponse(emptyList())
+        coEvery { manageAgentUseCase.loadAgents(any()) } returns emptyList()
+        coEvery { manageAgentUseCase.loadCommands(any()) } returns emptyList()
+
+        // Wire messagePaging.observeMessages to our controllable flow
+        every { messagePaging.observeMessages(any()) } returns messagesFlow
+
+        chatRepository = mockk<ChatRepository>(relaxed = true).also {
+            every { it.getAllPartsMap() } returns partsFlow
+        }
+
+        sessionRepository = mockk<SessionRepository>(relaxed = true).also {
+            every { it.getSessionsFlow(any()) } returns flowOf(listOf(createTestSession()))
+            every { it.getSessionStatusesFlow(any()) } returns flowOf(emptyMap())
+            every { it.getCurrentAgentFlow(any()) } returns flowOf(emptyMap())
+            every { it.getCurrentModelFlow(any()) } returns flowOf(emptyMap())
+            coEvery { it.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())
+        }
+    }
+
+    @After
+    fun teardown() {
+        Dispatchers.resetMain()
+        unmockkAll()
+    }
+
+    private fun createTestSession() = Session(
+        id = "test-session",
+        title = "Test Session",
+        directory = "/test",
+        time = Session.Time(created = 1000L, updated = 2000L)
+    )
+
+    private fun createTestUserMessage(id: String = "msg-1") = Message.User(
+        id = id,
+        sessionId = "test-session",
+        role = "user",
+        time = TimeInfo(created = System.currentTimeMillis())
+    )
+
+    private fun createViewModel(): ChatViewModel {
+        val savedState = SavedStateHandle(mapOf(
+            "serverUrl"  to "http://localhost:8080",
+            "username"   to "testuser",
+            "password"   to "testpass",
+            "serverName" to "TestServer",
+            "serverId"   to "test-server",
+            "sessionId"  to "test-session"
+        ))
+        return ChatViewModel(
+            savedStateHandle = savedState,
+            sendMessageUseCase = sendMessageUseCase,
+            manageSessionUseCase = manageSessionUseCase,
+            managePermissionUseCase = managePermissionUseCase,
+            selectModelUseCase = selectModelUseCase,
+            manageAgentUseCase = manageAgentUseCase,
+            manageTerminalUseCase = manageTerminalUseCase,
+            draftUseCase = draftUseCase,
+            shareExportUseCase = shareExportUseCase,
+            undoRedoUseCase = undoRedoUseCase,
+            settingsRepository = settingsRepository,
+            terminalRegistry = terminalRegistry,
+            toolCardResolver = DefaultToolCardResolver(),
+            chatRepository = chatRepository,
+            sessionRepository = sessionRepository,
+            messagePaging = messagePaging,
+            tokenStatsTracker = tokenStatsTracker
+        )
+    }
+
+    /**
+     * messageListState is backed by stateIn(WhileSubscribed) and needs an active subscriber.
+     */
+    private fun kotlinx.coroutines.test.TestScope.subscribeToMessageState(vm: ChatViewModel): Job {
+        return backgroundScope.launch {
+            vm.messageListState.collect { /* keep subscription alive */ }
+        }
+    }
+
+    // ========== Test 1: refreshSession does not set isLoading to true ==========
+
+    @Test
+    fun `refreshSession does not set isLoading to true`() = runTest {
+        // Given: ViewModel with existing messages from SSE
+        messagesFlow.value = listOf(createTestUserMessage("msg-1"))
+        val vm = createViewModel()
+        val collectJob = subscribeToMessageState(vm)
+        advanceUntilIdle()
+
+        // Verify messages are present before refresh
+        val beforeRefresh = vm.messageListState.value.messages
+        assertTrue("Messages should exist before refresh", beforeRefresh.isNotEmpty())
+
+        // When: refreshSession is called
+        vm.refreshSession()
+        advanceUntilIdle()
+
+        // Then: messages should NOT be wiped (because refreshSession uses _isRefreshing, not _isLoading)
+        val afterRefresh = vm.messageListState.value.messages
+        assertTrue(
+            "Messages should NOT be wiped during refresh, got ${afterRefresh.size} messages",
+            afterRefresh.isNotEmpty()
+        )
+
+        collectJob.cancel()
+    }
+
+    // ========== Test 2: messageListState preserves messages during refresh ==========
+
+    @Test
+    fun `messageListState preserves messages during refresh`() = runTest {
+        // Given: existing messages via messagePaging.observeMessages flow
+        messagesFlow.value = listOf(createTestUserMessage("msg-1"))
+        partsFlow.value = emptyMap()
+
+        val vm = createViewModel()
+        val collectJob = subscribeToMessageState(vm)
+        advanceUntilIdle()
+
+        // Verify initial messages exist
+        assertTrue(
+            "Initial messages should exist",
+            vm.messageListState.value.messages.isNotEmpty()
+        )
+
+        // When: REST refresh returns empty messages (e.g. server lag)
+        coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns emptyList()
+        vm.refreshSession()
+        advanceUntilIdle()
+
+        // Then: SSE messages should be preserved (not cleared by refresh)
+        val state = vm.messageListState.value
+        assertTrue(
+            "SSE messages should be preserved when REST refresh returns, got ${state.messages.size} messages",
+            state.messages.isNotEmpty()
+        )
+
+        collectJob.cancel()
+    }
+
+    // ========== Test 3: refreshIfNeeded skips refresh within cooldown ==========
+
+    @Test
+    fun `refreshIfNeeded skips refresh within cooldown`() = runTest {
+        // Given: ViewModel
+        val vm = createViewModel()
+        val collectJob = subscribeToMessageState(vm)
+        advanceUntilIdle()
+
+        // Clear mock state after init (init calls loadMessages → listMessages once)
+        coVerify(atLeast = 1) { manageSessionUseCase.listMessages(any(), any(), any()) }
+        clearMocks(manageSessionUseCase, answers = false)
+
+        // When: refreshSession is called (sets lastRefreshTimeMs)
+        vm.refreshSession()
+        advanceUntilIdle()
+
+        // Verify refreshSession triggered exactly 1 listMessages call
+        coVerify(exactly = 1) { manageSessionUseCase.listMessages(any(), any(), any()) }
+
+        // And: refreshIfNeeded is called immediately (< 5s cooldown)
+        vm.refreshIfNeeded()
+        advanceUntilIdle()
+
+        // Then: NO additional listMessages calls from refreshIfNeeded (still exactly = 1)
+        coVerify(exactly = 1) { manageSessionUseCase.listMessages(any(), any(), any()) }
+
+        collectJob.cancel()
+    }
+
+    // ========== Test 4: loading guard only clears truly empty message lists ==========
+
+    @Test
+    fun `loading guard only clears truly empty message lists`() = runTest {
+        // Given: exactly 1 message in the messages flow
+        messagesFlow.value = listOf(createTestUserMessage("msg-1"))
+
+        val vm = createViewModel()
+        val collectJob = subscribeToMessageState(vm)
+        advanceUntilIdle()
+
+        // Then: messages should NOT be cleared despite size < 3
+        // The loading guard at line 564 uses: loading && sessionMessages.isEmpty()
+        // With 1 message, sessionMessages is NOT empty, so messages are preserved
+        val state = vm.messageListState.value
+        assertTrue(
+            "Messages should not be cleared when list has 1 message (isEmpty check, not size < 3), got ${state.messages.size}",
+            state.messages.isNotEmpty()
+        )
+
+        collectJob.cancel()
+    }
+}
