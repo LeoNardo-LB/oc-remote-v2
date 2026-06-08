@@ -491,14 +491,15 @@ fun ChatScreen(
         }
     }
 
-    // When message count increases (new message from send or QUEUE auto-submit),
+    // When total item count increases (new messages, tool progress cards, etc.),
     // scroll to absolute bottom if user is already at/near bottom.
+    // Using totalItemsCount instead of messages.size to also cover tool progress
+    // card insertions/removals that cause layout shifts in reverseLayout mode.
     LaunchedEffect(Unit) {
         var lastCount = 0
-        snapshotFlow { messageState.messages.size }
+        snapshotFlow { listState.layoutInfo.totalItemsCount }
             .collect { count ->
                 if (count > lastCount && lastCount > 0 && isAtBottom) {
-                    // New messages appeared while user is at bottom → stay at bottom
                     listState.snapToBottom()
                 }
                 lastCount = count
