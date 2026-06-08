@@ -532,7 +532,7 @@ fun ChatScreen(
                     totalCost = tokenStats.totalCost,
                     sessionParentId = sessionMeta.sessionParentId,
                     shareUrl = sessionMeta.shareUrl,
-                    contextWindow = tokenStats.contextWindow,
+                    contextWindow = modelConfig.contextWindow,
                     lastContextTokens = tokenStats.lastContextTokens,
                     onNavigateBack = onNavigateBack,
                     onTerminalMode = { isTerminalMode = true },

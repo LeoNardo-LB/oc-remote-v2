@@ -48,6 +48,7 @@ data class SessionDeepLink(
     val username: String,
     val password: String,
     val serverName: String,
+    val serverId: String = "",
     val sessionPath: String,  // e.g. /L2hvbWUv.../session/abc123
     val sessionId: String = "" // raw session ID (fallback when sessionPath is empty)
 )
@@ -189,6 +190,7 @@ class MainActivity : ComponentActivity() {
         val username = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SERVER_USERNAME) ?: ""
         val password = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SERVER_PASSWORD) ?: ""
         val serverName = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SERVER_NAME) ?: serverUrl
+        val serverId = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SERVER_ID) ?: ""
         val sessionPath = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SESSION_PATH) ?: ""
         val sessionId = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SESSION_ID) ?: ""
         
@@ -200,6 +202,7 @@ class MainActivity : ComponentActivity() {
                 username = username,
                 password = password,
                 serverName = serverName,
+                serverId = serverId,
                 sessionPath = sessionPath,
                 sessionId = sessionId
             )

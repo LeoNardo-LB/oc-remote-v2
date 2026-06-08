@@ -447,6 +447,7 @@ class OpenCodeConnectionService : Service() {
         const val EXTRA_SERVER_USERNAME = "server_username"
         const val EXTRA_SERVER_PASSWORD = "server_password"
         const val EXTRA_SERVER_NAME = "server_name"
+        const val EXTRA_SERVER_ID = "server_id"
         const val EXTRA_SESSION_PATH = "session_path"
         const val EXTRA_SESSION_ID = "sessionId"
     }

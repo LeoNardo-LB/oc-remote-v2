@@ -181,7 +181,7 @@ fun NavGraph(
                         username = deepLink.username,
                         password = deepLink.password,
                         serverName = deepLink.serverName,
-                        serverId = "",
+                        serverId = deepLink.serverId,
                         sessionId = sessionId
                     )
                     val currentSessionId = navController.currentBackStackEntry

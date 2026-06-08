@@ -391,6 +391,7 @@ class AppNotificationManager @Inject constructor(
             putExtra(OpenCodeConnectionService.EXTRA_SERVER_USERNAME, server.username)
             putExtra(OpenCodeConnectionService.EXTRA_SERVER_PASSWORD, server.password ?: "")
             putExtra(OpenCodeConnectionService.EXTRA_SERVER_NAME, server.displayName)
+            putExtra(OpenCodeConnectionService.EXTRA_SERVER_ID, server.id)
             sessionPath?.let { putExtra(OpenCodeConnectionService.EXTRA_SESSION_PATH, it) }
             sessionId?.let { putExtra(OpenCodeConnectionService.EXTRA_SESSION_ID, it) }
         }
