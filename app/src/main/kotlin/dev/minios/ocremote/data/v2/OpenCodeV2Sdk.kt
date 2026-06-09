@@ -3,6 +3,7 @@ package dev.minios.ocremote.data.v2
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -44,6 +45,7 @@ class OpenCodeV2SdkImpl(
     private val httpClient: HttpClient,
     private val baseUrl: String,
     private val connectionManager: SseConnectionManager,
+    private val authHeader: String? = null,
 ) : OpenCodeV2Sdk {
 
     override fun events(): Flow<SseEventV2> = connectionManager.connect()
@@ -52,6 +54,7 @@ class OpenCodeV2SdkImpl(
         return httpClient.get("$baseUrl/api/session/$sessionID/message") {
             parameter("limit", limit)
             cursor?.let { parameter("cursor", it) }
+            authHeader?.let { header("Authorization", it) }
         }.body()
     }
 
@@ -59,10 +62,13 @@ class OpenCodeV2SdkImpl(
         val promptObj = Prompt(text = text, files = files)
         return httpClient.post("$baseUrl/api/session/$sessionID/prompt") {
             setBody(PromptRequest(prompt = promptObj, delivery = delivery))
+            authHeader?.let { header("Authorization", it) }
         }.body()
     }
 
     override suspend fun abort(sessionID: String) {
-        httpClient.post("$baseUrl/api/session/$sessionID/abort")
+        httpClient.post("$baseUrl/api/session/$sessionID/abort") {
+            authHeader?.let { header("Authorization", it) }
+        }
     }
 }

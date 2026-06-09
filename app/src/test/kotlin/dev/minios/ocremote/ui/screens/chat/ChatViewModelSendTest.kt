@@ -49,8 +49,14 @@ class ChatViewModelSendTest {
     private val messagePaging: MessagePaginationUseCase = mockk(relaxed = true)
     private val tokenStatsTracker = TokenStatsTracker()
 
+    @After
+    fun tearDown() {
+        ChatViewModel.enableV2Sse = true
+    }
+
     @Before
     fun setup() {
+        ChatViewModel.enableV2Sse = false
         Dispatchers.setMain(testDispatcher)
 
         mockkStatic(Log::class)

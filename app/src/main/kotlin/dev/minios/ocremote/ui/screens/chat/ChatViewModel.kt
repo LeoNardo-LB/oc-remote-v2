@@ -1,6 +1,7 @@
 ﻿package dev.minios.ocremote.ui.screens.chat
 
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +40,8 @@ import dev.minios.ocremote.data.v2.AssistantReasoning
 import dev.minios.ocremote.data.v2.AssistantTool
 import dev.minios.ocremote.data.v2.SseEventV2
 import dev.minios.ocremote.data.v2.isBusy
+import dev.minios.ocremote.data.v2.ModelRef
+import dev.minios.ocremote.data.v2.SessionMessage
 import dev.minios.ocremote.data.v2.AgentSwitchedEvent
 import dev.minios.ocremote.data.v2.ModelSwitchedEvent
 import dev.minios.ocremote.data.v2.PromptedEvent
@@ -75,6 +78,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
@@ -274,11 +278,19 @@ class ChatViewModel @Inject constructor(
     private val _sessionState = MutableStateFlow(SessionState.EMPTY)
     val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
     private var sseJob: Job? = null
+    private val authHeader: String? by lazy {
+        val pwd = password
+        if (pwd.isNotEmpty()) {
+            val credentials = "$username:$pwd"
+            "Basic ${java.util.Base64.getEncoder().encodeToString(credentials.toByteArray())}"
+        } else null
+    }
     private val v2Sdk: OpenCodeV2Sdk by lazy {
         OpenCodeV2SdkImpl(
             httpClient = httpClient,
             baseUrl = serverUrl,
-            connectionManager = SseConnectionManager(httpClient, serverUrl)
+            connectionManager = SseConnectionManager(httpClient, serverUrl, authHeader),
+            authHeader = authHeader,
         )
     }
 
@@ -658,7 +670,7 @@ class ChatViewModel @Inject constructor(
             it.message is Message.Assistant && it.message.time.completed == null
         }
         val queuedMessageIds = if (pendingAssistantIndex >= 0) {
-            chatMessages.drop(pendingAssistantIndex + 1)
+            chatMessages.take(pendingAssistantIndex)
                 .filter { it.isUser }
                 .map { it.message.id }
                 .toSet()
@@ -972,8 +984,24 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        // 2. Hydrate V2 SessionState from REST
+        // 2. Load V1 messages as fallback source
+        var v1Messages: List<MessageWithParts> = emptyList()
         try {
+            v1Messages = manageSessionUseCase.listMessages(serverId, sessionId, limit = 200)
+            chatRepository.setMessages(sessionId, v1Messages)
+            if (BuildConfig.DEBUG) Log.d(TAG, "V1 loaded ${v1Messages.size} messages as fallback source")
+        } catch (e: Exception) {
+            Log.e(TAG, "V1 message fallback load failed", e)
+        }
+
+        // 3. Hydrate V2 SessionState from REST (skip if V2 disabled = test mode)
+        if (!enableV2Sse) {
+            val v2Messages = v1Messages.toV2SessionMessages()
+            _sessionState.update { it.copy(
+                messages = v2Messages,
+                isInitialized = true,
+            )}
+        } else try {
             val response = v2Sdk.messages(sessionId)
             _sessionState.update { it.copy(
                 messages = response.data,
@@ -984,12 +1012,17 @@ class ChatViewModel @Inject constructor(
                 Log.d(TAG, "V2 hydrated ${response.data.size} messages for session $sessionId (hasOlder=${response.nextCursor != null})")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "V2 hydration failed", e)
-            _sessionState.update { it.copy(isInitialized = true) }
+            Log.e(TAG, "V2 hydration failed, falling back to V1 messages", e)
+            val v2Messages = v1Messages.toV2SessionMessages()
+            _sessionState.update { it.copy(
+                messages = v2Messages,
+                isInitialized = true,
+            )}
         }
 
-        // 3. Start SSE subscription
-        startSseSubscription()
+        // 4. Start SSE subscription
+        runCatching { startSseSubscription() }
+            .onFailure { Log.e(TAG, "Failed to start SSE subscription", it) }
     }
 
     /**
@@ -997,9 +1030,13 @@ class ChatViewModel @Inject constructor(
      * and reduce them into SessionState.
      */
     private fun startSseSubscription() {
+        if (!enableV2Sse) return
         sseJob?.cancel()
         sseJob = viewModelScope.launch {
             v2Sdk.events()
+                .catch { e ->
+                    Log.e(TAG, "SSE subscription terminated with error", e)
+                }
                 .collect { event ->
                     val eventSessionId = when (event) {
                         is AgentSwitchedEvent -> event.sessionID
@@ -1050,6 +1087,61 @@ class ChatViewModel @Inject constructor(
                 }
             } catch (e: Throwable) {
                 Log.e(TAG, "Failed to load messages for V1 compat", e)
+            }
+        }
+    }
+
+    /**
+     * Convert V1 MessageWithParts to V2 SessionMessage for fallback when V2 API fails.
+     */
+    private fun List<MessageWithParts>.toV2SessionMessages(): List<SessionMessage> {
+        return mapNotNull { mwp ->
+            val time = V2TimeInfo(
+                created = mwp.info.time.created,
+                completed = mwp.info.time.completed,
+            )
+            when (val msg = mwp.info) {
+                is Message.User -> {
+                    val text = mwp.parts.filterIsInstance<Part.Text>().joinToString("\n") { it.text }
+                    if (text.isBlank()) null else UserMessage(
+                        id = msg.id,
+                        sessionId = msg.sessionId,
+                        text = text,
+                        time = time,
+                    )
+                }
+                is Message.Assistant -> {
+                    val content = mwp.parts.mapNotNull { part ->
+                        when (part) {
+                            is Part.Text -> AssistantText(id = part.id, text = part.text)
+                            is Part.Reasoning -> AssistantReasoning(id = part.id, text = part.text)
+                            is Part.Tool -> AssistantTool(
+                                id = part.id,
+                                name = part.tool,
+                                state = when (val ts = part.state) {
+                                    is ToolState.Pending -> ToolStatePending(input = ts.raw ?: ts.input.toString())
+                                    is ToolState.Running -> ToolStateRunning(input = ts.input.toString())
+                                    is ToolState.Completed -> ToolStateCompleted(input = ts.input.toString(), result = ts.output)
+                                    is ToolState.Error -> ToolStateError(input = ts.input.toString(), error = ts.error)
+                                },
+                            )
+                            else -> null
+                        }
+                    }
+                    if (content.isEmpty()) null else AssistantMessage(
+                        id = msg.id,
+                        sessionId = msg.sessionId,
+                        agent = msg.agent ?: "",
+                        model = ModelRef(
+                            providerID = msg.providerId ?: "",
+                            modelID = msg.modelId ?: "",
+                        ),
+                        content = content,
+                        cost = msg.cost,
+                        finish = msg.finish,
+                        time = time,
+                    )
+                }
             }
         }
     }
@@ -2149,6 +2241,10 @@ class ChatViewModel @Inject constructor(
     }
 
     companion object {
+        /** Set to false in unit tests to skip V2 SSE/API calls that would trigger mock HttpClient. */
+        @VisibleForTesting
+        var enableV2Sse: Boolean = true
+
         /**
          * In-memory cache mapping sessionId → (providerId, modelId).
          * Survives session switching (ViewModel recreation) but clears on app restart (process death).

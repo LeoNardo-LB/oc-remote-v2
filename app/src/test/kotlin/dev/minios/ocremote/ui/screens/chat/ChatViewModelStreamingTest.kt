@@ -56,8 +56,14 @@ class ChatViewModelStreamingTest {
     private lateinit var chatRepository: ChatRepository
     private lateinit var sessionRepository: SessionRepository
 
+    @After
+    fun tearDown() {
+        ChatViewModel.enableV2Sse = true
+    }
+
     @Before
     fun setup() {
+        ChatViewModel.enableV2Sse = false
         Dispatchers.setMain(testDispatcher)
 
         mockkStatic(Log::class)
@@ -133,6 +139,20 @@ class ChatViewModelStreamingTest {
         time = TimeInfo(created = System.currentTimeMillis())
     )
 
+    /** Stub listMessages with a user message that has a text part (survives V1→V2 bridge). */
+    private fun stubUserMessage(id: String = "msg-1") {
+        val userMsg = createTestUserMessage(id)
+        val textPart = dev.minios.ocremote.domain.model.Part.Text(
+            id = "$id-text",
+            sessionId = "test-session",
+            messageId = id,
+            text = "hello"
+        )
+        coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns listOf(
+            dev.minios.ocremote.domain.model.MessageWithParts(info = userMsg, parts = listOf(textPart))
+        )
+    }
+
     private fun createViewModel(): ChatViewModel {
         val savedState = SavedStateHandle(mapOf(
             "serverUrl"  to "http://localhost:8080",
@@ -177,8 +197,8 @@ class ChatViewModelStreamingTest {
 
     @Test
     fun `refreshSession does not set isLoading to true`() = runTest {
-        // Given: ViewModel with existing messages from SSE
-        messagesFlow.value = listOf(createTestUserMessage("msg-1"))
+        // Given: ViewModel with existing messages (via V1→V2 bridge)
+        stubUserMessage("msg-1")
         val vm = createViewModel()
         val collectJob = subscribeToMessageState(vm)
         advanceUntilIdle()
@@ -205,9 +225,8 @@ class ChatViewModelStreamingTest {
 
     @Test
     fun `messageListState preserves messages during refresh`() = runTest {
-        // Given: existing messages via messagePaging.observeMessages flow
-        messagesFlow.value = listOf(createTestUserMessage("msg-1"))
-        partsFlow.value = emptyMap()
+        // Given: existing messages via V1→V2 bridge
+        stubUserMessage("msg-1")
 
         val vm = createViewModel()
         val collectJob = subscribeToMessageState(vm)
@@ -268,15 +287,24 @@ class ChatViewModelStreamingTest {
 
     @Test
     fun `loading guard only clears truly empty message lists`() = runTest {
-        // Given: exactly 1 message in the messages flow
-        messagesFlow.value = listOf(createTestUserMessage("msg-1"))
+        // Given: exactly 1 message with text part (survives V1→V2 bridge)
+        val userMsg = createTestUserMessage("msg-1")
+        val textPart = dev.minios.ocremote.domain.model.Part.Text(
+            id = "msg-1-text",
+            sessionId = "test-session",
+            messageId = "msg-1",
+            text = "hello"
+        )
+        coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns listOf(
+            dev.minios.ocremote.domain.model.MessageWithParts(info = userMsg, parts = listOf(textPart))
+        )
 
         val vm = createViewModel()
         val collectJob = subscribeToMessageState(vm)
         advanceUntilIdle()
 
         // Then: messages should NOT be cleared despite size < 3
-        // The loading guard at line 564 uses: loading && sessionMessages.isEmpty()
+        // The loading guard uses: loading && sessionMessages.isEmpty()
         // With 1 message, sessionMessages is NOT empty, so messages are preserved
         val state = vm.messageListState.value
         assertTrue(

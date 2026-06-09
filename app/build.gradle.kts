@@ -17,8 +17,8 @@ android {
         applicationId = "dev.minios.ocremote"
         minSdk = 26
         targetSdk = 35
-        versionCode = 372
-        versionName = "2.0.0-beta.172"
+        versionCode = 373
+        versionName = "2.0.0-beta.173"
 
         testInstrumentationRunner = "dev.minios.ocremote.HiltTestRunner"
         vectorDrawables {
@@ -171,5 +171,11 @@ dependencies {
     androidTestImplementation(composeBom)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("com.google.dagger:hilt-android-testing:2.59.2")
+}
+
+tasks.withType<Test>().configureEach {
+    jvmArgs = jvmArgs.orEmpty() + listOf("-Xmx4g", "-XX:+UseCompressedOops", "-XX:MaxMetaspaceSize=512m")
+    forkEvery = 50
+    maxParallelForks = 1
 }
 

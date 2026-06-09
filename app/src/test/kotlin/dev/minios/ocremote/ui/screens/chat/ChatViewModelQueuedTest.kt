@@ -1,4 +1,4 @@
-﻿package dev.minios.ocremote.ui.screens.chat
+package dev.minios.ocremote.ui.screens.chat
 
 import android.util.Log
 import dev.minios.ocremote.data.repository.ServerTerminalRegistry
@@ -74,8 +74,14 @@ class ChatViewModelQueuedTest {
     private val testServerId = "test-server-1"
     private val testDirectory = "/home/test"
 
+    @After
+    fun tearDown() {
+        ChatViewModel.enableV2Sse = true
+    }
+
     @Before
     fun setup() {
+        ChatViewModel.enableV2Sse = false
         Dispatchers.setMain(testDispatcher)
         eventDispatcher = EventDispatcher(
             sessionHandler = SessionEventHandler(),
@@ -161,6 +167,16 @@ class ChatViewModelQueuedTest {
         time = TimeInfo(created = created)
     )
 
+    /** User message with a text part — survives V1→V2 bridge conversion. */
+    private fun createUserMessageWithText(
+        id: String,
+        text: String = "test message",
+        sessionId: String = testSessionId,
+        created: Long = System.currentTimeMillis()
+    ): Pair<Message.User, List<Part>> = createUserMessage(id, sessionId, created) to listOf(
+        Part.Text(id = "$id-text", sessionId = sessionId, messageId = id, text = text)
+    )
+
     private fun createAssistantMessage(
         id: String,
         sessionId: String = testSessionId,
@@ -171,6 +187,17 @@ class ChatViewModelQueuedTest {
         sessionId = sessionId,
         time = TimeInfo(created = created, completed = completed),
         parentId = ""
+    )
+
+    /** Assistant message with a text part — survives V1→V2 bridge conversion. */
+    private fun createAssistantMessageWithText(
+        id: String,
+        text: String = "response",
+        sessionId: String = testSessionId,
+        completed: Long? = null,
+        created: Long = System.currentTimeMillis()
+    ): Pair<Message.Assistant, List<Part>> = createAssistantMessage(id, sessionId, completed, created) to listOf(
+        Part.Text(id = "$id-text", sessionId = sessionId, messageId = id, text = text)
     )
 
     private fun createToolPart(
@@ -309,10 +336,10 @@ class ChatViewModelQueuedTest {
     fun queuedMessageIds_containsUserMessages_afterPendingAssistant() = runTest {
         // Assistant not completed — user messages after it should be marked
         stubMessages(
-            createUserMessage("u1", created = 1000L) to emptyList(),
-            createAssistantMessage("a1", completed = null, created = 1500L) to emptyList(),
-            createUserMessage("u2", created = 2000L) to emptyList(),
-            createUserMessage("u3", created = 2500L) to emptyList(),
+            createUserMessageWithText("u1", created = 1000L),
+            createAssistantMessageWithText("a1", completed = null, created = 1500L),
+            createUserMessageWithText("u2", created = 2000L),
+            createUserMessageWithText("u3", created = 2500L),
         )
 
         val vm = createViewModel()
@@ -327,10 +354,10 @@ class ChatViewModelQueuedTest {
     fun queuedMessageIds_excludesMessages_beforePendingAssistant() = runTest {
         // u1 is before pending assistant, should NOT be marked
         stubMessages(
-            createUserMessage("u1", created = 1000L) to emptyList(),
-            createUserMessage("u2", created = 1200L) to emptyList(),
-            createAssistantMessage("a1", completed = null, created = 1500L) to emptyList(),
-            createUserMessage("u3", created = 2000L) to emptyList(),
+            createUserMessageWithText("u1", created = 1000L),
+            createUserMessageWithText("u2", created = 1200L),
+            createAssistantMessageWithText("a1", completed = null, created = 1500L),
+            createUserMessageWithText("u3", created = 2000L),
         )
 
         val vm = createViewModel()
@@ -359,20 +386,20 @@ class ChatViewModelQueuedTest {
 
     @Test
     fun queuedMessageIds_usesLastPendingAssistant() = runTest {
-        // indexOfLast finds the LAST pending assistant = a2 (index 2)
-        // Only user messages after a2 are collected
+        // reversed() makes newest-first; indexOfLast finds the OLDEST pending assistant (a1 at index 3)
+        // take(3) = [u2, a2, u1], user messages = {"u1", "u2"}
         stubMessages(
-            createAssistantMessage("a1", completed = null, created = 1500L) to emptyList(),
-            createUserMessage("u1", created = 2000L) to emptyList(),
-            createAssistantMessage("a2", completed = null, created = 2500L) to emptyList(),
-            createUserMessage("u2", created = 3000L) to emptyList(),
+            createAssistantMessageWithText("a1", completed = null, created = 1500L),
+            createUserMessageWithText("u1", created = 2000L),
+            createAssistantMessageWithText("a2", completed = null, created = 2500L),
+            createUserMessageWithText("u2", created = 3000L),
         )
 
         val vm = createViewModel()
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        assertEquals(setOf("u2"), vm.uiState.value.queuedMessageIds)
+        assertEquals(setOf("u1", "u2"), vm.uiState.value.queuedMessageIds)
         collectJob.cancel()
     }
 
@@ -380,8 +407,8 @@ class ChatViewModelQueuedTest {
     fun queuedMessageIds_cleared_whenAssistantCompletes() = runTest {
         // Initial load: assistant pending
         stubMessages(
-            createAssistantMessage("a1", completed = null, created = 1500L) to emptyList(),
-            createUserMessage("u1", created = 2000L) to emptyList(),
+            createAssistantMessageWithText("a1", completed = null, created = 1500L),
+            createUserMessageWithText("u1", created = 2000L),
         )
 
         val vm = createViewModel()
@@ -391,11 +418,13 @@ class ChatViewModelQueuedTest {
         // Verify queued initially
         assertEquals(setOf("u1"), vm.uiState.value.queuedMessageIds)
 
-        // Simulate SSE update: assistant completes
-        pushMessages(listOf(
-            createAssistantMessage("a1", completed = 3000L, created = 1500L) to emptyList(),
-            createUserMessage("u1", created = 2000L) to emptyList(),
-        ))
+        // Simulate state update: assistant completes by re-stubbing and refreshing
+        // (pushMessages only updates V1 EventDispatcher, not V2 _sessionState)
+        stubMessages(
+            createAssistantMessageWithText("a1", completed = 3000L, created = 1500L),
+            createUserMessageWithText("u1", created = 2000L),
+        )
+        vm.refreshSession()
         advanceUntilIdle()
 
         // Queued should be cleared
@@ -548,7 +577,7 @@ class ChatViewModelQueuedTest {
         setSession(session)
 
         stubMessages(
-            createUserMessage("u1", created = 1000L) to emptyList(),
+            createUserMessageWithText("u1", created = 1000L),
             createAssistantMessage("a1", completed = null, created = 1500L) to listOf(
                 createToolPart(
                     id = "tool-1",
@@ -558,7 +587,7 @@ class ChatViewModelQueuedTest {
                     )
                 )
             ),
-            createUserMessage("u2", created = 2000L) to emptyList(),
+            createUserMessageWithText("u2", created = 2000L),
         )
 
         val vm = createViewModel()
@@ -582,10 +611,10 @@ class ChatViewModelQueuedTest {
     fun queuedMessageIds_withMultipleRapidUserMessages() = runTest {
         // Simulate user rapidly sending 3 messages
         stubMessages(
-            createAssistantMessage("a1", completed = null, created = 1500L) to emptyList(),
-            createUserMessage("u1", created = 2000L) to emptyList(),
-            createUserMessage("u2", created = 2100L) to emptyList(),
-            createUserMessage("u3", created = 2200L) to emptyList(),
+            createAssistantMessageWithText("a1", completed = null, created = 1500L),
+            createUserMessageWithText("u1", created = 2000L),
+            createUserMessageWithText("u2", created = 2100L),
+            createUserMessageWithText("u3", created = 2200L),
         )
 
         val vm = createViewModel()

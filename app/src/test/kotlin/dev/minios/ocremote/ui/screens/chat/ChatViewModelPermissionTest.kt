@@ -1,4 +1,4 @@
-﻿package dev.minios.ocremote.ui.screens.chat
+package dev.minios.ocremote.ui.screens.chat
 
 import android.util.Log
 import app.cash.turbine.test
@@ -72,8 +72,14 @@ class ChatViewModelPermissionTest {
     private val testServerId = "server-1"
     private val testDirectory = "/home/user/project"
 
+    @After
+    fun tearDown() {
+        ChatViewModel.enableV2Sse = true
+    }
+
     @Before
     fun setup() {
+        ChatViewModel.enableV2Sse = false
         Dispatchers.setMain(testDispatcher)
         eventDispatcher = EventDispatcher(
             sessionHandler = SessionEventHandler(),
