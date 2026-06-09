@@ -44,9 +44,10 @@ interface OpenCodeV2Sdk {
 class OpenCodeV2SdkImpl(
     private val httpClient: HttpClient,
     private val baseUrl: String,
-    private val connectionManager: SseConnectionManager,
+    rawSseEvents: Flow<String>,
     private val authHeader: String? = null,
 ) : OpenCodeV2Sdk {
+    private val connectionManager = SseConnectionManager(rawSseEvents)
 
     override fun events(): Flow<SseEventV2> = connectionManager.connect()
 

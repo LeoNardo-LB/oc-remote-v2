@@ -31,7 +31,7 @@ import dev.minios.ocremote.domain.usecase.*
 import dev.minios.ocremote.data.v2.EventReducer
 import dev.minios.ocremote.data.v2.OpenCodeV2Sdk
 import dev.minios.ocremote.data.v2.OpenCodeV2SdkImpl
-import dev.minios.ocremote.data.v2.SseConnectionManager
+import dev.minios.ocremote.data.api.SseClient
 import dev.minios.ocremote.data.v2.SessionState
 import dev.minios.ocremote.data.v2.UserMessage
 import dev.minios.ocremote.data.v2.AssistantMessage
@@ -272,6 +272,7 @@ class ChatViewModel @Inject constructor(
     private val messagePaging: MessagePaginationUseCase,
     private val tokenStatsTracker: TokenStatsTracker,
     private val httpClient: HttpClient,
+    private val sseClient: SseClient,
 ) : ViewModel() {
 
     // ============ V2 Event Sourcing ============
@@ -289,7 +290,7 @@ class ChatViewModel @Inject constructor(
         OpenCodeV2SdkImpl(
             httpClient = httpClient,
             baseUrl = serverUrl,
-            connectionManager = SseConnectionManager(httpClient, serverUrl, authHeader),
+            rawSseEvents = sseClient.rawSseEventFlow,
             authHeader = authHeader,
         )
     }
@@ -1681,11 +1682,7 @@ class ChatViewModel @Inject constructor(
                 if (BuildConfig.DEBUG) Log.d(TAG, "V2 sent prompt to session $currentSessionId")
                 refreshSessionTitleDelayed(currentSessionId)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to send message", e)
-                val failedText = parts.filter { it.type == "text" }.mapNotNull { it.text }.joinToString("\n")
-                if (failedText.isNotBlank()) {
-                    _restoredDraft.value = RevertedDraftPayload(text = failedText)
-                }
+                Log.e(TAG, "Failed to send message via V2 SDK", e)
             }
         }
     }

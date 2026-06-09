@@ -1,62 +1,39 @@
 package dev.minios.ocremote.data.v2
 
-import io.ktor.client.HttpClient
-import io.ktor.client.request.prepareGet
-import io.ktor.client.request.headers
-import io.ktor.client.statement.bodyAsChannel
-import io.ktor.utils.io.readLine
+import android.util.Log
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.isActive
 
+private const val TAG = "V2-SseConn"
+
+/**
+ * Consumes raw SSE JSON strings (from V1's SharedFlow) and parses them
+ * into [SseEventV2] using [EventParser].
+ *
+ * No longer establishes its own HTTP connection — reuses V1's connection.
+ * Retains event deduplication.
+ */
 class SseConnectionManager(
-    private val httpClient: HttpClient,
-    private val baseUrl: String,
-    private val authHeader: String? = null,
+    private val rawEventsFlow: Flow<String>,
     private val parser: EventParser = EventParser,
     private val deduplicator: EventDeduplicator = EventDeduplicator(),
 ) {
-    private val initialDelayMs = 1000L
-    private val maxDelayMs = 30000L
-    private val maxConsecutiveErrors = 10
-
+    /**
+     * Connect to the raw SSE event stream and parse events.
+     * The [rawEventsFlow] is expected to be V1's [SseClient.rawSseEventFlow].
+     */
     fun connect(): Flow<SseEventV2> = flow {
-        var delayMs = initialDelayMs
-        var consecutiveErrors = 0
-        while (currentCoroutineContext().isActive && consecutiveErrors < maxConsecutiveErrors) {
+        rawEventsFlow.collect { data ->
             try {
-                httpClient.prepareGet("$baseUrl/global/event") {
-                    headers {
-                        append("Accept", "text/event-stream")
-                        authHeader?.let { append("Authorization", it) }
-                    }
-                }.execute { response ->
-                    val channel = response.bodyAsChannel()
-                    while (!channel.isClosedForRead && currentCoroutineContext().isActive) {
-                        val line = channel.readLine() ?: continue
-                        if (line.startsWith("data: ")) {
-                            val data = line.removePrefix("data: ")
-                            if (data.isBlank()) continue
-                            val event = parser.parse(data)
-                            if (event != null && !deduplicator.isDuplicate(event)) {
-                                emit(event)
-                            }
-                        }
-                    }
+                val event = parser.parse(data)
+                if (event != null && !deduplicator.isDuplicate(event)) {
+                    emit(event)
                 }
-                // Connection closed normally — reset delay and reconnect
-                delayMs = initialDelayMs
-                consecutiveErrors = 0
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // Connection error — exponential backoff
-                consecutiveErrors++
-                delay(delayMs)
-                delayMs = (delayMs * 2).coerceAtMost(maxDelayMs)
+                Log.w(TAG, "Parse error: ${e.message}")
             }
         }
     }
