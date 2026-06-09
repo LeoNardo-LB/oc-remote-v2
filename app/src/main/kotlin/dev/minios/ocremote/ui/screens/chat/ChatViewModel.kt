@@ -1110,13 +1110,37 @@ class ChatViewModel @Inject constructor(
         // 3. Hydrate V2 SessionState from REST
         try {
             val response = v2Sdk.messages(sessionId)
-            _sessionState.update { it.copy(
-                messages = response.data,
-                hasOlderMessages = response.nextCursor != null,
-                isInitialized = true,
-            )}
-            if (BuildConfig.DEBUG) {
-                Log.d(TAG, "V2 hydrated ${response.data.size} messages for session $sessionId (hasOlder=${response.nextCursor != null})")
+            val v2Messages = response.data
+            
+            // Check if V2 messages are mostly system messages (indicating incomplete history)
+            // System message types: AgentSwitched, ModelSwitched, System, Shell, Synthetic, Compaction
+            val userOrAssistantCount = v2Messages.count { it is UserMessage || it is AssistantMessage }
+            val systemMessageCount = v2Messages.size - userOrAssistantCount
+            
+            // If V2 returns mostly system messages or very few user/assistant messages,
+            // fall back to V1 which has complete conversation history
+            val shouldFallbackToV1 = v1Messages.isNotEmpty() && (
+                userOrAssistantCount < 3 || // Less than 3 actual conversation messages
+                (v2Messages.size > 0 && systemMessageCount.toDouble() / v2Messages.size > 0.8) // >80% system messages
+            )
+            
+            if (shouldFallbackToV1) {
+                Log.w(TAG, "V2 hydration returned mostly system messages (user/assistant: $userOrAssistantCount, system: $systemMessageCount), falling back to V1 (${v1Messages.size} messages)")
+                val fallbackMessages = v1Messages.toV2SessionMessages()
+                _sessionState.update { it.copy(
+                    messages = fallbackMessages,
+                    hasOlderMessages = true, // V1 doesn't provide cursor, assume more available
+                    isInitialized = true,
+                )}
+            } else {
+                _sessionState.update { it.copy(
+                    messages = v2Messages,
+                    hasOlderMessages = response.nextCursor != null,
+                    isInitialized = true,
+                )}
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "V2 hydrated ${v2Messages.size} messages for session $sessionId (hasOlder=${response.nextCursor != null}, user/assistant: $userOrAssistantCount)")
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "V2 hydration failed, falling back to V1 messages", e)
@@ -1270,17 +1294,52 @@ class ChatViewModel @Inject constructor(
     }
 
     /**
-     * Re-hydrate V2 SessionState from REST.
+     * Re-hydrate V2 SessionState from REST with V1 fallback.
      */
     private suspend fun refreshMessages() {
+        // Load V1 messages as fallback source
+        var v1Messages: List<MessageWithParts> = emptyList()
+        try {
+            v1Messages = manageSessionUseCase.listMessages(serverId, sessionId, limit = 200)
+        } catch (e: Exception) {
+            Log.e(TAG, "V1 message load failed for refresh", e)
+        }
+
         try {
             val response = v2Sdk.messages(sessionId)
-            _sessionState.update { it.copy(
-                messages = response.data,
-                hasOlderMessages = response.nextCursor != null,
-            )}
+            val v2Messages = response.data
+            
+            // Check if V2 messages are mostly system messages (indicating incomplete history)
+            val userOrAssistantCount = v2Messages.count { it is UserMessage || it is AssistantMessage }
+            val systemMessageCount = v2Messages.size - userOrAssistantCount
+            
+            val shouldFallbackToV1 = v1Messages.isNotEmpty() && (
+                userOrAssistantCount < 3 ||
+                (v2Messages.size > 0 && systemMessageCount.toDouble() / v2Messages.size > 0.8)
+            )
+            
+            if (shouldFallbackToV1) {
+                Log.w(TAG, "V2 refresh returned mostly system messages (user/assistant: $userOrAssistantCount, system: $systemMessageCount), falling back to V1 (${v1Messages.size} messages)")
+                val fallbackMessages = v1Messages.toV2SessionMessages()
+                _sessionState.update { it.copy(
+                    messages = fallbackMessages,
+                    hasOlderMessages = true,
+                )}
+            } else {
+                _sessionState.update { it.copy(
+                    messages = v2Messages,
+                    hasOlderMessages = response.nextCursor != null,
+                )}
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "V2 refreshed ${v2Messages.size} messages for session $sessionId (hasOlder=${response.nextCursor != null}, user/assistant: $userOrAssistantCount)")
+                }
+            }
         } catch (e: Throwable) {
-            Log.e(TAG, "V2 refresh failed", e)
+            Log.e(TAG, "V2 refresh failed, falling back to V1 messages", e)
+            val v2Messages = v1Messages.toV2SessionMessages()
+            _sessionState.update { it.copy(
+                messages = v2Messages,
+            )}
         }
     }
 
