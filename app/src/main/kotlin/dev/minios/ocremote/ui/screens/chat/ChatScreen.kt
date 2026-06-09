@@ -298,6 +298,10 @@ fun ChatScreen(
 
     // shouldFollow removed — reverseLayout=true handles auto-follow natively.
 
+    // Force-follow window: after sending, keep scrolling to bottom for 5 seconds
+    // regardless of isAtBottom state (which can flicker during layout reshuffles).
+    var forceFollowUntil by remember { mutableLongStateOf(0L) }
+
     // Debug: log isAtBottom changes
     LaunchedEffect(Unit) {
         Log.w("CHAT_DEBUG", "=== ChatScreen LaunchedEffect(Unit) started === viewModel=${viewModel.sessionId} scrollVersion=${viewModel.scrollRestoreVersion}")
@@ -518,10 +522,12 @@ fun ChatScreen(
             }
             Triple(items, fingerprint, msgs.size)
         }.conflate().collect { (count, fingerprint, _) ->
-            if (count > lastCount && lastCount > 0 && isAtBottom) {
-                // New items appeared while user is at bottom → stay at bottom
+            val now = System.currentTimeMillis()
+            val forceFollow = now < forceFollowUntil
+            if (count > lastCount && lastCount > 0 && (isAtBottom || forceFollow)) {
+                // New items appeared while user is at bottom (or in force-follow window) → stay at bottom
                 listState.snapToBottom()
-            } else if (count == lastCount && fingerprint != lastFingerprint && fingerprint > lastFingerprint && isAtBottom) {
+            } else if (count == lastCount && fingerprint != lastFingerprint && fingerprint > lastFingerprint && (isAtBottom || forceFollow)) {
                 // Same item count but content grew (streaming delta) → stay at bottom
                 listState.snapToBottom()
             }
@@ -768,8 +774,9 @@ fun ChatScreen(
                                 viewModel.sendMessage(allParts, attachmentParts)
                                 inputText = TextFieldValue("")
                                 attachmentHandler.clearAttachments()
-                                // Scroll to bottom after sending: wait for new item to appear, then scroll
+                                // Scroll to bottom after sending: activate force-follow window for 5s
                                 coroutineScope.launch {
+                                    forceFollowUntil = System.currentTimeMillis() + 5000
                                     val currentCount = listState.layoutInfo.totalItemsCount
                                     Log.w("CHAT_DEBUG", "[afterSend] waiting: currentCount=$currentCount canBackward=${listState.canScrollBackward}")
                                     snapshotFlow { listState.layoutInfo.totalItemsCount }

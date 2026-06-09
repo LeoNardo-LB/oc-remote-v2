@@ -479,14 +479,17 @@ internal fun ChatInputBar(
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         visualTransformation = visualTransformation,
                         decorationBox = { innerTextField ->
-                            if (text.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxWidth()) {
                                 Text(
                                     text = placeholder,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                        alpha = if (text.isEmpty()) AlphaTokens.MUTED else 0f
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
                                 )
+                                innerTextField()
                             }
-                            innerTextField()
                         }
                     )
                 }
