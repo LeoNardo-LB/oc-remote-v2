@@ -435,9 +435,7 @@ fun NavGraph(
                         serverId = params.server.serverId,
                         sessionId = childSessionId
                     )
-                    navController.navigate(route) {
-                        launchSingleTop = true
-                    }
+                    navController.navigate(route)
                 },
                 onOpenInWebView = {
                     scope.launch {

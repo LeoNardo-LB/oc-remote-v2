@@ -812,19 +812,29 @@ class ChatViewModel @Inject constructor(
         tokenStatsTracker.reset()
 
         // Observe V1 messages and update token stats tracker
+        // Token values use last call's data (session-level, matches OpenCode behavior)
+        // Cost remains cumulative across all API calls
         viewModelScope.launch {
             _messagesList.collect { messages ->
                 val assistantMessages = messages.filterIsInstance<Message.Assistant>()
+
+                // Cost is cumulative across all API calls
                 val totalCost = assistantMessages.sumOf { it.cost ?: 0.0 }
-                val totalInputTokens = assistantMessages.sumOf { it.tokens?.input ?: 0 }
-                val totalOutputTokens = assistantMessages.sumOf { it.tokens?.output ?: 0 }
-                val totalReasoningTokens = assistantMessages.sumOf { it.tokens?.reasoning ?: 0 }
-                val totalCacheReadTokens = assistantMessages.sumOf { it.tokens?.cache?.read ?: 0 }
-                val totalCacheWriteTokens = assistantMessages.sumOf { it.tokens?.cache?.write ?: 0 }
-                val lastAssistantWithTokens = assistantMessages.lastOrNull { (it.tokens?.output ?: 0) > 0 }
-                val lastContextTokens = lastAssistantWithTokens?.tokens?.let { t ->
+
+                // Token usage = last call's values (not cumulative, matches OpenCode behavior)
+                val lastWithTokens = assistantMessages.lastOrNull { (it.tokens?.output ?: 0) > 0 }
+                val lastTokens = lastWithTokens?.tokens
+                val totalInputTokens = lastTokens?.input ?: 0
+                val totalOutputTokens = lastTokens?.output ?: 0
+                val totalReasoningTokens = lastTokens?.reasoning ?: 0
+                val totalCacheReadTokens = lastTokens?.cache?.read ?: 0
+                val totalCacheWriteTokens = lastTokens?.cache?.write ?: 0
+
+                // Context tokens for the circular progress indicator
+                val lastContextTokens = lastTokens?.let { t ->
                     t.input + t.output + t.reasoning + t.cache.read + t.cache.write
                 } ?: 0
+
                 tokenStatsTracker.update {
                     copy(
                         totalCost = totalCost,
