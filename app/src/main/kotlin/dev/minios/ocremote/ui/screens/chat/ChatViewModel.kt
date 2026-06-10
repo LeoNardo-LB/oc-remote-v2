@@ -911,9 +911,18 @@ class ChatViewModel @Inject constructor(
     /**
      * Refresh session only if enough time has passed since last refresh.
      * Called from ON_RESUME — avoids unnecessary REST calls during brief app-switches.
+     *
+     * Only syncs session status and refreshes messages via REST.
+     * Does NOT restart sseJob to avoid scroll position reset and data flickering.
      */
     fun refreshIfNeeded() {
-        refreshSession()
+        viewModelScope.launch {
+            // Lightweight: sync status only, don't restart sseJob
+            refreshMessages()
+            syncSessionStatus()
+            loadPendingQuestions()
+            loadPendingPermissions()
+        }
     }
 
     /**
