@@ -103,7 +103,7 @@ fun ChatMessageList(
     agents: List<dev.minios.ocremote.domain.model.AgentInfo> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
-    val turnGroups = remember(rawMessages.size) { computeTurnGroups(rawMessages) }
+    val turnGroups = remember(rawMessages) { computeTurnGroups(rawMessages) }
 
     // Real-time status from ChatRepository — domain types
     val currentSessionId = viewModel.sessionId

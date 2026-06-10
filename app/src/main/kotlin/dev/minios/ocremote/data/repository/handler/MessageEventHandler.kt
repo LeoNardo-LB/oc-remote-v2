@@ -34,35 +34,16 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
 
     private fun handleMessageUpdated(event: SseEvent.MessageUpdated) {
         val sessionId = event.info.sessionId
-        val msg = event.info
         _messages.update { current ->
             val sessionMessages = current[sessionId]?.toMutableList() ?: mutableListOf()
-            val idx = sessionMessages.indexOfFirst { it.id == msg.id }
+            val idx = sessionMessages.indexOfFirst { it.id == event.info.id }
             if (idx >= 0) {
-                sessionMessages[idx] = msg
+                sessionMessages[idx] = event.info
             } else {
-                sessionMessages.add(msg)
+                sessionMessages.add(event.info)
                 sessionMessages.sortBy { it.time.created }
             }
             current + (sessionId to sessionMessages)
-        }
-        // 为 streaming assistant 消息预先插入空 Text part 作为占位，
-        // 确保 MessageCardAssistant 不会因为 renderableParts 为空而跳过渲染。
-        // 后续 MessagePartUpdated/Delta 到达时会替换为真实内容。
-        if (msg is Message.Assistant && msg.time.completed == null) {
-            _parts.update { current ->
-                val existing = current[msg.id]
-                if (existing == null || existing.isEmpty()) {
-                    current + (msg.id to listOf(Part.Text(
-                        id = "placeholder-${msg.id}",
-                        sessionId = sessionId,
-                        messageId = msg.id,
-                        text = ""
-                    )))
-                } else {
-                    current
-                }
-            }
         }
     }
 
