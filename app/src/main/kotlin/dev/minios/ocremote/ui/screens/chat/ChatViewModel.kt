@@ -615,9 +615,10 @@ class ChatViewModel @Inject constructor(
         sessionRepository.getSessionsFlow(serverId),
     ) { messages, statuses, allSessions ->
         val status = statuses[sessionId] ?: SessionStatus.Idle
-        val errorMsg = messages
-            .filterIsInstance<Message.Assistant>()
-            .firstOrNull { it.error != null }?.error?.name
+        // Only check the last Assistant message's error — historical errors
+        // (e.g. a previously aborted message) should not block the input bar.
+        val lastAssistant = messages.filterIsInstance<Message.Assistant>().lastOrNull()
+        val errorMsg = lastAssistant?.error?.name
         InteractionState(
             isLoading = messages.isEmpty() && sessionId.isNotEmpty(),
             error = errorMsg,
