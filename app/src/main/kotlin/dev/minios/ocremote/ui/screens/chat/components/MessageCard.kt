@@ -171,12 +171,14 @@ private fun MessageCardUser(
                 ) {
                     // Content parts (text, reasoning, patches, etc.)
                     // Group image file parts into a compact thumbnail row
-                    val imageFiles = contentParts.filterIsInstance<Part.File>()
-                        .filter { it.mime.startsWith("image/") && !it.url.isNullOrBlank() }
-                    val otherParts = contentParts.filter { part ->
-                        !(part is Part.File && part.mime.startsWith("image/") && !part.url.isNullOrBlank())
+                    val (imageFiles, renderableOtherParts) = remember(contentParts) {
+                        val images = contentParts.filterIsInstance<Part.File>()
+                            .filter { it.mime.startsWith("image/") && !it.url.isNullOrBlank() }
+                        val others = contentParts.filter { part ->
+                            !(part is Part.File && part.mime.startsWith("image/") && !part.url.isNullOrBlank())
+                        }.filter(::isBubbleRenderablePart)
+                        images to others
                     }
-                    val renderableOtherParts = otherParts.filter(::isBubbleRenderablePart)
 
                     // Render image thumbnails as a horizontal row
                     if (imageFiles.isNotEmpty()) {
@@ -327,20 +329,24 @@ private fun MessageCardAssistant(
     val textColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
 
     // Reverse turnMessages to correct newest-first order
-    val orderedTurnMessages = turnMessages?.reversed()
+    val orderedTurnMessages = turnMessages
 
     // Collect parts from ALL messages in the turn, not just currentMessage
-    val allTurnParts = orderedTurnMessages?.flatMap { msg -> filterRenderableParts(msg.parts) }
-        ?: filterRenderableParts(currentMessage.parts)
-    val renderableParts = allTurnParts
+    val renderableParts = remember(orderedTurnMessages, currentMessage) {
+        val ordered = orderedTurnMessages?.reversed()
+        ordered?.flatMap { msg -> filterRenderableParts(msg.parts) }
+            ?: filterRenderableParts(currentMessage.parts)
+    }
 
     // Check for errors across all messages in the turn
-    val errorText = orderedTurnMessages
-        ?.firstNotNullOfOrNull { msg ->
-            val am = msg.message as? Message.Assistant
-            formatAssistantErrorMessage(am?.error)
-        }
-        ?: formatAssistantErrorMessage((currentMessage.message as? Message.Assistant)?.error)
+    val errorText = remember(orderedTurnMessages, currentMessage) {
+        orderedTurnMessages?.reversed()
+            ?.firstNotNullOfOrNull { msg ->
+                val am = msg.message as? Message.Assistant
+                formatAssistantErrorMessage(am?.error)
+            }
+            ?: formatAssistantErrorMessage((currentMessage.message as? Message.Assistant)?.error)
+    }
 
     // Keep for footer display (time, provider icon)
     val assistantMsg = currentMessage.message as? Message.Assistant
@@ -394,12 +400,14 @@ private fun MessageCardAssistant(
                 } else null
 
                 // Token/cost/duration footer — only on the last message of a turn
-                val stepFinishes = if (isTurnLast && orderedTurnMessages != null) {
-                    orderedTurnMessages.flatMap { msg ->
-                        msg.parts.filterIsInstance<Part.StepFinish>()
+                val stepFinishes = remember(isTurnLast, orderedTurnMessages) {
+                    if (isTurnLast && orderedTurnMessages != null) {
+                        orderedTurnMessages.flatMap { msg ->
+                            msg.parts.filterIsInstance<Part.StepFinish>()
+                        }
+                    } else {
+                        emptyList()
                     }
-                } else {
-                    emptyList()
                 }
 
                 if (stepFinishes.isNotEmpty()) {

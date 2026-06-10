@@ -192,8 +192,12 @@ fun NavGraph(
                     Log.i(TAG, "Deep-link → native Chat: targetSession=$sessionId currentSession=$currentSessionId")
 
                     if (currentRoute?.startsWith("chat") == true && currentSessionId != sessionId) {
-                        navController.popBackStack()
-                        navController.navigate(route)
+                        navController.navigate(route) {
+                            popUpTo(navController.currentDestination?.route ?: return@navigate) {
+                                inclusive = true
+                            }
+                            launchSingleTop = true
+                        }
                     } else {
                         navController.navigate(route) { launchSingleTop = true }
                     }
@@ -416,9 +420,10 @@ fun NavGraph(
                     )
                     navController.navigate(route) {
                         // Pop current chat so back goes to session list, not old session
-                        popUpTo(SessionListNav.routePattern) {
+                        popUpTo("sessions") {
                             inclusive = false
                         }
+                        launchSingleTop = true
                     }
                 },
                 onNavigateToChildSession = { childSessionId ->
@@ -430,7 +435,9 @@ fun NavGraph(
                         serverId = params.server.serverId,
                         sessionId = childSessionId
                     )
-                    navController.navigate(route)
+                    navController.navigate(route) {
+                        launchSingleTop = true
+                    }
                 },
                 onOpenInWebView = {
                     scope.launch {

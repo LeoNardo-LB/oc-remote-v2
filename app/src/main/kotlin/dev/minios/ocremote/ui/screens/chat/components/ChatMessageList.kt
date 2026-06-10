@@ -282,10 +282,13 @@ fun ChatMessageList(
                                     isTurnLast = isTurnLast,
                                     agents = agents,
                                     copyText = if (isTurnLast) {
-                                        turnMessagesForMsg.asReversed()
-                                            .flatMap { m -> m.parts.filterIsInstance<Part.Text>().map { it.text } }
-                                            .joinToString("\n\n")
-                                            .takeIf { it.isNotBlank() }
+                                        val turnTexts = turnMessagesForMsg
+                                        remember(turnTexts) {
+                                            turnTexts.asReversed()
+                                                .flatMap { m -> m.parts.filterIsInstance<Part.Text>().map { it.text } }
+                                                .joinToString("\n\n")
+                                                .takeIf { it.isNotBlank() }
+                                        }
                                     } else null
                                 )
                             }
