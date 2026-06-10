@@ -91,7 +91,6 @@ data class SessionMetaState(
 @Immutable
 data class InteractionState(
     val isLoading: Boolean = true,
-    val isSending: Boolean = false,
     val error: String? = null,
     val pendingPermissions: List<SseEvent.PermissionAsked> = emptyList(),
     val pendingQuestions: List<SseEvent.QuestionAsked> = emptyList(),
@@ -145,7 +144,6 @@ data class ChatUiState(
     val pendingQuestions: List<SseEvent.QuestionAsked> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
-    val isSending: Boolean = false,
     val providers: List<ProviderCatalog> = emptyList(),
     val hasServerModelCatalog: Boolean = false,
     val defaultModels: Map<String, String> = emptyMap(),
@@ -622,7 +620,6 @@ class ChatViewModel @Inject constructor(
             .firstOrNull { it.error != null }?.error?.name
         InteractionState(
             isLoading = messages.isEmpty() && sessionId.isNotEmpty(),
-            isSending = status is SessionStatus.Busy || status is SessionStatus.Retry,
             error = errorMsg,
             pendingPermissions = chatRepository.getPermissionsWithChildren(sessionId, allSessions),
             pendingQuestions = chatRepository.getQuestionsWithChildren(sessionId, allSessions),
@@ -689,7 +686,6 @@ class ChatViewModel @Inject constructor(
             pendingQuestions = inter.pendingQuestions,
             isLoading = inter.isLoading,
             error = inter.error,
-            isSending = inter.isSending,
             providers = modelCfg.providers,
             hasServerModelCatalog = modelCfg.hasServerModelCatalog,
             defaultModels = modelCfg.defaultModels,

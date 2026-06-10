@@ -169,6 +169,7 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
     // ============ Batch Operations ============
 
     fun setMessages(sessionId: String, newMessages: List<MessageWithParts>) {
+        val incomingMessageIds = newMessages.map { it.info.id }.toSet()
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             val incomingById = newMessages.associateBy { it.info.id }
@@ -202,8 +203,13 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
                     incomingParts
                 }
             }
-            // Preserve messageIds not in REST response (may be streaming)
-            current + merged
+            // Find stale messageIds: belong to this session but not in REST response
+            // and not in the current merged message list (i.e. deleted on server)
+            val survivingMessageIds = (_messages.value[sessionId] ?: emptyList()).map { it.id }.toSet()
+            val staleKeys = current.keys.filter { messageId ->
+                messageId !in survivingMessageIds && messageId !in incomingMessageIds
+            }
+            (current + merged) - staleKeys.toSet()
         }
     }
 
@@ -232,6 +238,7 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
      * the window between REST snapshot and new SSE connection establishment.
      */
     fun replaceMessages(sessionId: String, newMessages: List<MessageWithParts>) {
+        val incomingMessageIds = newMessages.map { it.info.id }.toSet()
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             val incomingById = newMessages.associateBy { it.info.id }
@@ -251,12 +258,20 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
                     incomingParts
                 }
             }
-            current + merged
+            // Find stale messageIds: belong to this session but not in REST response
+            // and not in the current merged message list (i.e. deleted on server)
+            val survivingMessageIds = (_messages.value[sessionId] ?: emptyList()).map { it.id }.toSet()
+            val staleKeys = current.keys.filter { messageId ->
+                messageId !in survivingMessageIds && messageId !in incomingMessageIds
+            }
+            (current + merged) - staleKeys.toSet()
         }
     }
 
     fun clearForSession(sessionId: String) {
+        val messageIds = _messages.value[sessionId]?.map { it.id }?.toSet() ?: emptySet()
         _messages.update { it - sessionId }
+        _parts.update { it - messageIds }
     }
 
     fun clearForServer(sessionIds: Set<String>) {

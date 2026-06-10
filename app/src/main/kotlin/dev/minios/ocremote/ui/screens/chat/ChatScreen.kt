@@ -803,8 +803,7 @@ fun ChatScreen(
                                 viewModel.clearFileSearch()
                             }
                         },
-                        isSending = interaction.isSending,
-                        isBusy = sessionMeta.sessionStatus is SessionStatus.Busy || sessionMeta.sessionStatus is SessionStatus.Retry,
+                        sessionStatus = sessionMeta.sessionStatus,
                         messages = messageState.messages,
                         attachments = attachments,
                         onAttach = { attachmentHandler.pickImages() },
