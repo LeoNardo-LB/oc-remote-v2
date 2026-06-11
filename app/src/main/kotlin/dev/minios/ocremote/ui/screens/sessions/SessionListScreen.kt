@@ -350,6 +350,9 @@ fun SessionListScreen(
                                             viewModel.copyToClipboard(path, context)
                                             scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
                                         },
+                                        onNewSession = { directory ->
+                                            onNavigateToNewChat(directory)
+                                        },
                                     )
                                     HorizontalDivider(
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(

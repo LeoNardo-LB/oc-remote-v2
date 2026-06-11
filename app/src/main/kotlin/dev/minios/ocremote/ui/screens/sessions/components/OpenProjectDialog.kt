@@ -87,29 +87,30 @@ internal fun OpenProjectDialog(
 
     /** Shorten an absolute path by replacing home prefix with ~ */
     fun tildeReplace(path: String): String {
+        if (path == SessionListViewModel.WINDOWS_DRIVES_ROOT) return path
         val home = homeDir ?: return path
         return if (path.startsWith(home)) "~" + path.removePrefix(home) else path
     }
 
-    // Load home directory and then list currentDir whenever it changes.
-    // Single LaunchedEffect avoids the race condition where LaunchedEffect(Unit)
-    // setting currentDir triggered a second LaunchedEffect(currentDir) causing
-    // duplicate concurrent loads that could interleave isLoading/directories state.
+    // Load server paths and then list currentDir whenever it changes.
     LaunchedEffect(Unit) {
-        val home = viewModel.getHomeDirectory()
-        homeDir = home
-        // Set initial directory (will trigger the snapshotFlow below)
+        val paths = viewModel.getServerPaths()
+        homeDir = paths.home
         if (currentDir == null) {
-            currentDir = initialDirectory ?: "/"
+            currentDir = initialDirectory ?: if (viewModel.isWindowsServer) paths.home else "/"
         }
     }
 
-    // React to currentDir changes via snapshotFlow — no double-trigger on init
+    // React to currentDir changes via snapshotFlow
     LaunchedEffect(Unit) {
         snapshotFlow { currentDir }.collectLatest { dir ->
             if (dir == null) return@collectLatest
             isLoading = true
-            directories = viewModel.listDirectories(dir)
+            directories = if (dir == SessionListViewModel.WINDOWS_DRIVES_ROOT) {
+                viewModel.listWindowsDrives()
+            } else {
+                viewModel.listDirectories(dir)
+            }
             isLoading = false
         }
     }
@@ -141,14 +142,12 @@ internal fun OpenProjectDialog(
                         .padding(bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Back arrow - always visible, disabled at root
-                    // Detect root for both Unix ("/") and Windows drive roots ("C:/", "D:/")
+                    // Back arrow - navigate up or to drive list on Windows
                     val dirPath = currentDir ?: "/"
                     val normalizedPath = dirPath.trimEnd('/')
-                    val isAtRoot = normalizedPath.isEmpty()
-                            || normalizedPath == "/"
-                            // Windows drive root: "C:" or "C:/" after trimEnd
-                            || normalizedPath.matches(Regex("[A-Za-z]:/?"))
+                    val isWindowsDrivesRoot = currentDir == SessionListViewModel.WINDOWS_DRIVES_ROOT
+                    val isAtDriveRoot = normalizedPath.matches(Regex("[A-Za-z]:/?"))
+                    val isAtRoot = isWindowsDrivesRoot || normalizedPath.isEmpty() || normalizedPath == "/"
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(R.string.back),
@@ -156,8 +155,16 @@ internal fun OpenProjectDialog(
                             .size(16.dp)
                             .then(
                                 if (!isAtRoot) Modifier.clickable {
-                                    val parent = java.io.File(normalizedPath).parent
-                                    currentDir = parent ?: "/"
+                                    if (isAtDriveRoot && viewModel.isWindowsServer) {
+                                        currentDir = SessionListViewModel.WINDOWS_DRIVES_ROOT
+                                    } else {
+                                        val parent = java.io.File(normalizedPath).parent
+                                        currentDir = parent ?: if (viewModel.isWindowsServer) {
+                                            SessionListViewModel.WINDOWS_DRIVES_ROOT
+                                        } else {
+                                            "/"
+                                        }
+                                    }
                                 } else Modifier
                             ),
                         tint = if (isAtRoot) {
@@ -168,7 +175,7 @@ internal fun OpenProjectDialog(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = tildeReplace(currentDir ?: "/"),
+                        text = if (isWindowsDrivesRoot) "Drives" else tildeReplace(currentDir ?: "/"),
                         modifier = Modifier
                             .weight(1f)
                             .horizontalScroll(rememberScrollState()),

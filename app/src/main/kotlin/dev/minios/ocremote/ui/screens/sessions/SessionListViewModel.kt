@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.minios.ocremote.data.dto.response.FileNode
+import dev.minios.ocremote.data.dto.response.ServerPaths
 import dev.minios.ocremote.data.api.OpenCodeApi
 import dev.minios.ocremote.data.api.ServerConnection
 import dev.minios.ocremote.data.repository.EventDispatcher
@@ -72,6 +73,11 @@ class SessionListViewModel @Inject constructor(
     private val deleteSessionUseCase: DeleteSessionUseCase,
     private val draftRepository: DraftRepository
 ) : ViewModel() {
+
+    companion object {
+        /** Virtual path representing the Windows drive-picker root. */
+        const val WINDOWS_DRIVES_ROOT = ":///drives"
+    }
 
     val serverUrl: String = URLDecoder.decode(
         savedStateHandle.get<String>("serverUrl") ?: "", "UTF-8"
@@ -510,17 +516,47 @@ class SessionListViewModel @Inject constructor(
 
     // ============ Directory browsing for Open Project ============
 
-    /** Get the server's home directory. */
-    suspend fun getHomeDirectory(): String {
-        return try {
-            val paths = api.getServerPaths(conn)
-            val home = paths.home
-            if (BuildConfig.DEBUG) Log.d(TAG, "Server home directory: $home")
-            home
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get server paths", e)
-            "/"
+    private var cachedServerPaths: ServerPaths? = null
+
+    /** Get server paths, caching the result for the ViewModel lifetime. */
+    suspend fun getServerPaths(): ServerPaths {
+        if (cachedServerPaths == null) {
+            cachedServerPaths = try {
+                api.getServerPaths(conn)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to get server paths", e)
+                ServerPaths()
+            }
+            if (BuildConfig.DEBUG) Log.d(TAG, "Server home directory: ${cachedServerPaths!!.home}")
         }
+        return cachedServerPaths!!
+    }
+
+    /** Whether the server runs on Windows (detected from home path backslashes). */
+    val isWindowsServer: Boolean
+        get() = cachedServerPaths?.home?.contains("\\") == true
+
+    /** Get the server's home directory. Delegates to cached getServerPaths(). */
+    suspend fun getHomeDirectory(): String = getServerPaths().home.ifBlank { "/" }
+
+    /** List available Windows drives by probing common drive letters. */
+    suspend fun listWindowsDrives(): List<FileNode> {
+        val drives = mutableListOf<FileNode>()
+        for (letter in 'C'..'Z') {
+            val drivePath = "$letter:\\"
+            try {
+                api.listDirectory(conn, path = "", directory = drivePath)
+                drives.add(FileNode(
+                    name = "$letter:",
+                    path = drivePath,
+                    type = "directory",
+                    absolute = drivePath,
+                ))
+            } catch (_: Exception) {
+                // Drive doesn't exist or not accessible
+            }
+        }
+        return drives
     }
 
     /** List directories in a given path on the server. */

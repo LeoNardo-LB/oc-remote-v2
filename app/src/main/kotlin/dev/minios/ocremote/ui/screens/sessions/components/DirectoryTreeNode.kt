@@ -19,7 +19,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,6 +57,7 @@ internal fun DirectoryTreeNode(
     node: TreeNode.Directory,
     onClick: () -> Unit,
     onCopyPath: (String) -> Unit,
+    onNewSession: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isAmoled = isAmoledTheme()
@@ -118,8 +121,19 @@ internal fun DirectoryTreeNode(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
                     )
-                }
-            }
+        }
+        IconButton(
+            onClick = { onNewSession(node.path) },
+            modifier = Modifier.size(28.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = stringResource(R.string.a11y_icon_add),
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+            )
+        }
+    }
         }
     }
 

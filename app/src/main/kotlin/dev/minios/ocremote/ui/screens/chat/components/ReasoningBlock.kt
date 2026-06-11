@@ -67,7 +67,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
             while (true) {
                 // Clamp to 0 minimum — server clock skew can make this negative
                 elapsedMs.longValue = (System.currentTimeMillis() - effectiveStart).coerceAtLeast(0L)
-                delay(200L)
+                delay(100L)
             }
         } else {
             elapsedMs.longValue = durationMs ?: 0L

@@ -423,7 +423,6 @@ fun NavGraph(
                         popUpTo("sessions") {
                             inclusive = false
                         }
-                        launchSingleTop = true
                     }
                 },
                 onNavigateToChildSession = { childSessionId ->

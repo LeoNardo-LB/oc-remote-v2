@@ -917,6 +917,8 @@ class ChatViewModel @Inject constructor(
             if (!sessionLoaded.isCompleted) {
                 sessionLoaded.complete(Unit)
             }
+            // New session has nothing to load — mark loading complete immediately
+            _isLoading.value = false
         }
         loadProviders()
         loadAgents()
