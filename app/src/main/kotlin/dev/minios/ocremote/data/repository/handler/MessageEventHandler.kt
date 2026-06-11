@@ -70,27 +70,28 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
     }
 
     /**
-     * Merge Part update: for Text/Reasoning, keep the longer text content.
-     * Server may send intermediate snapshots during streaming whose text is
-     * shorter than what the client has already accumulated via deltas.
+     * Merge Part update: for Text/Reasoning, SSE delta-driven text takes priority.
+     *
+     * During streaming, SSE deltas accumulate text incrementally. REST syncs may
+     * return a snapshot that is fresher than the delta accumulation (e.g. REST
+     * returns "你好世界" while SSE has only accumulated "你好"). If we take the
+     * REST snapshot's longer text, subsequent SSE deltas (which the server already
+     * sent before the REST call) will append content already in the snapshot,
+     * causing duplication.
+     *
+     * Fix: If existing (SSE) has any text, keep it — SSE is the streaming source
+     * of truth. Only take incoming's text when existing is empty (part just created).
+     * Always take incoming's metadata (time, etc.) since REST may have newer metadata.
      */
     private fun mergePart(existing: Part, incoming: Part): Part {
         return when {
             existing is Part.Text && incoming is Part.Text -> {
-                if (incoming.text.length >= existing.text.length) incoming
-                else existing.copy(
-                    text = existing.text,
-                    time = incoming.time,
-                    metadata = incoming.metadata
-                )
+                if (existing.text.isEmpty()) incoming
+                else existing.copy(time = incoming.time, metadata = incoming.metadata)
             }
             existing is Part.Reasoning && incoming is Part.Reasoning -> {
-                if (incoming.text.length >= existing.text.length) incoming
-                else existing.copy(
-                    text = existing.text,
-                    time = incoming.time,
-                    metadata = incoming.metadata
-                )
+                if (existing.text.isEmpty()) incoming
+                else existing.copy(time = incoming.time, metadata = incoming.metadata)
             }
             else -> incoming
         }
@@ -274,36 +275,41 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
      * Called when REST fallback detects server is idle but UI shows streaming.
      */
     fun markSessionIdle(sessionId: String) {
-        val current = _messages.value[sessionId] ?: return
-        val now = System.currentTimeMillis()
-        val updated = current.map { msg ->
-            if (msg is Message.Assistant && msg.time.completed == null) {
-                msg.copy(time = msg.time.copy(completed = now))
-            } else {
-                msg
+        _messages.update { current ->
+            val sessionMessages = current[sessionId] ?: return@update current
+            val now = System.currentTimeMillis()
+            val updated = sessionMessages.map { msg ->
+                if (msg is Message.Assistant && msg.time.completed == null) {
+                    msg.copy(time = msg.time.copy(completed = now))
+                } else {
+                    msg
+                }
             }
+            current + (sessionId to updated)
         }
-        _messages.value = _messages.value + (sessionId to updated)
 
         // Mark all incomplete Reasoning parts with time.end
-        val messageIds = current.map { it.id }
-        var partsUpdated = _parts.value
-        for (msgId in messageIds) {
-            val msgParts = partsUpdated[msgId]
-            if (msgParts != null) {
+        _parts.update { current ->
+            val sessionMessages = _messages.value[sessionId] ?: return@update current
+            val messageIds = sessionMessages.map { it.id }
+            var changed = false
+            val updated = current.toMutableMap()
+            for (msgId in messageIds) {
+                val msgParts = updated[msgId] ?: continue
                 val updatedParts = msgParts.map { part ->
                     if (part is Part.Reasoning && part.time?.end == null) {
+                        changed = true
                         part.copy(time = Part.Reasoning.Time(
-                            start = part.time?.start ?: now,
-                            end = now
+                            start = part.time?.start ?: System.currentTimeMillis(),
+                            end = System.currentTimeMillis()
                         ))
                     } else {
                         part
                     }
                 }
-                partsUpdated = partsUpdated + (msgId to updatedParts)
+                if (changed) updated[msgId] = updatedParts
             }
+            if (changed) updated else current
         }
-        _parts.value = partsUpdated
     }
 }
