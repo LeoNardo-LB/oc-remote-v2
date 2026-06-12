@@ -584,6 +584,7 @@ class ChatViewModel @Inject constructor(
             } else {
                 val sorted = sessionMessages.sortedBy { it.time.created }
                 val visible = if (revertState != null) {
+                    Log.w(TAG, "[messageListState] REVERT active: sid=${sid.take(12)} revertMsg=${revertState.messageId.take(12)} sorted=${sorted.size}")
                     sorted.filter { it.id < revertState.messageId }
                 } else {
                     sorted

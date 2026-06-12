@@ -39,15 +39,20 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
 
     private fun handleMessageUpdated(event: SseEvent.MessageUpdated) {
         val sessionId = event.info.sessionId
+        val role = when (event.info) { is Message.User -> "user"; is Message.Assistant -> "assistant"; else -> "unknown" }
         _messages.update { current ->
             val sessionMessages = current[sessionId]?.toMutableList() ?: mutableListOf()
             val idx = sessionMessages.indexOfFirst { it.id == event.info.id }
+            val isUpdate = idx >= 0
             if (idx >= 0) {
                 sessionMessages[idx] = event.info
             } else {
                 sessionMessages.add(event.info)
                 sessionMessages.sortBy { it.time.created }
             }
+            val total = sessionMessages.size
+            Log.i(TAG, "[MsgUpdated] id=${event.info.id.take(12)} role=$role session=${sessionId.take(12)} " +
+                "${if (isUpdate) "UPDATE" else "NEW"} total=$total")
             current + (sessionId to sessionMessages)
         }
     }
@@ -83,32 +88,40 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
                 }
                 messageParts[idx] = merged
             } else {
-                // PartUpdated arriving before any PartDelta — if text is non-empty,
-                // strip it to prevent duplication when SSE deltas append later.
-                // SSE deltas are incremental and will re-accumulate from "".
-                // If no deltas arrive (stream already ended), REST sync will fill in
-                // the final text via mergePart (SSE text empty → take REST).
-                val partToAdd = when (event.part) {
-                    is Part.Text -> {
-                        if (event.part.text.isNotEmpty()) {
-                            Log.w(TAG, "[PartUpdated] t=$thread msg=$messageId part=$partId " +
-                                "stripping non-empty text=${event.part.text.length}, " +
-                                "will be re-accumulated by SSE deltas or REST sync")
-                            event.part.copy(text = "")
-                        } else {
-                            event.part
+                // New part arriving — decide whether to strip text.
+                // For ASSISTANT messages: strip non-empty text to prevent duplication when
+                // SSE deltas append later (the PartUpdated is a full snapshot that overlaps
+                // with incremental deltas). Deltas will re-accumulate from "", or REST sync
+                // will fill in the final text via mergePart.
+                // For USER messages: keep text as-is. User message parts arrive once as a
+                // complete snapshot — there are no subsequent deltas to recover the text.
+                val isAssistantPart = _messages.value.values.flatten()
+                    .any { it.id == messageId && it is Message.Assistant }
+                val partToAdd = if (isAssistantPart) {
+                    when (event.part) {
+                        is Part.Text -> {
+                            if (event.part.text.isNotEmpty()) {
+                                Log.w(TAG, "[PartUpdated] t=$thread msg=$messageId part=$partId " +
+                                    "stripping assistant text=${event.part.text.length}, " +
+                                    "will be re-accumulated by SSE deltas or REST sync")
+                                event.part.copy(text = "")
+                            } else {
+                                event.part
+                            }
                         }
-                    }
-                    is Part.Reasoning -> {
-                        if (event.part.text.isNotEmpty()) {
-                            Log.w(TAG, "[PartUpdated] t=$thread msg=$messageId part=$partId " +
-                                "stripping non-empty reasoning text=${event.part.text.length}")
-                            event.part.copy(text = "")
-                        } else {
-                            event.part
+                        is Part.Reasoning -> {
+                            if (event.part.text.isNotEmpty()) {
+                                Log.w(TAG, "[PartUpdated] t=$thread msg=$messageId part=$partId " +
+                                    "stripping assistant reasoning text=${event.part.text.length}")
+                                event.part.copy(text = "")
+                            } else {
+                                event.part
+                            }
                         }
+                        else -> event.part
                     }
-                    else -> event.part
+                } else {
+                    event.part
                 }
                 messageParts.add(partToAdd)
             }
