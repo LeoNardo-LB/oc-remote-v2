@@ -126,18 +126,13 @@ fun SessionListScreen(
 
     val pagerState = rememberPagerState(pageCount = { 2 })
 
-    // Only load MCP servers once per screen entry — subsequent tab switches
-    // use cached data to avoid the CircularProgressIndicator flash.
+    // Preload MCP servers on screen entry — no loading delay when user swipes
+    // to the MCP tab. Also caches error handling for the entire lifetime.
     var mcpLoadedOnce by remember { mutableStateOf(false) }
 
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }
-            .collect { page ->
-                if (page == 1 && !mcpLoadedOnce) {
-                    viewModel.loadMcpServers()
-                    mcpLoadedOnce = true
-                }
-            }
+    LaunchedEffect(Unit) {
+        viewModel.loadMcpServers()
+        mcpLoadedOnce = true
     }
 
     LaunchedEffect(Unit) {
