@@ -251,9 +251,7 @@ fun SessionListScreen(
                 NavigationBarItem(
                     selected = pagerState.currentPage == 0,
                     onClick = {
-                        if (!pagerState.isScrollInProgress) {
-                            scope.launch { pagerState.scrollToPage(0) }
-                        }
+                        scope.launch { pagerState.scrollToPage(0) }
                     },
                     icon = {
                         Icon(
@@ -272,9 +270,7 @@ fun SessionListScreen(
                 NavigationBarItem(
                     selected = pagerState.currentPage == 1,
                     onClick = {
-                        if (!pagerState.isScrollInProgress) {
-                            scope.launch { pagerState.animateScrollToPage(1) }
-                        }
+                        scope.launch { pagerState.animateScrollToPage(1) }
                     },
                     icon = {
                         Icon(
