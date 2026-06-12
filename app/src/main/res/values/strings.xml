@@ -93,6 +93,7 @@
     
     <!-- Session Screen -->
     <string name="sessions_title">Sessions</string>
+    <string name="nav_tab_mcp">MCP</string>
     <string name="search_sessions">Search sessions…</string>
     <string name="sessions_new">New Session</string>
     <string name="sessions_create_folder">Create folder</string>
@@ -349,6 +350,8 @@
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>
+    <string name="mcp_servers_title">MCP Servers</string>
+    <string name="mcp_no_servers">No MCP servers configured</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_theme_system">System default</string>
     <string name="settings_theme_light">Light</string>

@@ -126,11 +126,16 @@ fun SessionListScreen(
 
     val pagerState = rememberPagerState(pageCount = { 2 })
 
+    // Only load MCP servers once per screen entry — subsequent tab switches
+    // use cached data to avoid the CircularProgressIndicator flash.
+    var mcpLoadedOnce by remember { mutableStateOf(false) }
+
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }
             .collect { page ->
-                if (page == 1) {
+                if (page == 1 && !mcpLoadedOnce) {
                     viewModel.loadMcpServers()
+                    mcpLoadedOnce = true
                 }
             }
     }
@@ -252,11 +257,22 @@ fun SessionListScreen(
                     selected = pagerState.currentPage == 0,
                     onClick = {
                         if (!pagerState.isScrollInProgress) {
-                            scope.launch { pagerState.animateScrollToPage(0) }
+                            scope.launch { pagerState.scrollToPage(0) }
                         }
                     },
-                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
-                    label = { Text("Sessions") }
+                    icon = {
+                        Icon(
+                            Icons.AutoMirrored.Filled.List,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    label = {
+                        Text(
+                            stringResource(R.string.sessions_title),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 )
                 NavigationBarItem(
                     selected = pagerState.currentPage == 1,
@@ -265,8 +281,19 @@ fun SessionListScreen(
                             scope.launch { pagerState.animateScrollToPage(1) }
                         }
                     },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text("Settings") }
+                    icon = {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    label = {
+                        Text(
+                            stringResource(R.string.nav_tab_mcp),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 )
             }
         }

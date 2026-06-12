@@ -19,6 +19,7 @@
     <string name="server_delete">删除</string>
     <!-- Session Screen -->
     <string name="sessions_title">会话</string>
+    <string name="nav_tab_mcp">MCP 服务</string>
     <string name="sessions_new">新建会话</string>
     <string name="sessions_empty">尚无会话</string>
     <string name="session_status_idle">空闲</string>
@@ -40,6 +41,8 @@
     <string name="question_custom_answer">输入你的答案</string>
     <!-- Settings -->
     <string name="settings_title">设置</string>
+    <string name="mcp_servers_title">MCP 服务器</string>
+    <string name="mcp_no_servers">暂无 MCP 服务器配置</string>
     <string name="settings_theme">主题</string>
     <string name="settings_theme_system">系统默认</string>
     <string name="settings_theme_light">浅色</string>
