@@ -635,4 +635,8 @@
     <string name="connection_error_title">Сервер недоступний</string>
     <string name="connection_error_retrying_in">Повторна спроба через %1$dс…</string>
     <string name="connection_error_switch_server">Перемкнутися на інший сервер</string>
+    <string name="nav_tab_mcp">MCP</string>
+    <string name="chat_thinking_in_progress">Думає… %1$s</string>
+    <string name="mcp_servers_title">Сервери MCP</string>
+    <string name="mcp_no_servers">Сервери MCP не налаштовано</string>
 </resources>

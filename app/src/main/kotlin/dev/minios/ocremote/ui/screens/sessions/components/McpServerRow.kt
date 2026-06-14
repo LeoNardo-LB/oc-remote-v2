@@ -18,6 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.domain.model.McpServerStatus
+import dev.minios.ocremote.ui.theme.StatusConnected
+import dev.minios.ocremote.ui.theme.StatusFailed
+import dev.minios.ocremote.ui.theme.StatusWarning
 
 @Composable
 fun McpServerRow(
@@ -75,9 +78,9 @@ private fun statusDot(status: String): String = when (status) {
 }
 
 private fun statusColor(status: String): Color = when (status) {
-    "connected" -> Color(0xFF4CAF50)
+    "connected" -> StatusConnected
     "disabled" -> Color.Gray
-    "failed" -> Color(0xFFF44336)
-    "needs_auth", "needs_client_registration" -> Color(0xFFFFC107)
+    "failed" -> StatusFailed
+    "needs_auth", "needs_client_registration" -> StatusWarning
     else -> Color.Gray
 }

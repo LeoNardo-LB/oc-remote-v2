@@ -635,4 +635,8 @@
     <string name="connection_error_title">서버에 접속할 수 없습니다</string>
     <string name="connection_error_retrying_in">%1$d초 후 재시도…</string>
     <string name="connection_error_switch_server">다른 서버로 전환</string>
+    <string name="nav_tab_mcp">MCP</string>
+    <string name="chat_thinking_in_progress">생각 중… %1$s</string>
+    <string name="mcp_servers_title">MCP 서버</string>
+    <string name="mcp_no_servers">구성된 MCP 서버가 없습니다</string>
 </resources>

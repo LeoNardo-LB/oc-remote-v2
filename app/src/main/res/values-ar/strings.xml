@@ -635,4 +635,8 @@
     <string name="connection_error_title">الخادم غير قابل للوصول</string>
     <string name="connection_error_retrying_in">إعادة المحاولة خلال %1$d ثانية…</string>
     <string name="connection_error_switch_server">التبديل إلى خادم آخر</string>
+    <string name="nav_tab_mcp">MCP</string>
+    <string name="chat_thinking_in_progress">يفكر… %1$s</string>
+    <string name="mcp_servers_title">خوادم MCP</string>
+    <string name="mcp_no_servers">لم يتم تكوين خوادم MCP</string>
 </resources>

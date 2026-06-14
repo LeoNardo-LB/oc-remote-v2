@@ -50,6 +50,7 @@ import dev.minios.ocremote.ui.screens.chat.util.halfScreenHeight
 import dev.minios.ocremote.ui.screens.chat.util.performHaptic
 import dev.minios.ocremote.ui.theme.ShapeTokens
 import dev.minios.ocremote.ui.theme.AlphaTokens
+import dev.minios.ocremote.ui.theme.AppMotion
 import kotlinx.coroutines.delay
 
 @Composable
@@ -84,7 +85,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
         initialValue = 0.3f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = keyframes { durationMillis = 1200; 0.7f at 400; 0.4f at 800 },
+            animation = keyframes { durationMillis = AppMotion.PULSE_CYCLE; 0.7f at 400; 0.4f at 800 },
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseAlpha"

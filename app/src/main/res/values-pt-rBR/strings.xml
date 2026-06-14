@@ -635,4 +635,8 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="connection_error_title">Servidor inalcançável</string>
     <string name="connection_error_retrying_in">Tentando novamente em %1$ds…</string>
     <string name="connection_error_switch_server">Trocar para outro servidor</string>
+    <string name="nav_tab_mcp">MCP</string>
+    <string name="chat_thinking_in_progress">Pensando… %1$s</string>
+    <string name="mcp_servers_title">Servidores MCP</string>
+    <string name="mcp_no_servers">Nenhum servidor MCP configurado</string>
 </resources>

@@ -176,8 +176,8 @@ import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.toolOutputContainerColor
 import dev.minios.ocremote.ui.screens.chat.util.agentColor
 import dev.minios.ocremote.ui.screens.chat.util.agentColorCycle
-import dev.minios.ocremote.ui.screens.chat.util.QueuedBadgeColor
-import dev.minios.ocremote.ui.screens.chat.util.QueuedBadgeTextColor
+import dev.minios.ocremote.ui.theme.QueuedBadgeColor
+import dev.minios.ocremote.ui.theme.QueuedBadgeTextColor
 import dev.minios.ocremote.ui.screens.chat.util.formatTokenCount
 import dev.minios.ocremote.ui.screens.chat.util.formatAssistantErrorMessage
 import dev.minios.ocremote.ui.screens.chat.util.formatDuration

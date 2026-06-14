@@ -635,4 +635,8 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="connection_error_title">Serwer niedostępny</string>
     <string name="connection_error_retrying_in">Ponowna próba za %1$ds…</string>
     <string name="connection_error_switch_server">Przełącz na inny serwer</string>
+    <string name="nav_tab_mcp">MCP</string>
+    <string name="chat_thinking_in_progress">Myśli… %1$s</string>
+    <string name="mcp_servers_title">Serwery MCP</string>
+    <string name="mcp_no_servers">Nie skonfigurowano serwerów MCP</string>
 </resources>

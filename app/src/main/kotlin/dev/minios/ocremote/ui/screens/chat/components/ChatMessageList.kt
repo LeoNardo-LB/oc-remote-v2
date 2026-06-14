@@ -35,7 +35,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +72,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import dev.minios.ocremote.ui.theme.ShapeTokens
 import dev.minios.ocremote.ui.theme.AlphaTokens
+import dev.minios.ocremote.ui.theme.SpacingTokens
 
 /**
  * Shared composable for both main-session and sub-session message lists.
@@ -141,10 +141,10 @@ fun ChatMessageList(
                     modifier = Modifier.fillMaxSize()
                         .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
                     contentPadding = PaddingValues(
-                        start = 12.dp,
-                        top = 8.dp,
-                        end = 12.dp,
-                        bottom = 8.dp
+                        start = SpacingTokens.MD.dp,
+                        top = SpacingTokens.SM.dp,
+                        end = SpacingTokens.MD.dp,
+                        bottom = SpacingTokens.SM.dp
                     ),
                     reverseLayout = true,
                     verticalArrangement = Arrangement.spacedBy(messageSpacing)
@@ -327,7 +327,7 @@ fun ChatMessageList(
                                                 onClick = { },
                                                 onLongClick = { showRevertDialog = true }
                                             )
-                                            .padding(vertical = 4.dp, horizontal = 32.dp),
+                                            .padding(vertical = SpacingTokens.XS.dp, horizontal = SpacingTokens.XXL.dp),
                                         horizontalArrangement = Arrangement.Center,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -339,7 +339,7 @@ fun ChatMessageList(
                                             text = stringResource(R.string.chat_summarized),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                                            modifier = Modifier.padding(horizontal = 12.dp)
+                                            modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp)
                                         )
                                         HorizontalDivider(
                                             modifier = Modifier.weight(1f),
@@ -400,7 +400,7 @@ fun ChatMessageList(
                     },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp),
+                        .padding(bottom = SpacingTokens.SM.dp),
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     contentColor = MaterialTheme.colorScheme.onSurface
                 ) {
@@ -451,13 +451,13 @@ private fun PermissionBatchActionBar(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = SpacingTokens.LG.dp),
         shape = ShapeTokens.medium,
         color = MaterialTheme.colorScheme.secondaryContainer,
         tonalElevation = 1.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -487,13 +487,13 @@ private fun QuestionBatchActionBar(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp),
         shape = ShapeTokens.medium,
         color = MaterialTheme.colorScheme.tertiaryContainer,
         tonalElevation = 1.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -514,14 +514,14 @@ private fun QuestionBatchActionBar(
 @Composable
 private fun RetryBanner(retry: SessionStatus.Retry) {
     Surface(
-        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = AlphaTokens.FAINT),
         shape = ShapeTokens.medium,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 6.dp)
+            .padding(horizontal = SpacingTokens.XS.dp, vertical = 6.dp)
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(SpacingTokens.MD.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -542,7 +542,7 @@ private fun RetryBanner(retry: SessionStatus.Retry) {
                     Text(
                         text = retry.message,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = AlphaTokens.HIGH)
                     )
                 }
             }

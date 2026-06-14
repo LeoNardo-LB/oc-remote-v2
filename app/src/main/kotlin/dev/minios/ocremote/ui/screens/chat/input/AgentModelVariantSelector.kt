@@ -29,6 +29,7 @@ import dev.minios.ocremote.ui.components.ProviderIcon
 import dev.minios.ocremote.ui.screens.chat.util.agentColor
 import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.ShapeTokens
+import dev.minios.ocremote.ui.theme.SpacingTokens
 
 /**
  * Agent / Model / Variant selector row with attach button.
@@ -57,7 +58,7 @@ internal fun AgentModelVariantSelector(
                 .weight(1f)
                 .horizontalScroll(rememberScrollState()),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
             // Agent selector — single button, tap to cycle
             // Fixed width: all agent names rendered invisible to reserve max width
@@ -73,7 +74,7 @@ internal fun AgentModelVariantSelector(
                             val nextIndex = (currentIndex + 1) % agents.size
                             onAgentSelect(agents[nextIndex].name)
                         }
-                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                        .padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.XS.dp)
                 ) {
                     // Invisible ghost texts for all agent names — fixes width to the widest
                     agents.forEach { agent ->
@@ -98,9 +99,9 @@ internal fun AgentModelVariantSelector(
                     modifier = Modifier
                         .clip(ShapeTokens.smallMedium)
                         .clickable { onModelClick() }
-                        .padding(horizontal = 3.dp, vertical = 3.dp),
+                        .padding(horizontal = SpacingTokens.XS.dp, vertical = SpacingTokens.XS.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
                 ) {
                     if (selectedProviderId != null) {
                         ProviderIcon(
@@ -137,7 +138,7 @@ internal fun AgentModelVariantSelector(
                     modifier = Modifier
                         .clip(ShapeTokens.smallMedium)
                         .clickable { onCycleVariant() }
-                        .padding(horizontal = 3.dp, vertical = 3.dp)
+                        .padding(horizontal = SpacingTokens.XS.dp, vertical = SpacingTokens.XS.dp)
                 )
             }
         }

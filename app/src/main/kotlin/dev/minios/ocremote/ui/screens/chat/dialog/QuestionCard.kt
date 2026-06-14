@@ -54,6 +54,7 @@ import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.performHaptic
 import dev.minios.ocremote.ui.theme.ShapeTokens
 import dev.minios.ocremote.ui.theme.AlphaTokens
+import dev.minios.ocremote.ui.theme.SpacingTokens
 
 /**
  * Interactive card for answering agent questions.
@@ -92,12 +93,12 @@ internal fun QuestionCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(SpacingTokens.MD.dp),
+            verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
             // Header row — matches PermissionCard style
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -164,9 +165,9 @@ internal fun QuestionCard(
                                         }
                                     }
                                 )
-                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                                .padding(horizontal = SpacingTokens.SM.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
                         ) {
                             Checkbox(
                                 checked = checked,
@@ -217,7 +218,7 @@ internal fun QuestionCard(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
@@ -259,7 +260,7 @@ internal fun QuestionCard(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
@@ -308,7 +309,7 @@ internal fun QuestionCard(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.SM.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {

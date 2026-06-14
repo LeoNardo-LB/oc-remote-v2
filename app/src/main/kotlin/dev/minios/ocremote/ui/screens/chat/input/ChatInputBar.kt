@@ -102,6 +102,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.ui.graphics.asImageBitmap
 import dev.minios.ocremote.ui.theme.ShapeTokens
 import dev.minios.ocremote.ui.theme.AlphaTokens
+import dev.minios.ocremote.ui.theme.SpacingTokens
 
 
 /**
@@ -350,8 +351,8 @@ internal fun ChatInputBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 4.dp, top = 2.dp, bottom = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+                .padding(start = SpacingTokens.LG.dp, end = SpacingTokens.LG.dp, top = 2.dp, bottom = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
         ) {
             // Agent + Model + Variant + Attach selector row — small, subtle
             AgentModelVariantSelector(
@@ -382,7 +383,7 @@ internal fun ChatInputBar(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp)
+                        .padding(horizontal = SpacingTokens.XS.dp)
                         .clip(ShapeTokens.mediumSmall)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                         .then(
@@ -417,7 +418,7 @@ internal fun ChatInputBar(
             // Input row
             Row(
                 verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
             ) {
                 // Text field — minimal style, no heavy outline
                 val mentionHighlightColor = MaterialTheme.colorScheme.primary
@@ -454,7 +455,7 @@ internal fun ChatInputBar(
                                 else -> Modifier
                             }
                         )
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .padding(horizontal = SpacingTokens.LG.dp, vertical = 10.dp)
                 ) {
                     // Fixed min-height box: ensures consistent height regardless of
                     // BasicTextField's internal measurement difference between empty (cursor)

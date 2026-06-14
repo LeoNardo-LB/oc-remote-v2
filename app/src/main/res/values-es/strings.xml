@@ -635,4 +635,8 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="connection_error_title">Servidor no accesible</string>
     <string name="connection_error_retrying_in">Reintentando en %1$ds…</string>
     <string name="connection_error_switch_server">Cambiar a otro servidor</string>
+    <string name="nav_tab_mcp">MCP</string>
+    <string name="chat_thinking_in_progress">Pensando… %1$s</string>
+    <string name="mcp_servers_title">Servidores MCP</string>
+    <string name="mcp_no_servers">No hay servidores MCP configurados</string>
 </resources>

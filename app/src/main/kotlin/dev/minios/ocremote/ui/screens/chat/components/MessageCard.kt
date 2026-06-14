@@ -47,8 +47,8 @@ import dev.minios.ocremote.ui.screens.chat.isBubbleRenderablePart
 import dev.minios.ocremote.ui.screens.chat.dialog.ImageThumbnailRow
 import dev.minios.ocremote.ui.screens.chat.util.LocalCompactMessages
 import dev.minios.ocremote.ui.screens.chat.util.LocalHapticFeedbackEnabled
-import dev.minios.ocremote.ui.screens.chat.util.QueuedBadgeColor
-import dev.minios.ocremote.ui.screens.chat.util.QueuedBadgeTextColor
+import dev.minios.ocremote.ui.theme.QueuedBadgeColor
+import dev.minios.ocremote.ui.theme.QueuedBadgeTextColor
 import dev.minios.ocremote.ui.screens.chat.util.agentColor
 import dev.minios.ocremote.ui.screens.chat.util.formatAssistantErrorMessage
 import dev.minios.ocremote.ui.screens.chat.util.formatDuration
@@ -60,6 +60,7 @@ import java.util.Date
 import java.util.Locale
 import dev.minios.ocremote.ui.theme.ShapeTokens
 import dev.minios.ocremote.ui.theme.AlphaTokens
+import dev.minios.ocremote.ui.theme.SpacingTokens
 
 enum class MessageCardRole { USER, ASSISTANT }
 
@@ -164,10 +165,10 @@ private fun MessageCardUser(
             val compact = LocalCompactMessages.current
             Column(
                     modifier = Modifier.padding(
-                        horizontal = if (compact) 10.dp else 16.dp,
-                        vertical = if (compact) 8.dp else 14.dp
+                        horizontal = if (compact) 10.dp else SpacingTokens.LG.dp,
+                        vertical = if (compact) SpacingTokens.SM.dp else 14.dp
                     ),
-                    verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp)
+                    verticalArrangement = Arrangement.spacedBy(if (compact) SpacingTokens.XS.dp else 10.dp)
                 ) {
                     // Content parts (text, reasoning, patches, etc.)
                     // Group image file parts into a compact thumbnail row
@@ -229,8 +230,8 @@ private fun MessageCardUser(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = if (compact) 4.dp else 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            .padding(top = if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // 左侧：时间
@@ -249,7 +250,7 @@ private fun MessageCardUser(
                             Surface(
                                 shape = ShapeTokens.extraSmall,
                                 color = QueuedBadgeColor,
-                                modifier = Modifier.padding(end = 4.dp)
+                                modifier = Modifier.padding(end = SpacingTokens.XS.dp)
                             ) {
                                 Text(
                                     text = stringResource(R.string.chat_queued),
@@ -258,7 +259,7 @@ private fun MessageCardUser(
                                         fontSize = 8.sp,
                                         color = QueuedBadgeTextColor
                                     ),
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = SpacingTokens.XS.dp, vertical = 1.dp)
                                 )
                             }
                         }
@@ -370,10 +371,10 @@ private fun MessageCardAssistant(
         ) {
             Column(
                 modifier = Modifier.padding(
-                    horizontal = if (compact) 10.dp else 16.dp,
-                    vertical = if (compact) 8.dp else 14.dp
+                    horizontal = if (compact) 10.dp else SpacingTokens.LG.dp,
+                    vertical = if (compact) SpacingTokens.SM.dp else 14.dp
                 ),
-                verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp)
+                verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else SpacingTokens.XS.dp)
             ) {
                 // Render parts in original order
                 for (part in renderableParts) {
@@ -430,7 +431,7 @@ private fun MessageCardAssistant(
                     val hasFooter = hasTokenStats || (durationMs ?: 0) > 0 || !modelId.isNullOrBlank() || !agentName.isNullOrBlank()
 
                     if (hasFooter) {
-                        Spacer(modifier = Modifier.height(if (compact) 4.dp else 8.dp))
+                        Spacer(modifier = Modifier.height(if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -513,7 +514,7 @@ private fun MessageCardAssistant(
                     }
                     // Fallback: no stats but copy button needed
                     if (!hasFooter && isTurnLast && copyText != null) {
-                        Spacer(modifier = Modifier.height(if (compact) 4.dp else 8.dp))
+                        Spacer(modifier = Modifier.height(if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -559,7 +560,7 @@ private fun MessageCardAssistant(
 
                 // Fallback footer: no StepFinish but still show Agent Tag + time
                 if (stepFinishes.isEmpty() && isTurnLast && !agentName.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(if (compact) 4.dp else 8.dp))
+                    Spacer(modifier = Modifier.height(if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -612,7 +613,7 @@ private fun MessageCardAssistant(
                             text = errorText,
                             textStyle = MaterialTheme.typography.bodySmall,
                             textColor = textColor,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                            modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp, vertical = 10.dp)
                         )
                     }
                 }

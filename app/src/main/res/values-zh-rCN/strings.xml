@@ -638,4 +638,5 @@
     <string name="connection_error_title">服务器无法连接</string>
     <string name="connection_error_retrying_in">%1$d 秒后重试…</string>
     <string name="connection_error_switch_server">切换到其他服务器</string>
+    <string name="chat_thinking_in_progress">思考中… %1$s</string>
 </resources>

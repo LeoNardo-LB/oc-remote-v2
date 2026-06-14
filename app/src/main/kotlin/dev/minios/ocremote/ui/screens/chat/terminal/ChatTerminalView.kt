@@ -55,7 +55,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -91,6 +90,7 @@ import kotlinx.coroutines.launch
 import dev.minios.ocremote.ui.theme.ButtonTokens
 import dev.minios.ocremote.ui.theme.ShapeTokens
 import dev.minios.ocremote.ui.theme.AlphaTokens
+import dev.minios.ocremote.ui.theme.SpacingTokens
 
 /**
  * Extracted terminal-mode view for ChatScreen.
@@ -348,13 +348,13 @@ fun ChatTerminalView(
                     Column(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .padding(vertical = 8.dp)
+                            .padding(vertical = SpacingTokens.SM.dp)
                             .imePadding(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
                     ) {
                         LazyColumn(
                             modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            contentPadding = PaddingValues(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.XS.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             items(terminalTabs, key = { it.id }) { tab ->
@@ -398,7 +398,7 @@ fun ChatTerminalView(
                                                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MUTED))
                                                         ) {
                                                             Row(
-                                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                                                modifier = Modifier.padding(horizontal = SpacingTokens.SM.dp, vertical = 2.dp),
                                                                 verticalAlignment = Alignment.CenterVertically,
                                                                 horizontalArrangement = Arrangement.spacedBy(5.dp)
                                                             ) {
@@ -477,8 +477,8 @@ fun ChatTerminalView(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp),
+                            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
                         ) {
                             Button(
                                 onClick = {

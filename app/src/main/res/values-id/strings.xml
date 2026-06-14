@@ -641,4 +641,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="connection_error_title">Server tidak dapat dijangkau</string>
     <string name="connection_error_retrying_in">Mencoba ulang dalam %1$ds…</string>
     <string name="connection_error_switch_server">Beralih ke server lain</string>
+    <string name="nav_tab_mcp">MCP</string>
+    <string name="chat_thinking_in_progress">Berpikir… %1$s</string>
+    <string name="mcp_servers_title">Server MCP</string>
+    <string name="mcp_no_servers">Tidak ada server MCP dikonfigurasi</string>
 </resources>

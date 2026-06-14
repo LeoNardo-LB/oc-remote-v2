@@ -235,7 +235,8 @@ Uses **OkHttp engine** explicitly for correct SSE streaming. Do not switch to ot
 - **禁止引入额外 UI 依赖库**（如 Accompanist），除非有充分的理由并经过讨论。
 
 ### Theme Token System
-- **Alpha tokens** (Alpha.kt): 5 levels only — FAINT(0.35) / MUTED(0.50) / MEDIUM(0.70) / HIGH(0.80) / AMOLED(0.92). Use these instead of hardcoded `.copy(alpha = Xf)`.
+- **Alpha tokens** (Alpha.kt): 7 semantic constants — SELECTED(0.12) / DIFF_BG(0.10) / FAINT(0.35) / MUTED(0.50) / MEDIUM(0.70) / HIGH(0.80) / AMOLED(0.92). Use these instead of hardcoded `.copy(alpha = Xf)`.
+- **Spacing tokens** (Spacing.kt): 6 grid-based constants — XS(4) / SM(8) / MD(12) / LG(16) / XL(24) / XXL(32). Use `SpacingTokens.LG.dp` instead of hardcoded `16.dp` for standard spacing.
 - **Shape tokens** (Shape.kt): `AppShapes` for MaterialTheme, `ShapeTokens` object for component-level direct reference.
 - **Motion tokens** (Motion.kt): semantic duration constants (BREATH_CYCLE, PULSE_CYCLE, TERMINAL). Use instead of hardcoded `AnimationSpec` durations.
 - **Dark theme**: trust Material3 `darkColorScheme()` defaults. Only override 6 brand-differentiated tokens in Theme.kt.

@@ -635,4 +635,8 @@
     <string name="connection_error_title">サーバーに接続できません</string>
     <string name="connection_error_retrying_in">%1$d秒後に再試行…</string>
     <string name="connection_error_switch_server">他のサーバーに切替</string>
+    <string name="nav_tab_mcp">MCP</string>
+    <string name="chat_thinking_in_progress">思考中… %1$s</string>
+    <string name="mcp_servers_title">MCPサーバー</string>
+    <string name="mcp_no_servers">MCPサーバーが設定されていません</string>
 </resources>
