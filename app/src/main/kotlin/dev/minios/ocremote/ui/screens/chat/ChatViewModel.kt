@@ -2032,9 +2032,7 @@ class ChatViewModel @Inject constructor(
     fun executeCommand(command: String, arguments: String = "", onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                if (!sessionLoaded.isCompleted) {
-                    sessionLoaded.await()
-                }
+                val currentSessionId = ensureSession()
                 if (sessionDirectory.isNullOrBlank()) {
                     loadSession()
                 }
@@ -2042,7 +2040,7 @@ class ChatViewModel @Inject constructor(
                 val normalizedCommand = command.removePrefix("/").trim()
                 val effectiveDirectory = sessionDirectory
                     ?: chatRepository.getSessionsSnapshot()
-                        .firstOrNull { it.id == sessionId }
+                        .firstOrNull { it.id == currentSessionId }
                         ?.directory
                         ?.takeIf { it.isNotBlank() }
                 // /init: when arguments are omitted, rely on x-opencode-directory only.
@@ -2058,7 +2056,7 @@ class ChatViewModel @Inject constructor(
 
                 val ok = manageTerminalUseCase.executeCommand(
                     serverId = serverId,
-                    sessionId = sessionId,
+                    sessionId = currentSessionId,
                     command = normalizedCommand,
                     arguments = effectiveArguments,
                     directory = effectiveDirectory,
@@ -2066,7 +2064,7 @@ class ChatViewModel @Inject constructor(
                 if (BuildConfig.DEBUG) {
                     Log.d(
                         TAG,
-                        "Executed command /$normalizedCommand in session $sessionId: $ok (directory=$effectiveDirectory, arguments=$effectiveArguments)"
+                        "Executed command /$normalizedCommand in session $currentSessionId: $ok (directory=$effectiveDirectory, arguments=$effectiveArguments)"
                     )
                 }
                 onResult(ok)
