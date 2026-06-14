@@ -33,7 +33,8 @@ class EventDispatcher @Inject constructor(
     private val permissionHandler: PermissionEventHandler,
     private val questionHandler: QuestionEventHandler,
     private val miscHandler: MiscEventHandler,
-    private val sessionNextHandler: SessionNextEventHandler
+    private val sessionNextHandler: SessionNextEventHandler,
+    private val sessionStatusManager: SessionStatusManager
 ) {
     // ============ Public State (read-only) ============
 
@@ -83,6 +84,7 @@ class EventDispatcher @Inject constructor(
             questionHandler.handle(event, serverId)
             miscHandler.handle(event, serverId)
             sessionNextHandler.handle(event, serverId)
+            forwardToStatusManager(event)
             return
         }
 
@@ -92,6 +94,7 @@ class EventDispatcher @Inject constructor(
         questionHandler.handle(event, serverId)
         miscHandler.handle(event, serverId)
         sessionNextHandler.handle(event, serverId)
+        forwardToStatusManager(event)
 
         // Cross-handler: SessionDeleted cascades cleanup to other handlers
         if (event is SseEvent.SessionDeleted) {
@@ -148,6 +151,73 @@ class EventDispatcher @Inject constructor(
             .orEmpty()
             .filterIsInstance<Message.Assistant>()
             .any { it.time.completed == null }
+    }
+
+    // ============ FSM Forwarding (P1: parallel run) ============
+
+    /**
+     * Forward SSE event to [SessionStatusManager] for parallel FSM processing.
+     * P1: Manager logs transitions only, no UI impact.
+     */
+    private fun forwardToStatusManager(event: SseEvent) {
+        val fsmSessionId = extractSessionId(event)
+        if (fsmSessionId != null) {
+            sessionStatusManager.onSseEvent(event, fsmSessionId)
+        }
+    }
+
+    /**
+     * Extract sessionId from any [SseEvent] subclass.
+     * Returns null for events that have no associated session.
+     */
+    private fun extractSessionId(event: SseEvent): String? {
+        return when (event) {
+            // Session lifecycle (status-relevant for FSM)
+            is SseEvent.SessionStatus -> event.sessionId
+            is SseEvent.SessionIdle -> event.sessionId
+            is SseEvent.SessionError -> event.sessionId
+            is SseEvent.SessionNext -> event.event.sessionId
+            // Session lifecycle (info)
+            is SseEvent.SessionCreated -> event.info.id
+            is SseEvent.SessionUpdated -> event.info.id
+            is SseEvent.SessionDeleted -> event.info.id
+            is SseEvent.SessionDiff -> event.sessionId
+            is SseEvent.SessionCompacted -> event.sessionId
+            // Messages
+            is SseEvent.MessageUpdated -> event.info.sessionId
+            is SseEvent.MessageRemoved -> event.sessionId
+            is SseEvent.MessagePartUpdated -> event.part.sessionId
+            is SseEvent.MessagePartDelta -> event.sessionId
+            is SseEvent.MessagePartRemoved -> event.sessionId
+            // Permission / Question
+            is SseEvent.PermissionAsked -> event.sessionId
+            is SseEvent.PermissionReplied -> event.sessionId
+            is SseEvent.QuestionAsked -> event.sessionId
+            is SseEvent.QuestionReplied -> event.sessionId
+            is SseEvent.QuestionRejected -> event.sessionId
+            // Todo / Command
+            is SseEvent.TodoUpdated -> event.sessionId
+            is SseEvent.CommandExecuted -> event.sessionId
+            // Events without sessionId
+            is SseEvent.ServerConnected -> null
+            is SseEvent.ServerHeartbeat -> null
+            is SseEvent.ServerInstanceDisposed -> null
+            is SseEvent.VcsBranchUpdated -> null
+            is SseEvent.LspUpdated -> null
+            is SseEvent.ProjectUpdated -> null
+            is SseEvent.PtyCreated -> null
+            is SseEvent.PtyUpdated -> null
+            is SseEvent.PtyDeleted -> null
+            is SseEvent.WorkspaceReady -> null
+            is SseEvent.WorkspaceFailed -> null
+            is SseEvent.FileEdited -> null
+            is SseEvent.McpToolsChanged -> null
+            is SseEvent.FileWatcherUpdated -> null
+            is SseEvent.InstallationUpdated -> null
+            is SseEvent.InstallationUpdateAvailable -> null
+            is SseEvent.WorktreeReady -> null
+            is SseEvent.WorktreeFailed -> null
+        }
     }
 
     // ============ Delegated Operations ============

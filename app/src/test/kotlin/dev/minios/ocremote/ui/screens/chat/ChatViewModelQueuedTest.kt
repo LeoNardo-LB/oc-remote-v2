@@ -7,6 +7,7 @@ import dev.minios.ocremote.data.api.SseClient
 import dev.minios.ocremote.domain.model.AppSettings
 import dev.minios.ocremote.domain.model.ProvidersResponse
 import dev.minios.ocremote.data.repository.EventDispatcher
+import dev.minios.ocremote.data.repository.SessionStatusManager
 import dev.minios.ocremote.data.repository.handler.*
 import dev.minios.ocremote.domain.model.*
 import dev.minios.ocremote.domain.repository.ChatRepository
@@ -88,7 +89,8 @@ class ChatViewModelQueuedTest {
             permissionHandler = PermissionEventHandler(),
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
-            sessionNextHandler = SessionNextEventHandler()
+            sessionNextHandler = SessionNextEventHandler(),
+            sessionStatusManager = mockk<SessionStatusManager>(relaxed = true)
         )
 
         mockkStatic(Log::class)

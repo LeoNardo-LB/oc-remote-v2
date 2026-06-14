@@ -11,6 +11,7 @@ import dev.minios.ocremote.domain.model.PermissionState
 import dev.minios.ocremote.domain.repository.ChatRepository
 import dev.minios.ocremote.domain.repository.DraftRepository
 import dev.minios.ocremote.data.repository.EventDispatcher
+import dev.minios.ocremote.data.repository.SessionStatusManager
 import dev.minios.ocremote.data.repository.handler.*
 import dev.minios.ocremote.domain.model.Session
 import dev.minios.ocremote.domain.model.SseEvent
@@ -86,7 +87,8 @@ class ChatViewModelPermissionTest {
             permissionHandler = PermissionEventHandler(),
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
-            sessionNextHandler = SessionNextEventHandler()
+            sessionNextHandler = SessionNextEventHandler(),
+            sessionStatusManager = mockk<SessionStatusManager>(relaxed = true)
         )
 
         mockkStatic(Log::class)
