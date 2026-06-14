@@ -33,8 +33,13 @@ class MessageEventHandlerMergeTest {
         )
         handler.handle(SseEvent.MessageUpdated(msg), "server1")
 
-        val part = Part.Text(id = "p1", sessionId = "s1", messageId = "msg-1", text = "Hello")
+        val part = Part.Text(id = "p1", sessionId = "s1", messageId = "msg-1", text = "")
         handler.handle(SseEvent.MessagePartUpdated(part), "server1")
+
+        handler.handle(SseEvent.MessagePartDelta(
+            sessionId = "s1", messageId = "msg-1", partId = "p1",
+            field = "text", delta = "Hello"
+        ), "server1")
 
         handler.handle(SseEvent.MessagePartDelta(
             sessionId = "s1", messageId = "msg-1", partId = "p1",
@@ -97,10 +102,18 @@ class MessageEventHandlerMergeTest {
         handler.handle(SseEvent.MessageUpdated(msg1), "server1")
         handler.handle(SseEvent.MessageUpdated(msg2), "server1")
 
-        val part1 = Part.Text(id = "pa1", sessionId = "s1", messageId = "msg-1", text = "Text 1")
-        val part2 = Part.Text(id = "pa2", sessionId = "s1", messageId = "msg-2", text = "Text 2")
+        val part1 = Part.Text(id = "pa1", sessionId = "s1", messageId = "msg-1", text = "")
+        val part2 = Part.Text(id = "pa2", sessionId = "s1", messageId = "msg-2", text = "")
         handler.handle(SseEvent.MessagePartUpdated(part1), "server1")
         handler.handle(SseEvent.MessagePartUpdated(part2), "server1")
+        handler.handle(SseEvent.MessagePartDelta(
+            sessionId = "s1", messageId = "msg-1", partId = "pa1",
+            field = "text", delta = "Text 1"
+        ), "server1")
+        handler.handle(SseEvent.MessagePartDelta(
+            sessionId = "s1", messageId = "msg-2", partId = "pa2",
+            field = "text", delta = "Text 2"
+        ), "server1")
 
         // REST: only msg-1 (msg-2 is streaming and not in REST snapshot yet)
         handler.setMessages("s1", listOf(MessageWithParts(msg1, listOf(part1))))

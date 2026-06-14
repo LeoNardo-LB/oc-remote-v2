@@ -149,11 +149,14 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
     private fun mergePart(existing: Part, incoming: Part): Part {
         return when {
             existing is Part.Text && incoming is Part.Text -> {
-                if (existing.text.isEmpty()) incoming
+                // Longer text wins: SSE streaming accumulates longer text over time,
+                // REST snapshots may be stale. If incoming is longer (fresh complete
+                // replacement), use it; otherwise keep existing (protects streaming text).
+                if (incoming.text.length >= existing.text.length) incoming
                 else existing.copy(time = incoming.time, metadata = incoming.metadata)
             }
             existing is Part.Reasoning && incoming is Part.Reasoning -> {
-                if (existing.text.isEmpty()) incoming
+                if (incoming.text.length >= existing.text.length) incoming
                 else existing.copy(time = incoming.time, metadata = incoming.metadata)
             }
             else -> incoming
