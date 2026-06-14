@@ -18,6 +18,7 @@ import dev.minios.ocremote.domain.model.ModelSelection
 import dev.minios.ocremote.domain.model.PromptPart
 import dev.minios.ocremote.domain.model.ProviderCatalog
 import dev.minios.ocremote.data.repository.ServerTerminalRegistry
+import dev.minios.ocremote.data.repository.SessionStatusManager
 import dev.minios.ocremote.ui.navigation.routes.ChatNav
 import dev.minios.ocremote.ui.screens.chat.tools.ToolCardResolver
 import dev.minios.ocremote.domain.model.Draft
@@ -227,6 +228,7 @@ class ChatViewModel @Inject constructor(
     private val tokenStatsTracker: TokenStatsTracker,
     private val httpClient: io.ktor.client.HttpClient,
     private val sseClient: SseClient,
+    private val sessionStatusManager: SessionStatusManager,
 ) : ViewModel() {
 
     // ============ Loading & Error State ============
@@ -628,20 +630,15 @@ class ChatViewModel @Inject constructor(
     /**
      * Session metadata — changes when session info is updated (title, status, agent).
      * Includes [_sessionId] as a source so lazy-session creation triggers immediate recomputation.
-     * Also includes [_rawMessagesList] to detect incomplete assistant messages — if any
-     * assistant message is still streaming (time.completed == null), the session is Busy
-     * regardless of SSE/REST status. Uses raw (unfiltered) messages to avoid the window
-     * where a new assistant message has no parts yet and would be excluded from the
-     * filtered list. This follows OpenCode WebUI's approach of deriving session
-     * busy/idle from message completion state, not just server status events.
+     * Session status is sourced from [SessionStatusManager.statusFlow] (FSM-driven),
+     * the single source of truth for busy/idle/activity state.
      */
     val sessionMetaState: StateFlow<SessionMetaState> = combine(
         _sessionId,
         sessionRepository.getSessionsFlow(serverId),
-        sessionRepository.getSessionStatusesFlow(serverId),
+        sessionStatusManager.statusFlow,
         sessionRepository.getCurrentAgentFlow(serverId),
         sessionRepository.getCurrentModelFlow(serverId),
-        _rawMessagesList,
     ) { args ->
         val sid = args[0] as String
         @Suppress("UNCHECKED_CAST")
@@ -652,27 +649,14 @@ class ChatViewModel @Inject constructor(
         val currentAgentMap = args[3] as Map<String, String>
         @Suppress("UNCHECKED_CAST")
         val currentModelMap = args[4] as Map<String, Pair<String, String>>
-        @Suppress("UNCHECKED_CAST")
-        val messages = args[5] as List<Message>
 
         val session = allSessions.find { it.id == sid }
-        val sseStatus = statuses[sid] ?: SessionStatus.Idle
-
-        // Trust server-side session status as the authoritative busy/idle indicator.
-        // OpenCode's busy state is a pure in-memory runtime concept (AgentCoordinator),
-        // not derived from message completion fields. The server's GET /session/status
-        // API reflects the true state — if the server says idle after restart, it IS idle.
-        //
-        // Premature-idle protection (preventing status flickering during tool-call gaps)
-        // is handled at the EventDispatcher layer (isPrematureIdle in EventDispatcher.kt),
-        // which blocks idle SSE events when the session has incomplete messages.
-        // No additional override is needed here.
-        val effectiveStatus = sseStatus
+        val sessionStatus = statuses[sid] ?: SessionStatus.Idle
 
         SessionMetaState(
             sessionTitle = session?.title ?: "",
             serverName = serverName,
-            sessionStatus = effectiveStatus,
+            sessionStatus = sessionStatus,
             revert = session?.revert,
             sessionParentId = session?.parentId,
             sessionAgent = session?.agent,
@@ -1578,6 +1562,7 @@ class ChatViewModel @Inject constructor(
             _isSending.value = true
             try {
                 val currentSessionId = ensureSession()
+                sessionStatusManager.onSendParts(currentSessionId)
                 val model = if (_selectedProviderId.value != null && _selectedModelId.value != null) {
                     ModelSelection(
                         providerId = _selectedProviderId.value!!,
@@ -1670,6 +1655,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun abortSession() {
+        sessionStatusManager.onAbort(sessionId)
         viewModelScope.launch {
             try {
                 sseJob?.cancel()

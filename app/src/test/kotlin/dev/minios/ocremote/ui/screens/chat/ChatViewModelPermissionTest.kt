@@ -69,6 +69,7 @@ class ChatViewModelPermissionTest {
     private lateinit var undoRedoUseCase: UndoRedoUseCase
     private lateinit var messagePaging: MessagePaginationUseCase
     private val tokenStatsTracker = TokenStatsTracker()
+    private val sessionStatusManager: SessionStatusManager = mockk(relaxed = true)
 
     private val testSessionId = "session-123"
     private val testServerId = "server-1"
@@ -88,8 +89,9 @@ class ChatViewModelPermissionTest {
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(),
-            sessionStatusManager = mockk<SessionStatusManager>(relaxed = true)
+            sessionStatusManager = sessionStatusManager
         )
+        every { sessionStatusManager.statusFlow } returns eventDispatcher.sessionStatuses
 
         mockkStatic(Log::class)
         every { Log.d(any(), any()) } returns 0
@@ -229,7 +231,8 @@ class ChatViewModelPermissionTest {
             messagePaging = messagePaging,
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
-            sseClient = mockk(relaxed = true)
+            sseClient = mockk(relaxed = true),
+            sessionStatusManager = sessionStatusManager
         )
     }
 
