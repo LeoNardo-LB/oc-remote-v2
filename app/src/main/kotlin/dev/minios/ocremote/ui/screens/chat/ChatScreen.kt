@@ -289,31 +289,56 @@ fun ChatScreen(
     }
     val listState = rememberLazyListState()
 
-    // Detect if user is near the bottom.
-    // In normal layout (reverseLayout=false), at bottom = can't scroll forward.
+    // Whether auto-scroll should follow new content.
+    var autoScrollEnabled by remember { mutableStateOf(true) }
+
+    // True when the very bottom of the list is visible (50px tolerance)
     val isAtBottom by remember {
-        derivedStateOf { !listState.canScrollForward }
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf true
+            val totalItems = info.totalItemsCount
+            if (lastVisible.index < totalItems - 1) return@derivedStateOf false
+            val itemBottom = lastVisible.offset + lastVisible.size
+            itemBottom <= info.viewportEndOffset + 50
+        }
     }
 
-    // Bottom-follow: when user is at bottom, follow streaming content growth.
-    // In normal layout, bottom item height growth extends below viewport —
-    // this scrolls to keep the bottom edge visible.
-    LaunchedEffect(Unit) {
-        snapshotFlow { listState.layoutInfo }
-            .collect { info ->
-                if (!listState.canScrollForward) {
-                    val lastItem = info.visibleItemsInfo.lastOrNull()
-                    if (lastItem != null) {
-                        val excess = lastItem.offset + lastItem.size - info.viewportEndOffset
-                        if (excess > 0) {
-                            listState.scroll { scrollBy(excess.toFloat()) }
-                        }
-                    }
+    // Disable auto-scroll when user scrolls up; re-enable at bottom
+    LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
+        if (listState.isScrollInProgress) {
+            autoScrollEnabled = false
+        } else if (isAtBottom) {
+            autoScrollEnabled = true
+        }
+    }
+
+    // Auto-scroll to bottom when content changes (streaming, new messages, pending items)
+    val messageCount = messageState.messages.size
+    val lastPartCount = messageState.messages.lastOrNull()?.parts?.size ?: 0
+    val lastContentLength = messageState.messages.lastOrNull()?.parts?.lastOrNull()?.let { part ->
+        when (part) {
+            is Part.Text -> part.text.length
+            is Part.Reasoning -> part.text.length
+            else -> 0
+        }
+    } ?: 0
+    val pendingCount = interaction.pendingPermissions.size + interaction.pendingQuestions.size
+    val isBusy = sessionMeta.sessionStatus is SessionStatus.Busy
+    LaunchedEffect(messageCount, lastPartCount, lastContentLength, pendingCount, isBusy) {
+        if (messageCount > 0 && autoScrollEnabled) {
+            val lastIndex = listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1
+            listState.scrollToItem(lastIndex)
+            val lastItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+            if (lastItem != null) {
+                val viewport = listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset
+                val overflow = lastItem.size - viewport
+                if (overflow > 0) {
+                    listState.scroll { scrollBy(overflow.toFloat()) }
                 }
             }
+        }
     }
-
-    // shouldFollow removed — reverseLayout=true handles auto-follow natively.
 
 
 
@@ -922,10 +947,10 @@ fun ChatScreen(
                 else -> {
                      val messageSpacing = if (LocalCompactMessages.current) 2.dp else 8.dp
 
-                        // messageListState returns newest-first; reverse to oldest-first
-                        // for normal layout (index 0 = oldest at top, last = newest at bottom).
+                        // messageListState returns oldest-first; normal layout renders
+                        // index 0 (oldest) at top, last index (newest) at bottom.
                         val rawMessages = remember(messageState.messages) {
-                            messageState.messages.reversed()
+                            messageState.messages
                         }
 
                         // Filter: keep user messages + first assistant in each turn group
