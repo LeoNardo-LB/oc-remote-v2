@@ -37,7 +37,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import dev.minios.ocremote.ui.components.AnchoredLazyListState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -286,7 +287,7 @@ fun ChatScreen(
             inputText = TextFieldValue(payload.text, TextRange(payload.text.length))
         }
     }
-    val listState = remember { AnchoredLazyListState() }
+    val listState = rememberLazyListState()
 
     // Detect if user is near the bottom with a tolerance buffer.
     // Using !canScrollBackward is too strict — it can transiently become true during
@@ -301,7 +302,7 @@ fun ChatScreen(
             ScrollPositionChecker.isAtBottom(
                 firstVisibleIndex = listState.firstVisibleItemIndex,
                 firstVisibleOffset = listState.firstVisibleItemScrollOffset,
-                totalItemsCount = listState.totalItemsCount
+                totalItemsCount = listState.layoutInfo.totalItemsCount
             )
         }
     }
@@ -335,7 +336,7 @@ fun ChatScreen(
             // Restore using raw LazyColumn index (saved at navigation time)
             if (messageState.messages.isNotEmpty()) {
                 val savedIdx = viewModel.savedLazyIndex
-                val totalItems = listState.totalItemsCount
+                val totalItems = listState.layoutInfo.totalItemsCount
                 // Clamp to valid range (items may have been added/removed during navigation)
                 val targetIdx = savedIdx.coerceIn(0, (totalItems - 1).coerceAtLeast(0))
                 listState.scrollToItem(targetIdx, viewModel.savedScrollOffset)
@@ -488,7 +489,7 @@ fun ChatScreen(
         var lastFingerprint = 0
         snapshotFlow {
             val msgs = messageState.messages
-            val items = listState.totalItemsCount
+            val items = listState.layoutInfo.totalItemsCount
             // Sum text lengths of ALL incomplete (streaming) assistant messages,
             // not just msgs.last(). This prevents losing auto-scroll tracking
             // when a tool-call inserts a new empty assistant message.
@@ -791,11 +792,11 @@ fun ChatScreen(
                                 coroutineScope.launch {
                                     userScrolledAwayInForceWindow = false
                                     forceFollowUntil = System.currentTimeMillis() + 2000
-                                    val currentCount = listState.totalItemsCount
+                                    val currentCount = listState.layoutInfo.totalItemsCount
                                     Log.w("CHAT_DEBUG", "[afterSend] waiting: currentCount=$currentCount canBackward=${listState.canScrollBackward}")
-                                    snapshotFlow { listState.totalItemsCount }
+                                    snapshotFlow { listState.layoutInfo.totalItemsCount }
                                         .first { it > currentCount }
-                                    Log.w("CHAT_DEBUG", "[afterSend] new items detected: count=${listState.totalItemsCount} canBackward=${listState.canScrollBackward}")
+                                    Log.w("CHAT_DEBUG", "[afterSend] new items detected: count=${listState.layoutInfo.totalItemsCount} canBackward=${listState.canScrollBackward}")
                                     listState.smoothScrollToBottom()
                                     Log.w("CHAT_DEBUG", "[afterSend] DONE: canBackward=${listState.canScrollBackward} first=${listState.firstVisibleItemIndex} offset=${listState.firstVisibleItemScrollOffset}")
                                 }
@@ -1121,18 +1122,13 @@ fun ChatScreen(
 }
 
 /**
- * Animated auto-scroll to bottom. Used for automatic following during streaming
- * and force-follow window. Uses animation so the user can visually track the scroll
- * and optionally interrupt it by touching the screen.
+ * Animated auto-scroll to bottom. Used for after-send follow.
  *
  * With reverseLayout=true, "bottom" = item 0.
  * Retries up to 48ms (3×16ms) to handle complex Markdown layout delays.
- * Reduced from 300ms/10 retries — the animation itself naturally handles
- * layout settling through its frames.
  */
-private suspend fun AnchoredLazyListState.smoothScrollToBottom() {
-    scrollToBottom()
-    // Quick post-scroll check: if content still needs a final nudge
+internal suspend fun LazyListState.smoothScrollToBottom() {
+    animateScrollToItem(0)
     var attempts = 0
     while (canScrollBackward && attempts < 3) {
         delay(16)
@@ -1144,10 +1140,9 @@ private suspend fun AnchoredLazyListState.smoothScrollToBottom() {
 
 /**
  * Instant snap to bottom for explicit user actions (FAB click).
- * Uses hard scrollToItem — user intentionally wants to jump, no animation needed.
  */
-private suspend fun AnchoredLazyListState.snapToBottom() {
-    if (totalItemsCount == 0) return
+internal suspend fun LazyListState.snapToBottom() {
+    if (layoutInfo.totalItemsCount == 0) return
     scrollToItem(0)
     var attempts = 0
     while (canScrollBackward && attempts < 3) {

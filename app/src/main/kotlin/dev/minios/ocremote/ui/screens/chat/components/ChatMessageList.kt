@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,8 +16,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import dev.minios.ocremote.ui.components.AnchoredLazyColumn
-import dev.minios.ocremote.ui.components.AnchoredLazyListState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -65,6 +66,7 @@ import dev.minios.ocremote.ui.screens.chat.dialog.PermissionCard
 import dev.minios.ocremote.ui.screens.chat.dialog.QuestionCard
 import dev.minios.ocremote.ui.screens.chat.components.AlwaysConfirmDialog
 import dev.minios.ocremote.domain.model.SseEvent
+import dev.minios.ocremote.ui.screens.chat.snapToBottom
 import dev.minios.ocremote.ui.screens.chat.util.computeTurnGroups
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -81,7 +83,7 @@ import dev.minios.ocremote.ui.theme.SpacingTokens
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatMessageList(
-    listState: AnchoredLazyListState,
+    listState: LazyListState,
     messageState: MessageListState,
     sessionMeta: SessionMetaState,
     interaction: InteractionState,
@@ -134,7 +136,7 @@ fun ChatMessageList(
                 state = pullToRefreshState,
                 modifier = Modifier.fillMaxSize()
             ) {
-                AnchoredLazyColumn(
+                LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize()
                         .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
@@ -145,7 +147,6 @@ fun ChatMessageList(
                         bottom = SpacingTokens.SM.dp
                     ),
                     reverseLayout = true,
-                    isAtBottom = isAtBottom,
                     verticalArrangement = Arrangement.spacedBy(messageSpacing)
                 ) {
                     // reverseLayout=true: items declared first render at the BOTTOM.
@@ -427,16 +428,6 @@ fun ChatMessageList(
     } // Column
 }
 
-/** Snap scroll to absolute bottom for reverseLayout AnchoredLazyColumn. */
-private suspend fun AnchoredLazyListState.snapToBottom() {
-    if (totalItemsCount == 0) return
-    scrollToItem(0)
-    repeat(3) {
-        delay(16)
-        if (!canScrollBackward) return
-        scroll { scrollBy(-10_000f) }
-    }
-}
 
 /**
  * 批量权限操作栏：全部允许 / 全部拒绝
