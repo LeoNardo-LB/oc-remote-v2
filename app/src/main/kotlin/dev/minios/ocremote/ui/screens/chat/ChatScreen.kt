@@ -309,15 +309,6 @@ fun ChatScreen(
 
     // shouldFollow removed — reverseLayout=true handles auto-follow natively.
 
-    // Force-follow window: after sending, keep scrolling to bottom for 2 seconds.
-    // 5s was too aggressive — it ignored user scroll gestures for too long,
-    // causing content jumps when the user tried to browse older messages
-    // immediately after sending.
-    var forceFollowUntil by remember { mutableLongStateOf(0L) }
-
-    // Track whether user explicitly scrolled away from bottom during force-follow.
-    // If true, release force-follow immediately so normal browsing isn't interrupted.
-    var userScrolledAwayInForceWindow by remember { mutableStateOf(false) }
 
 
 
@@ -465,78 +456,6 @@ fun ChatScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Auto-scroll: follow new content only when the user is NOT actively scrolling.
-    //
-    // Root cause of spurious jumps: isAtBottom is a passive layout snapshot that can
-    // transiently read as "true" during a fling gesture (the LazyColumn overshoots
-    // to item 0+offset 0 for a frame). If a content change happens to emit at the
-    // same frame, the old code treated it as "user is at bottom, scroll to follow"
-    // and fired snapToBottom() — even though the user was in the middle of scrolling.
-    //
-    // Fix: use isScrollInProgress as the authoritative signal of user intent.
-    // When the user is touching/dragging/flinging, isScrollInProgress = true →
-    // auto-scroll is suppressed. The user is in control. When they release and
-    // settle, isScrollInProgress → false, and only then does isAtBottom drive
-    // the follow decision.
-    //
-    // Exceptions to the guard:
-    // 1. forceFollow (just sent a message) — the user explicitly triggered this
-    //    action, so we override isScrollInProgress to scroll to the response.
-    // 2. isLoadingOlder/isLoading — pull-to-refresh and initial load are
-    //    loading states where content changes should never trigger auto-scroll.
-    LaunchedEffect(Unit) {
-        var lastCount = 0
-        var lastFingerprint = 0
-        snapshotFlow {
-            val msgs = messageState.messages
-            val items = listState.layoutInfo.totalItemsCount
-            // Sum text lengths of ALL incomplete (streaming) assistant messages,
-            // not just msgs.last(). This prevents losing auto-scroll tracking
-            // when a tool-call inserts a new empty assistant message.
-            val fingerprint = msgs.sumOf { msg ->
-                if (msg.message is Message.Assistant && msg.message.time.completed == null) {
-                    msg.parts.sumOf { part ->
-                        when (part) {
-                            is Part.Text -> part.text.length
-                            is Part.Reasoning -> part.text.length
-                            else -> 0
-                        }
-                    }
-                } else { 0 }
-            }
-            Triple(items, fingerprint, msgs.size)
-        }.conflate().collect { (count, fingerprint, _) ->
-            val now = System.currentTimeMillis()
-
-            // If user actively scrolled away during force-follow window, release it.
-            // isScrollInProgress=true means the user is touching the screen; !isAtBottom
-            // (with 64px tolerance) means they've scrolled noticeably away from bottom.
-            if (now < forceFollowUntil && listState.isScrollInProgress && !isAtBottom) {
-                userScrolledAwayInForceWindow = true
-            }
-            val forceFollow = now < forceFollowUntil && !userScrolledAwayInForceWindow
-
-            // Auto-scroll is allowed only when:
-            // (a) User is NOT actively scrolling (they've released the screen), OR force-follow overrides
-            // (b) User is NOT loading older messages or initial loading
-            val canAutoScroll =
-                (!listState.isScrollInProgress || forceFollow) &&
-                !messageState.isLoadingOlder &&
-                !interaction.isLoading
-
-            if (canAutoScroll) {
-                if (count > lastCount && lastCount > 0 && (isAtBottom || forceFollow)) {
-                    // New items appeared while user is passively at bottom (or force-follow)
-                    listState.smoothScrollToBottom()
-                } else if (count == lastCount && fingerprint != lastFingerprint && fingerprint > lastFingerprint && (isAtBottom || forceFollow)) {
-                    // Same count but content grew (streaming delta) while user is passively at bottom
-                    listState.smoothScrollToBottom()
-                }
-            }
-            lastCount = count
-            lastFingerprint = fingerprint
-        }
-    }
 
 
     // CompositionLocalProvider collects settings flows here (sunk from ChatScreen level).
@@ -787,11 +706,8 @@ fun ChatScreen(
                                 viewModel.sendMessage(allParts, attachmentParts)
                                 inputText = TextFieldValue("")
                                 attachmentHandler.clearAttachments()
-                                // Scroll to bottom after sending: activate force-follow window for 2s
-                                // (reduced from 5s — 2s covers server round-trip for first token)
+                                // Scroll to bottom after sending to follow the response
                                 coroutineScope.launch {
-                                    userScrolledAwayInForceWindow = false
-                                    forceFollowUntil = System.currentTimeMillis() + 2000
                                     val currentCount = listState.layoutInfo.totalItemsCount
                                     Log.w("CHAT_DEBUG", "[afterSend] waiting: currentCount=$currentCount canBackward=${listState.canScrollBackward}")
                                     snapshotFlow { listState.layoutInfo.totalItemsCount }
