@@ -290,10 +290,8 @@ fun ChatScreen(
     }
     val listState = rememberLazyListState()
 
-    // Whether auto-scroll should follow new content.
-    var autoScrollEnabled by remember { mutableStateOf(true) }
-
-    // True when the very bottom of the list is visible (50px tolerance)
+    // True when the very bottom of the list is visible (100px tolerance).
+    // reverseLayout=true: item 0 = bottom (newest message).
     val isAtBottom by remember {
         derivedStateOf {
             listState.firstVisibleItemIndex == 0 &&
@@ -301,21 +299,49 @@ fun ChatScreen(
         }
     }
 
-    // Disable auto-scroll when user scrolls up; re-enable at bottom
-    LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
-        if (listState.isScrollInProgress) {
-            autoScrollEnabled = false
-        } else if (isAtBottom) {
-            autoScrollEnabled = true
+    // SSE streaming drift compensation.
+    // When user is NOT at bottom and NOT actively scrolling, the streaming
+    // assistant message (item 0, visual bottom) grows in height and pushes
+    // visible content upward. This detects the drift via firstVisibleItemScrollOffset
+    // changes and reverses it with scrollBy.
+    LaunchedEffect(Unit) {
+        var prevIndex = listState.firstVisibleItemIndex
+        var prevOffset = listState.firstVisibleItemScrollOffset
+
+        snapshotFlow {
+            Triple(
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset,
+                listState.isScrollInProgress
+            )
+        }.collect { (index, offset, scrolling) ->
+            if (scrolling) {
+                prevIndex = index
+                prevOffset = offset
+                return@collect
+            }
+            if (index == prevIndex) {
+                val drift = offset - prevOffset
+                if (drift != 0) {
+                    // Cap to prevent runaway if direction is wrong
+                    val safeDrift = drift.coerceIn(-50, 50)
+                    listState.scroll { scrollBy(-safeDrift.toFloat()) }
+                    // Keep prevOffset — after compensation offset should
+                    // return to prevOffset on next layout pass
+                }
+            } else {
+                prevIndex = index
+                prevOffset = offset
+            }
         }
     }
 
     // reverseLayout=true: item 0 = newest at bottom.
-    // New content naturally appears at bottom — no scroll needed for streaming.
-    // Only scroll when NEW messages arrive (messageCount changes).
+    // Scroll to bottom only when NEW messages arrive AND user is at bottom
+    // AND not actively scrolling (avoids racing with user gestures).
     val messageCount = messageState.messages.size
     LaunchedEffect(messageCount) {
-        if (messageCount > 0 && autoScrollEnabled) {
+        if (messageCount > 0 && isAtBottom && !listState.isScrollInProgress) {
             listState.scrollToItem(0)
         }
     }
@@ -340,7 +366,6 @@ fun ChatScreen(
             snapshotFlow { messageState.messages.isNotEmpty() }
                 .first { it }
             listState.scrollToItem(0)
-            autoScrollEnabled = true
         }
     }
 
