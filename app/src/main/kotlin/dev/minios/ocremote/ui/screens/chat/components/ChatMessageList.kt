@@ -162,7 +162,7 @@ fun ChatMessageList(
                     ) { _, (rawIndex, msg) ->
                         when {
                             msg.isAssistant -> {
-                                val turnMessagesForMsg = turnGroups[rawIndex] ?: listOf(msg)
+                                val turnMessagesForMsg = (turnGroups[rawIndex] ?: listOf(msg)).asReversed()
                                 val isTurnLast = rawIndex == rawMessages.lastIndex || rawMessages.getOrNull(rawIndex + 1)?.isAssistant != true
 
                                 MessageCard(

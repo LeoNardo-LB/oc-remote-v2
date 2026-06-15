@@ -341,7 +341,22 @@ fun ChatScreen(
     }
 
 
-
+    // Scroll to bottom on initial load
+    LaunchedEffect(interaction.isLoading) {
+        if (!interaction.isLoading && messageState.messages.isNotEmpty()) {
+            val lastIndex = listState.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1
+            listState.scrollToItem(lastIndex)
+            val lastItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+            if (lastItem != null) {
+                val viewport = listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset
+                val overflow = lastItem.size - viewport
+                if (overflow > 0) {
+                    listState.scroll { scrollBy(overflow.toFloat()) }
+                }
+            }
+            autoScrollEnabled = true
+        }
+    }
 
     // Restore scroll position when returning from sub-session navigation.
     // Saves raw LazyColumn index, no fragile index arithmetic needed.
@@ -1077,12 +1092,13 @@ internal suspend fun LazyListState.smoothScrollToBottom() {
     val lastIndex = layoutInfo.totalItemsCount - 1
     if (lastIndex < 0) return
     animateScrollToItem(lastIndex)
-    var attempts = 0
-    while (canScrollForward && attempts < 3) {
-        delay(16)
-        if (!canScrollForward) return
-        scroll { scrollBy(10_000f) }
-        attempts++
+    val lastItem = layoutInfo.visibleItemsInfo.lastOrNull()
+    if (lastItem != null) {
+        val viewport = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+        val overflow = lastItem.size - viewport
+        if (overflow > 0) {
+            scroll { scrollBy(overflow.toFloat()) }
+        }
     }
 }
 
@@ -1093,12 +1109,13 @@ internal suspend fun LazyListState.snapToBottom() {
     val lastIndex = layoutInfo.totalItemsCount - 1
     if (lastIndex < 0) return
     scrollToItem(lastIndex)
-    var attempts = 0
-    while (canScrollForward && attempts < 3) {
-        delay(16)
-        if (!canScrollForward) return
-        scroll { scrollBy(10_000f) }
-        attempts++
+    val lastItem = layoutInfo.visibleItemsInfo.lastOrNull()
+    if (lastItem != null) {
+        val viewport = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+        val overflow = lastItem.size - viewport
+        if (overflow > 0) {
+            scroll { scrollBy(overflow.toFloat()) }
+        }
     }
 }
 
