@@ -590,8 +590,18 @@ class ChatViewModel @Inject constructor(
             } else {
                 val sorted = sessionMessages.sortedBy { it.time.created }
                 if (revertState != null) {
-                    Log.w(TAG, "[messageListState] REVERT active: sid=${sid.take(12)} revertMsg=${revertState.messageId.take(12)} sorted=${sorted.size}")
-                    sorted.filter { it.id < revertState.messageId }
+                    // Check if a new AI response has started after the revert point.
+                    // If so, the server has consumed the revert — stop filtering to
+                    // avoid hiding the new response. This replaces the old
+                    // clearRevert() call in sendMessage that caused flash of old messages.
+                    val hasNewContent = sorted.any {
+                        it.id > revertState.messageId
+                    }
+                    if (hasNewContent) {
+                        sorted
+                    } else {
+                        sorted.filter { it.id < revertState.messageId }
+                    }
                 } else {
                     sorted
                 }
@@ -1592,10 +1602,8 @@ class ChatViewModel @Inject constructor(
                     )
                 } else null
 
-                // Clear revert state before sending. The server consumes the revert
-                // when processing the new prompt but may not send a session.updated
-                // SSE event to notify the client, leaving the message list filter stuck.
-                chatRepository.clearRevert(currentSessionId)
+                // Revert filter auto-clears in messageListState combine when new
+                // messages arrive (id > revertState.messageId). No manual clearRevert needed.
 
                 sendMessageUseCase.sendPrompt(
                     serverId = serverId,
