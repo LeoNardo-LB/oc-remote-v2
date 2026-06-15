@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import dev.minios.ocremote.ui.components.AnchoredLazyColumn
-import dev.minios.ocremote.ui.components.AnchoredLazyListState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -81,7 +83,7 @@ import dev.minios.ocremote.ui.theme.SpacingTokens
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatMessageList(
-    listState: AnchoredLazyListState,
+    listState: LazyListState,
     messageState: MessageListState,
     sessionMeta: SessionMetaState,
     interaction: InteractionState,
@@ -134,7 +136,7 @@ fun ChatMessageList(
                 state = pullToRefreshState,
                 modifier = Modifier.fillMaxSize()
             ) {
-                AnchoredLazyColumn(
+                LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize()
                         .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
@@ -144,127 +146,18 @@ fun ChatMessageList(
                         end = SpacingTokens.MD.dp,
                         bottom = SpacingTokens.SM.dp
                     ),
-                    reverseLayout = true,
-                    isAtBottom = isAtBottom,
                     verticalArrangement = Arrangement.spacedBy(messageSpacing)
                 ) {
-                    // reverseLayout=true: items declared first render at the BOTTOM.
-                    // Visual order (top→bottom): oldest msgs → newest msgs → revert → pending.
-                    // Declaration order is bottom-up: pending (bottom) → messages (top).
+                    // Normal layout: items declared first render at the TOP.
+                    // Visual order (top→bottom): oldest msgs → newest msgs → pending → questions.
+                    // Declaration order is top-down: messages (top) → pending (bottom).
 
-                    // Pending questions (declared first = bottom-most visually)
-                    // 批量问题操作栏 - 当有2个及以上问题时显示
-                    if (interaction.pendingQuestions.size > 1) {
-                        item(key = "question_batch_actions") {
-                            QuestionBatchActionBar(
-                                count = interaction.pendingQuestions.size,
-                                onSkipAll = {
-                                    interaction.pendingQuestions.forEach { question ->
-                                        viewModel.rejectQuestion(question.id)
-                                    }
-                                }
-                            )
-                        }
-                    }
-                    items(
-                        interaction.pendingQuestions.reversed(),
-                        key = { "question_${it.id}" }
-                    ) { question ->
-                        QuestionCard(
-                            question = question,
-                            onSubmit = { answers ->
-                                viewModel.replyToQuestion(question.id, answers)
-                            },
-                            onReject = {
-                                viewModel.rejectQuestion(question.id)
-                            }
-                        )
-                    }
-
-                    // 批量权限操作栏 - 当有2个及以上权限时显示
-                    if (interaction.pendingPermissions.size > 1) {
-                        item(key = "perm_batch_actions") {
-                            PermissionBatchActionBar(
-                                count = interaction.pendingPermissions.size,
-                                onAllowAll = {
-                                    interaction.pendingPermissions.forEach { perm ->
-                                        viewModel.replyToPermission(perm.id, "once")
-                                    }
-                                },
-                                onRejectAll = {
-                                    interaction.pendingPermissions.forEach { perm ->
-                                        viewModel.replyToPermission(perm.id, "reject")
-                                    }
-                                }
-                            )
-                        }
-                    }
-                    // Pending permissions
-                    items(
-                        interaction.pendingPermissions.reversed(),
-                        key = { "perm_${it.id}" }
-                    ) { permission ->
-                        PermissionCard(
-                            permission = permission,
-                            onOnce = { viewModel.replyToPermission(permission.id, "once") },
-                            onAlways = { showAlwaysDialog = permission },
-                            onReject = { viewModel.replyToPermission(permission.id, "reject") }
-                        )
-                    }
-
-                    // Revert banner
-                    if (sessionMeta.revert != null) {
-                        item(key = "revert_banner") {
-                            RevertBanner(onRedo = {
-                                viewModel.redoMessage { ok ->
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
-                                        )
-                                    }
-                                }
-                            })
-                        }
-                    }
-
-                    // Compaction banner
-                    if (currentCompaction != null && currentCompaction.isActive) {
-                        item(key = "compaction_banner") {
-                            CompactionBanner(state = currentCompaction)
-                        }
-                    }
-
-                    // Retry banner — shown when session is in Retry status
-                    val retryStatus = sessionMeta.sessionStatus
-                    if (retryStatus is SessionStatus.Retry) {
-                        item(key = "retry_banner") {
-                            RetryBanner(retryStatus)
-                        }
-                    }
-
-                    // Tool progress cards
-                    if (activeTools.isNotEmpty()) {
-                        items(
-                            activeTools,
-                            key = { "tool_progress_${it.callId}" }
-                        ) { toolInfo ->
-                            ToolProgressCard(toolInfo = toolInfo)
-                        }
-                    }
-
-                    // Step progress indicator
-                    if (currentStep != null) {
-                        item(key = "step_progress") {
-                            StepProgressIndicator(stepInfo = currentStep)
-                        }
-                    }
-
-                    // Chat messages: displayItems is already newest-first (descending).
-                    // reverseLayout=true renders index 0 (newest) at the bottom.
+                    // Chat messages: displayItems is oldest-first (ascending).
+                    // Normal layout renders index 0 (oldest) at the top.
                     // Visual result: oldest at top, newest at bottom.
                     itemsIndexed(
                         displayItems,
-                        key = { _, item -> "${item.second.message.id}_${item.first}" },
+                        key = { _, item -> item.second.message.id },
                         contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
                     ) { _, (rawIndex, msg) ->
                         when {
@@ -385,6 +278,114 @@ fun ChatMessageList(
                             }
                         }
                     }
+
+                    // Step progress indicator
+                    if (currentStep != null) {
+                        item(key = "step_progress") {
+                            StepProgressIndicator(stepInfo = currentStep)
+                        }
+                    }
+
+                    // Tool progress cards
+                    if (activeTools.isNotEmpty()) {
+                        items(
+                            activeTools,
+                            key = { "tool_progress_${it.callId}" }
+                        ) { toolInfo ->
+                            ToolProgressCard(toolInfo = toolInfo)
+                        }
+                    }
+
+                    // Retry banner — shown when session is in Retry status
+                    val retryStatus = sessionMeta.sessionStatus
+                    if (retryStatus is SessionStatus.Retry) {
+                        item(key = "retry_banner") {
+                            RetryBanner(retryStatus)
+                        }
+                    }
+
+                    // Compaction banner
+                    if (currentCompaction != null && currentCompaction.isActive) {
+                        item(key = "compaction_banner") {
+                            CompactionBanner(state = currentCompaction)
+                        }
+                    }
+
+                    // Revert banner
+                    if (sessionMeta.revert != null) {
+                        item(key = "revert_banner") {
+                            RevertBanner(onRedo = {
+                                viewModel.redoMessage { ok ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
+                                        )
+                                    }
+                                }
+                            })
+                        }
+                    }
+
+                    // Pending permissions
+                    items(
+                        interaction.pendingPermissions.reversed(),
+                        key = { "perm_${it.id}" }
+                    ) { permission ->
+                        PermissionCard(
+                            permission = permission,
+                            onOnce = { viewModel.replyToPermission(permission.id, "once") },
+                            onAlways = { showAlwaysDialog = permission },
+                            onReject = { viewModel.replyToPermission(permission.id, "reject") }
+                        )
+                    }
+
+                    // 批量权限操作栏 - 当有2个及以上权限时显示
+                    if (interaction.pendingPermissions.size > 1) {
+                        item(key = "perm_batch_actions") {
+                            PermissionBatchActionBar(
+                                count = interaction.pendingPermissions.size,
+                                onAllowAll = {
+                                    interaction.pendingPermissions.forEach { perm ->
+                                        viewModel.replyToPermission(perm.id, "once")
+                                    }
+                                },
+                                onRejectAll = {
+                                    interaction.pendingPermissions.forEach { perm ->
+                                        viewModel.replyToPermission(perm.id, "reject")
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    items(
+                        interaction.pendingQuestions.reversed(),
+                        key = { "question_${it.id}" }
+                    ) { question ->
+                        QuestionCard(
+                            question = question,
+                            onSubmit = { answers ->
+                                viewModel.replyToQuestion(question.id, answers)
+                            },
+                            onReject = {
+                                viewModel.rejectQuestion(question.id)
+                            }
+                        )
+                    }
+
+                    // 批量问题操作栏 - 当有2个及以上问题时显示
+                    if (interaction.pendingQuestions.size > 1) {
+                        item(key = "question_batch_actions") {
+                            QuestionBatchActionBar(
+                                count = interaction.pendingQuestions.size,
+                                onSkipAll = {
+                                    interaction.pendingQuestions.forEach { question ->
+                                        viewModel.rejectQuestion(question.id)
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
             } // PullToRefreshBox
 
@@ -393,7 +394,6 @@ fun ChatMessageList(
                 SmallFloatingActionButton(
                     onClick = {
                         coroutineScope.launch {
-                            // reverseLayout=true: item 0 = bottom (newest messages)
                             listState.snapToBottom()
                         }
                     },
@@ -539,13 +539,18 @@ private fun RetryBanner(retry: SessionStatus.Retry) {
     }
 }
 
-/** Snap scroll to absolute bottom for reverseLayout AnchoredLazyColumn. */
-private suspend fun AnchoredLazyListState.snapToBottom() {
-    if (totalItemsCount == 0) return
-    scrollToItem(0)
-    repeat(3) {
+/**
+ * Instant snap to bottom for explicit user actions (FAB click).
+ */
+private suspend fun LazyListState.snapToBottom() {
+    val lastIndex = layoutInfo.totalItemsCount - 1
+    if (lastIndex < 0) return
+    scrollToItem(lastIndex)
+    var attempts = 0
+    while (canScrollForward && attempts < 3) {
         delay(16)
-        if (!canScrollBackward) return
-        scroll { scrollBy(-10_000f) }
+        if (!canScrollForward) return
+        scroll { scrollBy(10_000f) }
+        attempts++
     }
 }
