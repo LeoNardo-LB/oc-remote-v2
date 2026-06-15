@@ -149,6 +149,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -316,6 +317,33 @@ fun ChatScreen(
     LaunchedEffect(messageCount) {
         if (messageCount > 0 && autoScrollEnabled) {
             listState.scrollToItem(0)
+        }
+    }
+
+    // SSE scroll compensation: when user is NOT scrolling and NOT at bottom,
+    // detect firstVisibleItem position jumps caused by item height changes
+    // (SSE streaming grows items below the viewport) and compensate with
+    // scrollBy to keep the viewport stable.
+    LaunchedEffect(listState) {
+        var prevIndex = -1
+        var prevOffset = Int.MIN_VALUE
+
+        snapshotFlow {
+            val first = listState.layoutInfo.visibleItemsInfo.firstOrNull()
+            Triple(first?.index ?: -1, first?.offset ?: Int.MIN_VALUE, listState.isScrollInProgress)
+        }.distinctUntilChanged().collect { (index, offset, scrolling) ->
+            if (!scrolling && index == prevIndex && index > 0 &&
+                prevOffset != Int.MIN_VALUE &&
+                (offset - prevOffset > 2 || offset - prevOffset < -2)
+            ) {
+                val delta = (offset - prevOffset).toFloat()
+                listState.scroll { scrollBy(delta) }
+                // Don't update prevOffset — expect compensation to restore it.
+                // Next emit should have offset ≈ prevOffset → delta < 2 → no loop.
+            } else {
+                prevIndex = index
+                prevOffset = offset
+            }
         }
     }
 
