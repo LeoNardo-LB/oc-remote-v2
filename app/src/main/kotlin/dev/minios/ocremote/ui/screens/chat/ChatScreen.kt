@@ -290,8 +290,10 @@ fun ChatScreen(
     }
     val listState = rememberLazyListState()
 
-    // True when the very bottom of the list is visible (100px tolerance).
-    // reverseLayout=true: item 0 = bottom (newest message).
+    // Whether auto-scroll should follow new content.
+    var autoScrollEnabled by remember { mutableStateOf(true) }
+
+    // True when the very bottom of the list is visible (50px tolerance)
     val isAtBottom by remember {
         derivedStateOf {
             listState.firstVisibleItemIndex == 0 &&
@@ -299,62 +301,21 @@ fun ChatScreen(
         }
     }
 
-    // SSE streaming drift compensation.
-    // When user is NOT at bottom and NOT actively scrolling, the streaming
-    // assistant message (item 0, visual bottom) grows in height and pushes
-    // OTHER visible items upward. firstVisibleItemScrollOffset stays constant
-    // (anchor mechanism works), so we must monitor a MID-list visible item's
-    // offset via layoutInfo.visibleItemsInfo instead.
-    //
-    // Uses requestScrollToItem (Compose 1.7+) — non-suspend, doesn't trigger
-    // isScrollInProgress, takes effect on next measure pass only.
-    LaunchedEffect(Unit) {
-        var pinnedKey: Any? = null
-        var pinnedIndex = -1
-        var pinnedOffset = 0
-
-        snapshotFlow { listState.layoutInfo to listState.isScrollInProgress }
-            .collect { (info, scrolling) ->
-                if (scrolling) {
-                    pinnedKey = null
-                    return@collect
-                }
-
-                val visible = info.visibleItemsInfo
-                if (visible.isEmpty()) {
-                    pinnedKey = null
-                    return@collect
-                }
-
-                // Find or initialise the pinned anchor item
-                val pinned = if (pinnedKey != null) {
-                    visible.firstOrNull { it.key == pinnedKey }
-                } else null
-
-                if (pinned == null) {
-                    // Pick a mid-list item (avoid item 0 which is the streaming one)
-                    val anchor = visible.getOrNull(visible.size / 2) ?: visible.first()
-                    pinnedKey = anchor.key
-                    pinnedIndex = anchor.index
-                    pinnedOffset = anchor.offset
-                    return@collect
-                }
-
-                pinnedIndex = pinned.index
-                val drift = pinned.offset - pinnedOffset
-                if (drift != 0) {
-                    // Request next measure to restore pinned item to its original offset
-                    listState.requestScrollToItem(pinnedIndex, pinnedOffset)
-                }
-            }
+    // Disable auto-scroll when user scrolls up; re-enable at bottom
+    LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
+        if (listState.isScrollInProgress) {
+            autoScrollEnabled = false
+        } else if (isAtBottom) {
+            autoScrollEnabled = true
+        }
     }
 
     // reverseLayout=true: item 0 = newest at bottom.
-    // Scroll to bottom only when NEW messages arrive AND user is at bottom
-    // AND not actively scrolling (avoids racing with user gestures).
+    // New content naturally appears at bottom — no scroll needed for streaming.
+    // Only scroll when NEW messages arrive (messageCount changes).
     val messageCount = messageState.messages.size
     LaunchedEffect(messageCount) {
-        if (messageCount > 0 && isAtBottom && !listState.isScrollInProgress) {
+        if (messageCount > 0 && autoScrollEnabled) {
             listState.scrollToItem(0)
         }
     }
@@ -379,6 +340,7 @@ fun ChatScreen(
             snapshotFlow { messageState.messages.isNotEmpty() }
                 .first { it }
             listState.scrollToItem(0)
+            autoScrollEnabled = true
         }
     }
 
