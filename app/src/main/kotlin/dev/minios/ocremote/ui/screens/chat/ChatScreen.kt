@@ -37,8 +37,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
+import dev.minios.ocremote.ui.components.AnchoredLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -252,7 +251,7 @@ private const val TAG_SCROLL = "ChatScroll"
 
 
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(
     onNavigateBack: () -> Unit,
@@ -287,7 +286,7 @@ fun ChatScreen(
             inputText = TextFieldValue(payload.text, TextRange(payload.text.length))
         }
     }
-    val listState = rememberLazyListState()
+    val listState = remember { AnchoredLazyListState() }
 
     // Detect if user is near the bottom with a tolerance buffer.
     // Using !canScrollBackward is too strict — it can transiently become true during
@@ -299,12 +298,10 @@ fun ChatScreen(
     // is merely near the bottom due to momentum or layout changes.
     val isAtBottom by remember {
         derivedStateOf {
-            val info = listState.layoutInfo
-            val first = info.visibleItemsInfo.firstOrNull()
             ScrollPositionChecker.isAtBottom(
-                firstVisibleIndex = first?.index ?: -1,
-                firstVisibleOffset = first?.offset ?: 0,
-                totalItemsCount = info.totalItemsCount
+                firstVisibleIndex = listState.firstVisibleItemIndex,
+                firstVisibleOffset = listState.firstVisibleItemScrollOffset,
+                totalItemsCount = listState.totalItemsCount
             )
         }
     }
@@ -338,7 +335,7 @@ fun ChatScreen(
             // Restore using raw LazyColumn index (saved at navigation time)
             if (messageState.messages.isNotEmpty()) {
                 val savedIdx = viewModel.savedLazyIndex
-                val totalItems = listState.layoutInfo.totalItemsCount
+                val totalItems = listState.totalItemsCount
                 // Clamp to valid range (items may have been added/removed during navigation)
                 val targetIdx = savedIdx.coerceIn(0, (totalItems - 1).coerceAtLeast(0))
                 listState.scrollToItem(targetIdx, viewModel.savedScrollOffset)
@@ -491,7 +488,7 @@ fun ChatScreen(
         var lastFingerprint = 0
         snapshotFlow {
             val msgs = messageState.messages
-            val items = listState.layoutInfo.totalItemsCount
+            val items = listState.totalItemsCount
             // Sum text lengths of ALL incomplete (streaming) assistant messages,
             // not just msgs.last(). This prevents losing auto-scroll tracking
             // when a tool-call inserts a new empty assistant message.
@@ -794,11 +791,11 @@ fun ChatScreen(
                                 coroutineScope.launch {
                                     userScrolledAwayInForceWindow = false
                                     forceFollowUntil = System.currentTimeMillis() + 2000
-                                    val currentCount = listState.layoutInfo.totalItemsCount
+                                    val currentCount = listState.totalItemsCount
                                     Log.w("CHAT_DEBUG", "[afterSend] waiting: currentCount=$currentCount canBackward=${listState.canScrollBackward}")
-                                    snapshotFlow { listState.layoutInfo.totalItemsCount }
+                                    snapshotFlow { listState.totalItemsCount }
                                         .first { it > currentCount }
-                                    Log.w("CHAT_DEBUG", "[afterSend] new items detected: count=${listState.layoutInfo.totalItemsCount} canBackward=${listState.canScrollBackward}")
+                                    Log.w("CHAT_DEBUG", "[afterSend] new items detected: count=${listState.totalItemsCount} canBackward=${listState.canScrollBackward}")
                                     listState.smoothScrollToBottom()
                                     Log.w("CHAT_DEBUG", "[afterSend] DONE: canBackward=${listState.canScrollBackward} first=${listState.firstVisibleItemIndex} offset=${listState.firstVisibleItemScrollOffset}")
                                 }
@@ -1133,9 +1130,9 @@ fun ChatScreen(
  * Reduced from 300ms/10 retries — the animation itself naturally handles
  * layout settling through its frames.
  */
-private suspend fun LazyListState.smoothScrollToBottom() {
-    animateScrollToItem(0)
-    // Quick post-animation check: if content still needs a final nudge
+private suspend fun AnchoredLazyListState.smoothScrollToBottom() {
+    scrollToBottom()
+    // Quick post-scroll check: if content still needs a final nudge
     var attempts = 0
     while (canScrollBackward && attempts < 3) {
         delay(16)
@@ -1149,8 +1146,8 @@ private suspend fun LazyListState.smoothScrollToBottom() {
  * Instant snap to bottom for explicit user actions (FAB click).
  * Uses hard scrollToItem — user intentionally wants to jump, no animation needed.
  */
-private suspend fun LazyListState.snapToBottom() {
-    if (layoutInfo.totalItemsCount == 0) return
+private suspend fun AnchoredLazyListState.snapToBottom() {
+    if (totalItemsCount == 0) return
     scrollToItem(0)
     var attempts = 0
     while (canScrollBackward && attempts < 3) {
