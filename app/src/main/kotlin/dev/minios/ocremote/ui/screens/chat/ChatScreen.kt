@@ -310,12 +310,23 @@ fun ChatScreen(
     }
 
     // reverseLayout=true: item 0 = newest at bottom.
-    // New content naturally appears at bottom — no scroll needed for streaming.
-    // Only scroll when NEW messages arrive (messageCount changes).
+    // When new messages arrive (messageCount changes due to P5-3 filter release):
+    // - At bottom: scrollToItem(0) to follow newest content.
+    // - NOT at bottom: requestScrollToItem to FREEZE current position, overriding
+    //   LazyColumn's default key-based anchor adjustment (the drift source).
+    // requestScrollToItem is non-suspend, takes effect on next measure only —
+    // no isScrollInProgress, no animation, no flicker.
     val messageCount = messageState.messages.size
     LaunchedEffect(messageCount) {
-        if (messageCount > 0 && autoScrollEnabled) {
-            listState.scrollToItem(0)
+        if (messageCount > 0) {
+            if (autoScrollEnabled) {
+                listState.scrollToItem(0)
+            } else if (!listState.isScrollInProgress) {
+                listState.requestScrollToItem(
+                    listState.firstVisibleItemIndex,
+                    listState.firstVisibleItemScrollOffset
+                )
+            }
         }
     }
 
