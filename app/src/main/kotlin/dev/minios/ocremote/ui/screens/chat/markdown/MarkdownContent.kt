@@ -93,7 +93,8 @@ internal fun MarkdownContent(
     markdown: String,
     textColor: Color,
     isUser: Boolean,
-    customFontSize: String? = null  // null = use global setting; "small"/"medium"/"large" = override
+    customFontSize: String? = null,  // null = use global setting; "small"/"medium"/"large" = override
+    immediate: Boolean = false  // synchronous parsing — eliminates first-frame height jump
 ) {
     val normalizedMarkdown = remember(markdown, isUser) {
         val base = preserveRawHtmlPayload(markdown)
@@ -260,7 +261,8 @@ internal fun MarkdownContent(
 
     val markdownState = rememberMarkdownState(
         content = normalizedMarkdown,
-        retainState = true
+        retainState = true,
+        immediate = immediate
     )
     Markdown(
         markdownState = markdownState,

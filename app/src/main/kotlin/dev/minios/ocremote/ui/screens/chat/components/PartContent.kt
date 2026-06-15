@@ -53,7 +53,8 @@ internal fun PartContent(
                     MarkdownContent(
                         markdown = part.text,
                         textColor = textColor,
-                        isUser = isUser
+                        isUser = isUser,
+                        immediate = !isUser  // assistant messages: synchronous to avoid height jump during streaming
                     )
                 }
             }
