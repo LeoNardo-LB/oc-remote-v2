@@ -318,23 +318,6 @@ fun ChatScreen(
         }
     }
 
-    // SSE drift compensation: on every recomposition, if user is NOT at bottom
-    // and NOT scrolling, request the next measure to keep current position.
-    // This overrides LazyColumn's default key-based scroll position maintenance
-    // (the documented purpose of requestScrollToItem, Compose 1.7+).
-    // SideEffect runs synchronously after composition, before next measure —
-    // unlike LaunchedEffect which may lag a frame.
-    SideEffect {
-        if (!isAtBottom && !listState.isScrollInProgress &&
-            listState.layoutInfo.totalItemsCount > 0
-        ) {
-            listState.requestScrollToItem(
-                listState.firstVisibleItemIndex,
-                listState.firstVisibleItemScrollOffset
-            )
-        }
-    }
-
     // Restore scroll position when returning from sub-session navigation.
     LaunchedEffect(viewModel.scrollRestoreVersion) {
         val version = viewModel.scrollRestoreVersion
