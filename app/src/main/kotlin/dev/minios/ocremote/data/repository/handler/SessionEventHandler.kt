@@ -150,7 +150,19 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             val updated = current.toMutableList()
             for (session in newSessions) {
                 val idx = updated.indexOfFirst { it.id == session.id }
-                if (idx >= 0) updated[idx] = session else updated.add(session)
+                if (idx >= 0) {
+                    // Preserve local revert state — SSE session data may have revert=null
+                    // (server consumed the revert), but we still need it for message filtering
+                    // until new content arrives.
+                    val merged = if (updated[idx].revert != null && session.revert == null) {
+                        session.copy(revert = updated[idx].revert)
+                    } else {
+                        session
+                    }
+                    updated[idx] = merged
+                } else {
+                    updated.add(session)
+                }
             }
             updated.sortedByDescending { it.time.updated }
         }
