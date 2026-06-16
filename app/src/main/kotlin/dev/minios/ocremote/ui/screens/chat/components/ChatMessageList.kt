@@ -304,10 +304,12 @@ fun ChatMessageList(
                                             if (freezeState.frozenHeight != null && freezeState.frozenHeight!! < realHeight) {
                                                 // Gradual unfreeze: catch up with exponential decay
                                                 val gap = realHeight - freezeState.frozenHeight!!
-                                                freezeState.frozenHeight = freezeState.frozenHeight!! +
-                                                    maxOf((gap * 0.3f).toInt(), 50)
+                                                val catchUp = maxOf((gap * 0.1f).toInt(), 20)
+                                                freezeState.frozenHeight = freezeState.frozenHeight!! + catchUp
+                                                android.util.Log.d("FREEZE", "EXPAND: frozen=${freezeState.frozenHeight} real=$realHeight gap=$gap catch=$catchUp")
                                                 freezeState.frozenHeight!!
                                             } else {
+                                                if (freezeState.frozenHeight != null) android.util.Log.d("FREEZE", "UNFREEZE: frozen=${freezeState.frozenHeight} real=$realHeight")
                                                 freezeState.frozenHeight = null
                                                 realHeight
                                             }
