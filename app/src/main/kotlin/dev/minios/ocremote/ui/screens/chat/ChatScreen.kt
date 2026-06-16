@@ -324,32 +324,35 @@ fun ChatScreen(
         var prevFirstIndex: Int = 0
         var prevFirstOffset: Int = 0
         snapshotFlow {
-            Triple(
-                listState.layoutInfo,
-                listState.isScrollInProgress,
-                isAtBottom
-            )
-        }.collect { (info, scrolling, atBottom) ->
-            if (scrolling || atBottom) {
+            listState.layoutInfo to listState.isScrollInProgress
+        }.collect { (info, scrolling) ->
+            if (scrolling) {
                 prevSize = null
                 return@collect
             }
             val item = info.visibleItemsInfo.firstOrNull { it.key == streamingMsgId }
             if (item == null) {
+                if (prevSize != null) android.util.Log.d("FREEZE", "SKIP: item not in viewport")
+                prevSize = null
+                return@collect
+            }
+            // Use offset > 0 instead of !isAtBottom — isAtBottom (< 100)
+            // is unreliable during SSE as anchor drags offset below 100.
+            val currentOffset = listState.firstVisibleItemScrollOffset
+            if (currentOffset <= 0) {
                 prevSize = null
                 return@collect
             }
             if (prevSize != null) {
                 val delta = item.size - prevSize!!
                 if (delta > 0) {
-                    // SSE grew item by delta. Anchor will reduce offset.
-                    // Request the previous frame's position to override anchor.
+                    android.util.Log.d("FREEZE", "REQ: delta=$delta idx=$prevFirstIndex off=$prevFirstOffset curOff=$currentOffset")
                     listState.requestScrollToItem(prevFirstIndex, prevFirstOffset)
                 }
             }
             prevSize = item.size
             prevFirstIndex = listState.firstVisibleItemIndex
-            prevFirstOffset = listState.firstVisibleItemScrollOffset
+            prevFirstOffset = currentOffset
         }
     }
 
