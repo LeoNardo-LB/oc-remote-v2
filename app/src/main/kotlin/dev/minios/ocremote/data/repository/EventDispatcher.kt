@@ -198,8 +198,17 @@ class EventDispatcher @Inject constructor(
     fun updateSessionStatus(sessionId: String, status: SessionStatus) =
         sessionHandler.updateSessionStatus(sessionId, status)
 
-    fun clearRevert(sessionId: String) =
+    fun clearRevert(sessionId: String) {
+        // Prune reverted messages from cache BEFORE clearing the filter.
+        // Otherwise the filter drops, reverted messages briefly reappear,
+        // then the server's message.removed SSE catches up — visible flash.
+        val revert = sessionHandler.sessions.value
+            .find { it.id == sessionId }?.revert
+        if (revert != null) {
+            messageHandler.pruneRevertedMessages(sessionId, revert.messageId)
+        }
         sessionHandler.clearRevert(sessionId)
+    }
 
     fun setRevert(sessionId: String, messageId: String) =
         sessionHandler.setRevert(sessionId, messageId)

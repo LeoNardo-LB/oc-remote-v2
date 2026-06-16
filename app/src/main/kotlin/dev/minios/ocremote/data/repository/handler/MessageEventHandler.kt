@@ -1,6 +1,7 @@
 package dev.minios.ocremote.data.repository.handler
 
 import android.util.Log
+import dev.minios.ocremote.BuildConfig
 import dev.minios.ocremote.domain.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,6 +62,29 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
         if (event.info is Message.Assistant) {
             assistantMessageIds.add(event.info.id)
         }
+    }
+
+    /**
+     * Remove messages with id >= [revertMessageId] from the cache.
+     * Called by [EventDispatcher.clearRevert] to prevent reverted messages
+     * from briefly reappearing when the revert filter is cleared.
+     */
+    fun pruneRevertedMessages(sessionId: String, revertMessageId: String) {
+        val removedIds = _messages.value[sessionId]
+            ?.filter { it.id >= revertMessageId }
+            ?.map { it.id }
+            ?.toSet()
+            ?: return
+        if (removedIds.isEmpty()) return
+
+        _messages.update { current ->
+            val sessionMessages = current[sessionId] ?: return@update current
+            current + (sessionId to sessionMessages.filter { it.id < revertMessageId })
+        }
+        _parts.update { it.filterKeys { msgId -> msgId !in removedIds } }
+        assistantMessageIds.removeAll(removedIds)
+
+        if (BuildConfig.DEBUG) Log.d(TAG, "Pruned ${removedIds.size} reverted messages for session ${sessionId.take(12)}")
     }
 
     private fun handleMessageRemoved(event: SseEvent.MessageRemoved) {
