@@ -310,18 +310,13 @@ fun ChatScreen(
     }
 
     // reverseLayout=true: item 0 = newest at bottom.
-    // Only scrollToItem(0) when at bottom AND new messages arrive AND
-    // user is not actively scrolling (prevents race with user gestures).
+    // DIAGNOSTIC: scrollToItem(0) temporarily disabled to test if drift
+    // is caused by it. New messages should still appear at bottom naturally
+    // due to reverseLayout=true anchor behavior.
     val messageCount = messageState.messages.size
-    LaunchedEffect(messageCount) {
-        if (messageCount > 0 && autoScrollEnabled && !listState.isScrollInProgress) {
-            listState.scrollToItem(0)
-        }
-    }
 
     // SSE drift compensation + diagnostic logging.
-    // Logs to: /sdcard/Android/data/dev.minios.ocremote.dev/files/scroll_debug.log
-    // Pull with: adb pull /sdcard/Android/data/dev.minios.ocremote.dev/files/scroll_debug.log
+    // Logs to: /sdcard/Download/scroll_debug.log
     val debugContext = LocalContext.current
     val logFile = remember {
         val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
@@ -331,52 +326,50 @@ fun ChatScreen(
     }
 
     LaunchedEffect(Unit) {
+        var prevOffsets: Map<Any, Int> = emptyMap()
         var prevIndex = listState.firstVisibleItemIndex
         var prevOffset = listState.firstVisibleItemScrollOffset
+        var prevTotalSize = 0
 
-        snapshotFlow {
-            Triple(
-                listState.firstVisibleItemIndex,
-                listState.firstVisibleItemScrollOffset,
-                listState.isScrollInProgress
-            )
-        }.collect { (index, offset, scrolling) ->
-            // Diagnostic: log full state on every collect
-            val info = listState.layoutInfo
-            val visible = info.visibleItemsInfo.joinToString(",") {
-                "k=${it.key}:i=${it.index}:o=${it.offset}:s=${it.size}"
-            }
-            val vpStart = info.viewportStartOffset
-            val vpEnd = info.viewportEndOffset
-            val drift = if (index == prevIndex) offset - prevOffset else 0
-            val bottom = listState.firstVisibleItemIndex == 0 &&
-                listState.firstVisibleItemScrollOffset < 100
-            val line = "idx=$index off=$offset scroll=$scrolling atBottom=$bottom drift=$drift " +
-                "vp=$vpStart..$vpEnd nItems=${info.visibleItemsInfo.size} " +
-                "canFwd=${listState.canScrollForward} canBwd=${listState.canScrollBackward} " +
-                "| [$visible]\n"
+        snapshotFlow { listState.layoutInfo to listState.isScrollInProgress }
+            .collect { (info, scrolling) ->
+                val visible = info.visibleItemsInfo
+                val currentOffsets: Map<Any, Int> = visible.associate { it.key to it.offset }
+                val totalSize = visible.sumOf { it.size }
+                val fvi = listState.firstVisibleItemIndex
+                val fvo = listState.firstVisibleItemScrollOffset
 
-            android.util.Log.d("ScrollDebug", line.trim())
-            try {
-                if (logFile.length() > 2_000_000) logFile.writeText(line)
-                else logFile.appendText(line)
-            } catch (_: Exception) { }
+                // Multiple drift metrics
+                val firstKey = visible.firstOrNull()?.key
+                val commonKey = prevOffsets.keys
+                    .intersect(currentOffsets.keys)
+                    .firstOrNull { it != firstKey }
+                val pinDrift = if (!scrolling && commonKey != null) {
+                    currentOffsets[commonKey]!! - prevOffsets[commonKey]!!
+                } else 0
+                val fvoDrift = if (!scrolling && fvi == prevIndex) fvo - prevOffset else 0
+                val sizeDelta = totalSize - prevTotalSize
 
-            // Compensation logic
-            if (scrolling) {
-                prevIndex = index
-                prevOffset = offset
-                return@collect
-            }
-            if (index == prevIndex) {
-                if (drift != 0) {
-                    listState.scroll { scrollBy(-drift.toFloat()) }
+                val visibleStr = visible.joinToString(",") {
+                    "k=${it.key}:i=${it.index}:o=${it.offset}:s=${it.size}"
                 }
-            } else {
-                prevIndex = index
-                prevOffset = offset
+                val line = "fvi=$fvi fvo=$fvo fvoDrift=$fvoDrift pinDrift=$pinDrift " +
+                    "sizeDelta=$sizeDelta totalSize=$totalSize " +
+                    "scroll=$scrolling nItems=${visible.size} " +
+                    "vp=${info.viewportStartOffset}..${info.viewportEndOffset} " +
+                    "| [$visibleStr]\n"
+
+                android.util.Log.d("ScrollDebug", line.trim())
+                try {
+                    if (logFile.length() > 2_000_000) logFile.writeText(line)
+                    else logFile.appendText(line)
+                } catch (_: Exception) { }
+
+                prevOffsets = currentOffsets
+                prevIndex = fvi
+                prevOffset = fvo
+                prevTotalSize = totalSize
             }
-        }
     }
 
     // Restore scroll position when returning from sub-session navigation.
