@@ -22,6 +22,7 @@ import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.coil3.Coil3ImageTransformerImpl
 import dev.snipme.highlights.Highlights
 import com.mikepenz.markdown.model.markdownDimens
+import com.mikepenz.markdown.model.markdownAnimations
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.LocalChatFontSize
 import dev.minios.ocremote.ui.screens.chat.util.LocalCodeWordWrap
@@ -270,6 +271,7 @@ internal fun MarkdownContent(
         typography = typography,
         components = components,
         dimens = dimens,
+        animations = markdownAnimations(animateTextSize = { this }),
         imageTransformer = Coil3ImageTransformerImpl,
         modifier = Modifier.fillMaxWidth()
     )
