@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -42,12 +43,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.R
@@ -106,6 +110,21 @@ fun ChatMessageList(
     modifier: Modifier = Modifier,
 ) {
     val turnGroups = remember(rawMessages) { computeTurnGroups(rawMessages) }
+
+    val streamingMsgId = remember(rawMessages) {
+        rawMessages.lastOrNull {
+            it.isAssistant && it.message.time.completed == null
+        }?.message?.id
+    }
+
+    val freezeState = remember(streamingMsgId) { FreezeState() }
+    LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
+        if (listState.isScrollInProgress) {
+            freezeState.autoScrollEnabled = false
+        } else if (isAtBottom) {
+            freezeState.autoScrollEnabled = true
+        }
+    }
 
     // Real-time status from ChatRepository — domain types
     val currentSessionId = viewModel.sessionId
@@ -270,6 +289,33 @@ fun ChatMessageList(
                         key = { _, item -> item.second.message.id },
                         contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
                     ) { _, (rawIndex, msg) ->
+                        val isStreamingMsg = msg.message.id == streamingMsgId
+                        val freezeModifier = if (isStreamingMsg) {
+                            Modifier
+                                .fillMaxWidth()
+                                .clipToBounds()
+                                .layout { measurable, constraints ->
+                                    val placeable = measurable.measure(
+                                        constraints.copy(maxHeight = Constraints.Infinity)
+                                    )
+                                    val realHeight = placeable.height
+                                    val reportedHeight = when {
+                                        freezeState.autoScrollEnabled -> {
+                                            freezeState.frozenHeight = null
+                                            realHeight
+                                        }
+                                        freezeState.frozenHeight == null -> {
+                                            freezeState.frozenHeight = realHeight
+                                            realHeight
+                                        }
+                                        else -> freezeState.frozenHeight!!
+                                    }
+                                    layout(placeable.width, reportedHeight) {
+                                        placeable.placeRelative(0, 0)
+                                    }
+                                }
+                        } else Modifier.fillMaxWidth()
+                        Box(modifier = freezeModifier) {
                         when {
                             msg.isAssistant -> {
                                 val turnMessagesForMsg = turnGroups[rawIndex] ?: listOf(msg)
@@ -387,6 +433,7 @@ fun ChatMessageList(
                                 )
                             }
                         }
+                        } // Box freeze
                     }
                 }
             } // PullToRefreshBox
@@ -540,4 +587,9 @@ private fun RetryBanner(retry: SessionStatus.Retry) {
             }
         }
     }
+}
+
+private class FreezeState {
+    var frozenHeight: Int? = null
+    var autoScrollEnabled: Boolean = true
 }

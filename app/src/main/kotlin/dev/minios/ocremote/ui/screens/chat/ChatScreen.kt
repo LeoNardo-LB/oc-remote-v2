@@ -309,53 +309,6 @@ fun ChatScreen(
         }
     }
 
-    // SSE drift compensation: when the streaming message grows in height
-    // and user is NOT at bottom, the LazyColumn anchor drags the viewport.
-    // We use requestScrollToItem to pin the scroll position, overriding the
-    // anchor in the same/next measure pass — declarative, no scroll lock.
-    val streamingMsgId = remember(messageState.messages) {
-        messageState.messages.lastOrNull {
-            it.isAssistant && it.message.time.completed == null
-        }?.message?.id
-    }
-    LaunchedEffect(streamingMsgId) {
-        if (streamingMsgId == null) return@LaunchedEffect
-        var prevSize: Int? = null
-        var prevFirstIndex: Int = 0
-        var prevFirstOffset: Int = 0
-        snapshotFlow {
-            listState.layoutInfo to listState.isScrollInProgress
-        }.collect { (info, scrolling) ->
-            if (scrolling) {
-                prevSize = null
-                return@collect
-            }
-            val item = info.visibleItemsInfo.firstOrNull { it.key == streamingMsgId }
-            if (item == null) {
-                if (prevSize != null) android.util.Log.d("FREEZE", "SKIP: item not in viewport")
-                prevSize = null
-                return@collect
-            }
-            // Use offset > 0 instead of !isAtBottom — isAtBottom (< 100)
-            // is unreliable during SSE as anchor drags offset below 100.
-            val currentOffset = listState.firstVisibleItemScrollOffset
-            if (currentOffset <= 0) {
-                prevSize = null
-                return@collect
-            }
-            if (prevSize != null) {
-                val delta = item.size - prevSize!!
-                if (delta > 0) {
-                    android.util.Log.d("FREEZE", "REQ: delta=$delta idx=$prevFirstIndex off=$prevFirstOffset curOff=$currentOffset")
-                    listState.requestScrollToItem(prevFirstIndex, prevFirstOffset)
-                }
-            }
-            prevSize = item.size
-            prevFirstIndex = listState.firstVisibleItemIndex
-            prevFirstOffset = currentOffset
-        }
-    }
-
     // reverseLayout=true: item 0 = newest at bottom.
     // Scroll to bottom when new messages arrive AND user is at bottom AND
     // not actively scrolling (prevents race with user gestures).
