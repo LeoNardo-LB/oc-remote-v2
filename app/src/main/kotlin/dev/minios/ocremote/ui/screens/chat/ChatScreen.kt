@@ -319,10 +319,16 @@ fun ChatScreen(
         }
     }
 
-    // SSE drift compensation (requires animateContentSize disabled).
-    // With animations off, height changes are instantaneous steps. Each step
-    // triggers a full LazyColumn measure pass where firstVisibleItemScrollOffset
-    // may shift. This effect detects that shift and reverses it with scrollBy.
+    // SSE drift compensation + diagnostic logging.
+    // Logs to: /sdcard/Android/data/dev.minios.ocremote.dev/files/scroll_debug.log
+    // Pull with: adb pull /sdcard/Android/data/dev.minios.ocremote.dev/files/scroll_debug.log
+    val debugContext = LocalContext.current
+    val logFile = remember {
+        java.io.File(debugContext.getExternalFilesDir(null), "scroll_debug.log").apply {
+            writeText("") // Clear on each app launch
+        }
+    }
+
     LaunchedEffect(Unit) {
         var prevIndex = listState.firstVisibleItemIndex
         var prevOffset = listState.firstVisibleItemScrollOffset
@@ -334,16 +340,36 @@ fun ChatScreen(
                 listState.isScrollInProgress
             )
         }.collect { (index, offset, scrolling) ->
+            // Diagnostic: log full state on every collect
+            val info = listState.layoutInfo
+            val visible = info.visibleItemsInfo.joinToString(",") {
+                "k=${it.key}:i=${it.index}:o=${it.offset}:s=${it.size}"
+            }
+            val vpStart = info.viewportStartOffset
+            val vpEnd = info.viewportEndOffset
+            val drift = if (index == prevIndex) offset - prevOffset else 0
+            val bottom = listState.firstVisibleItemIndex == 0 &&
+                listState.firstVisibleItemScrollOffset < 100
+            val line = "idx=$index off=$offset scroll=$scrolling atBottom=$bottom drift=$drift " +
+                "vp=$vpStart..$vpEnd nItems=${info.visibleItemsInfo.size} " +
+                "canFwd=${listState.canScrollForward} canBwd=${listState.canScrollBackward} " +
+                "| [$visible]\n"
+
+            android.util.Log.d("ScrollDebug", line.trim())
+            try {
+                if (logFile.length() > 2_000_000) logFile.writeText(line)
+                else logFile.appendText(line)
+            } catch (_: Exception) { }
+
+            // Compensation logic
             if (scrolling) {
                 prevIndex = index
                 prevOffset = offset
                 return@collect
             }
             if (index == prevIndex) {
-                val drift = offset - prevOffset
                 if (drift != 0) {
                     listState.scroll { scrollBy(-drift.toFloat()) }
-                    // Don't update prevOffset — compensation should restore it
                 }
             } else {
                 prevIndex = index
