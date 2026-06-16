@@ -301,8 +301,16 @@ fun ChatMessageList(
                                     val realHeight = placeable.height
                                     val reportedHeight = when {
                                         freezeState.autoScrollEnabled -> {
-                                            freezeState.frozenHeight = null
-                                            realHeight
+                                            if (freezeState.frozenHeight != null && freezeState.frozenHeight!! < realHeight) {
+                                                // Gradual unfreeze: catch up with exponential decay
+                                                val gap = realHeight - freezeState.frozenHeight!!
+                                                freezeState.frozenHeight = freezeState.frozenHeight!! +
+                                                    maxOf((gap * 0.3f).toInt(), 50)
+                                                freezeState.frozenHeight!!
+                                            } else {
+                                                freezeState.frozenHeight = null
+                                                realHeight
+                                            }
                                         }
                                         freezeState.frozenHeight == null -> {
                                             freezeState.frozenHeight = realHeight
@@ -311,7 +319,13 @@ fun ChatMessageList(
                                         else -> freezeState.frozenHeight!!
                                     }
                                     layout(placeable.width, reportedHeight) {
-                                        placeable.placeRelative(0, 0)
+                                        if (freezeState.autoScrollEnabled && freezeState.frozenHeight != null) {
+                                            // Expanding phase: bottom-aligned (see latest)
+                                            placeable.placeRelative(0, reportedHeight - placeable.height)
+                                        } else {
+                                            // Frozen phase: top-aligned (see snapshot)
+                                            placeable.placeRelative(0, 0)
+                                        }
                                     }
                                 }
                         } else Modifier.fillMaxWidth()
