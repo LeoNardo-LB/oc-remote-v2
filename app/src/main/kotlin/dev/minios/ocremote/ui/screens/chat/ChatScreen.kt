@@ -330,6 +330,8 @@ fun ChatScreen(
         var prevIndex = listState.firstVisibleItemIndex
         var prevOffset = listState.firstVisibleItemScrollOffset
         var prevTotalSize = 0
+        var prevScrolling = false
+        var firstLog = true
 
         snapshotFlow { listState.layoutInfo to listState.isScrollInProgress }
             .collect { (info, scrolling) ->
@@ -339,7 +341,6 @@ fun ChatScreen(
                 val fvi = listState.firstVisibleItemIndex
                 val fvo = listState.firstVisibleItemScrollOffset
 
-                // Multiple drift metrics
                 val firstKey = visible.firstOrNull()?.key
                 val commonKey = prevOffsets.keys
                     .intersect(currentOffsets.keys)
@@ -349,26 +350,27 @@ fun ChatScreen(
                 } else 0
                 val fvoDrift = if (!scrolling && fvi == prevIndex) fvo - prevOffset else 0
                 val sizeDelta = totalSize - prevTotalSize
+                val itemsChanged = currentOffsets.keys != prevOffsets.keys
 
-                val visibleStr = visible.joinToString(",") {
-                    "k=${it.key}:i=${it.index}:o=${it.offset}:s=${it.size}"
+                // Only log when something actually changes
+                val shouldLog = firstLog || pinDrift != 0 || fvoDrift != 0 ||
+                    sizeDelta != 0 || itemsChanged || scrolling != prevScrolling
+                if (shouldLog) {
+                    val line = "fvi=$fvi fvo=$fvo pinDrift=$pinDrift sizeDelta=$sizeDelta " +
+                        "nItems=${visible.size} scroll=$scrolling\n"
+                    android.util.Log.d("ScrollDebug", line.trim())
+                    try {
+                        if (logFile.length() > 500_000) logFile.writeText(line)
+                        else logFile.appendText(line)
+                    } catch (_: Exception) { }
+                    firstLog = false
                 }
-                val line = "fvi=$fvi fvo=$fvo fvoDrift=$fvoDrift pinDrift=$pinDrift " +
-                    "sizeDelta=$sizeDelta totalSize=$totalSize " +
-                    "scroll=$scrolling nItems=${visible.size} " +
-                    "vp=${info.viewportStartOffset}..${info.viewportEndOffset} " +
-                    "| [$visibleStr]\n"
-
-                android.util.Log.d("ScrollDebug", line.trim())
-                try {
-                    if (logFile.length() > 2_000_000) logFile.writeText(line)
-                    else logFile.appendText(line)
-                } catch (_: Exception) { }
 
                 prevOffsets = currentOffsets
                 prevIndex = fvi
                 prevOffset = fvo
                 prevTotalSize = totalSize
+                prevScrolling = scrolling
             }
     }
 
