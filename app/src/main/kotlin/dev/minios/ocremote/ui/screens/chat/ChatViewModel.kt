@@ -233,7 +233,7 @@ class ChatViewModel @Inject constructor(
 
     /** Snapshot of message IDs at the time of revert. Used to distinguish
      *  old messages (should be hidden) from new messages (should be shown). */
-    private var messageIdsAtRevert: Set<String> = emptySet()
+    // Removed: using m.id <= revertState.messageId instead (OpenCode pattern)
 
     // ============ Loading & Error State ============
     private val _isLoading = MutableStateFlow(true)
@@ -594,19 +594,11 @@ class ChatViewModel @Inject constructor(
             } else {
                 val sorted = sessionMessages.sortedBy { it.time.created }
                 if (revertState != null) {
-                    // Revert filter: show messages up to revert point.
-                    // Only messages NOT in the snapshot at revert time are "new"
-                    // (sent by user after reverting) — those are shown too.
-                    val revertIdx = sorted.indexOfFirst { it.id == revertState.messageId }
-                    if (revertIdx >= 0) {
-                        val beforeRevert = sorted.take(revertIdx + 1)
-                        val afterRevert = sorted.drop(revertIdx + 1)
-                        // New messages = ones whose ID wasn't in the list when revert happened
-                        val newMessages = afterRevert.filterNot { it.id in messageIdsAtRevert }
-                        beforeRevert + newMessages
-                    } else {
-                        sorted
-                    }
+                    // OpenCode pattern: filter by message ID string comparison.
+                    // Message IDs are ULID (monotonically increasing), so
+                    // id <= revertId correctly includes the revert point and
+                    // everything before it.
+                    sorted.filter { it.id <= revertState.messageId }
                 } else {
                     sorted
                 }
@@ -1607,8 +1599,9 @@ class ChatViewModel @Inject constructor(
                     )
                 } else null
 
-                // Revert filter auto-clears in messageListState combine when new
-                // messages arrive (id > revertState.messageId). No manual clearRevert needed.
+                // Clear revert before sending — message.removed SSE events have
+                // already cleaned old messages from cache, so no flash.
+                chatRepository.clearRevert(currentSessionId)
 
                 sendMessageUseCase.sendPrompt(
                     serverId = serverId,
@@ -1930,10 +1923,6 @@ class ChatViewModel @Inject constructor(
 
                 undoRedoUseCase.revertSession(serverId, sessionId, messageId)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Reverted session $sessionId to message $messageId")
-
-                // Snapshot message IDs at revert time — used by messageListState
-                // combine to distinguish old messages (hidden) from new ones (shown).
-                messageIdsAtRevert = messageListState.value.messages.map { it.message.id }.toSet()
 
                 // Set local revert state BEFORE reconnecting SSE.
                 // This ensures the message filter (id < revertState.messageId)
