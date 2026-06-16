@@ -324,7 +324,8 @@ fun ChatScreen(
     // Pull with: adb pull /sdcard/Android/data/dev.minios.ocremote.dev/files/scroll_debug.log
     val debugContext = LocalContext.current
     val logFile = remember {
-        java.io.File(debugContext.getExternalFilesDir(null), "scroll_debug.log").apply {
+        val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+        java.io.File(downloadDir, "scroll_debug.log").apply {
             writeText("") // Clear on each app launch
         }
     }
