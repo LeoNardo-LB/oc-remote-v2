@@ -117,31 +117,16 @@ fun ChatMessageList(
         }?.message?.id
     }
 
-    val freezeState = remember(streamingMsgId) { FreezeState() }
+    val compensateState = remember(streamingMsgId) { CompensateState() }
 
-    // File logger: writes to Download/oc_remote_freeze.log for debugging without adb
-    val freezeLogFile = remember {
-        val downloadFile = java.io.File(
-            android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOWNLOADS
-            ),
-            "oc_remote_freeze.log"
-        )
-        if (downloadFile.parentFile?.canWrite() == true) downloadFile
-        else context.getExternalFilesDir(null)?.resolve("freeze.log")
-    }
-    val freezeLog: (String) -> Unit = { msg ->
-        android.util.Log.d("FREEZE", msg)
-        runCatching { freezeLogFile?.appendText("${System.currentTimeMillis()} $msg\n") }
-    }
-
-    // Only freeze on user scroll — never auto-unfreeze on isAtBottom.
-    // Unfreeze happens via FAB button click (Discord/Telegram pattern).
-    var isFrozen by remember { mutableStateOf(false) }
-    LaunchedEffect(listState.isScrollInProgress) {
+    // Track whether user has scrolled away from bottom.
+    // When shouldCompensate=true, SSE height growth is counteracted via
+    // requestScrollToItem inside the layout modifier — no height freeze.
+    LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
         if (listState.isScrollInProgress) {
-            freezeState.autoScrollEnabled = false
-            isFrozen = true
+            compensateState.shouldCompensate = true
+        } else if (isAtBottom) {
+            compensateState.shouldCompensate = false
         }
     }
 
@@ -309,38 +294,35 @@ fun ChatMessageList(
                         contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
                     ) { _, (rawIndex, msg) ->
                         val isStreamingMsg = msg.message.id == streamingMsgId
-                        val freezeModifier = if (isStreamingMsg) {
+                        val itemModifier = if (isStreamingMsg) {
                             Modifier
                                 .fillMaxWidth()
-                                .clipToBounds()
                                 .layout { measurable, constraints ->
                                     val placeable = measurable.measure(
                                         constraints.copy(maxHeight = Constraints.Infinity)
                                     )
                                     val realHeight = placeable.height
-                                    val reportedHeight = when {
-                                        freezeState.autoScrollEnabled -> {
-                                            if (freezeState.frozenHeight != null) {
-                                                freezeLog("UNFREEZE: frozen=${freezeState.frozenHeight} real=$realHeight")
-                                            }
-                                            freezeState.frozenHeight = null
-                                            realHeight
-                                        }
-                                        freezeState.frozenHeight == null -> {
-                                            freezeLog("FREEZE: real=$realHeight")
-                                            freezeState.frozenHeight = realHeight
-                                            realHeight
-                                        }
-                                        else -> {
-                                            freezeState.frozenHeight!!
+
+                                    // Compensate SSE height growth — NO FREEZE
+                                    // When item grows by delta, anchor reduces offset by delta.
+                                    // requestScrollToItem restores offset in same/next measure pass.
+                                    if (compensateState.shouldCompensate && !listState.isScrollInProgress) {
+                                        val delta = realHeight - compensateState.lastHeight
+                                        if (delta > 0) {
+                                            listState.requestScrollToItem(
+                                                listState.firstVisibleItemIndex,
+                                                listState.firstVisibleItemScrollOffset + delta
+                                            )
                                         }
                                     }
-                                    layout(placeable.width, reportedHeight) {
+                                    compensateState.lastHeight = realHeight
+
+                                    layout(placeable.width, realHeight) {
                                         placeable.placeRelative(0, 0)
                                     }
                                 }
                         } else Modifier.fillMaxWidth()
-                        Box(modifier = freezeModifier) {
+                        Box(modifier = itemModifier) {
                         when {
                             msg.isAssistant -> {
                                 val turnMessagesForMsg = turnGroups[rawIndex] ?: listOf(msg)
@@ -463,14 +445,13 @@ fun ChatMessageList(
                 }
             } // PullToRefreshBox
 
-            // Scroll-to-bottom FAB — shows when not at bottom OR frozen
-            if (!isAtBottom || isFrozen) {
+            // Scroll-to-bottom FAB
+            if (!isAtBottom) {
                 SmallFloatingActionButton(
                     onClick = {
                         coroutineScope.launch {
-                            listState.animateScrollToItem(0)
-                            freezeState.autoScrollEnabled = true
-                            isFrozen = false
+                            listState.snapToBottom()
+                            compensateState.shouldCompensate = false
                         }
                     },
                     modifier = Modifier
@@ -615,8 +596,7 @@ private fun RetryBanner(retry: SessionStatus.Retry) {
     }
 }
 
-private class FreezeState {
-    var frozenHeight: Int? = null
-    var autoScrollEnabled: Boolean = true
-    var isAnimatingToBottom: Boolean = false
+private class CompensateState {
+    var lastHeight: Int = 0
+    var shouldCompensate: Boolean = false
 }
