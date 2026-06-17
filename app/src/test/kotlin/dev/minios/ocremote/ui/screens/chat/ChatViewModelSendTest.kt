@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import dev.minios.ocremote.data.repository.ServerTerminalRegistry
 import dev.minios.ocremote.data.repository.SessionStatusManager
+import dev.minios.ocremote.service.SessionFocusHolder
+import dev.minios.ocremote.service.AppNotificationManager
 import io.ktor.client.HttpClient
 import dev.minios.ocremote.data.api.SseClient
 import dev.minios.ocremote.domain.model.AppSettings
@@ -51,6 +53,8 @@ class ChatViewModelSendTest {
     private val messagePaging: MessagePaginationUseCase = mockk(relaxed = true)
     private val tokenStatsTracker = TokenStatsTracker()
     private val sessionStatusManager: SessionStatusManager = mockk(relaxed = true)
+    private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
+    private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
 
     @After
     fun tearDown() {
@@ -151,7 +155,9 @@ class ChatViewModelSendTest {
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
             sseClient = mockk(relaxed = true),
-            sessionStatusManager = sessionStatusManager
+            sessionStatusManager = sessionStatusManager,
+            sessionFocusHolder = sessionFocusHolder,
+            appNotificationManager = appNotificationManager
         )
     }
 

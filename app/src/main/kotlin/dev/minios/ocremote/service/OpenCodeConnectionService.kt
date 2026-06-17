@@ -79,6 +79,9 @@ class OpenCodeConnectionService : Service() {
     @Inject
     lateinit var networkMonitor: NetworkMonitor
 
+    @Inject
+    lateinit var sessionFocusHolder: SessionFocusHolder
+
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -310,6 +313,8 @@ class OpenCodeConnectionService : Service() {
         // Here we only route to notification logic
         when (event) {
             is SseEvent.SessionIdle -> {
+                // Suppress if user is actively viewing this session
+                if (sessionFocusHolder.shouldSuppress(server.id, event.sessionId)) return
                 if (appNotificationManager.isChildSession(event.sessionId)) return
                 serviceScope.launch {
                     if (!settingsDataStore.notificationsEnabled.first()) return@launch

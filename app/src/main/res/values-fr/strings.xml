@@ -290,6 +290,7 @@
     <string name="notification_status_connecting">Connecté</string>
     <string name="notification_response_ready">Connexion…</string>
     <string name="notification_new_session">Réponse prête</string>
+    <string name="notification_new_message">Nouveau message</string>
     <string name="notification_needs_permission_project">Nouvelle session</string>
     <string name="notification_needs_permission">%1$s dans %2$s nécessite une autorisation</string>
     <string name="notification_has_question_project">%1$s nécessite une autorisation</string>

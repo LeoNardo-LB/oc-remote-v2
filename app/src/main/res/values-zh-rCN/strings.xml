@@ -297,6 +297,7 @@
     <string name="notification_status_connecting">正在连接…</string>
     <string name="notification_response_ready">回复已准备好</string>
     <string name="notification_new_session">新会话</string>
+    <string name="notification_new_message">新消息</string>
     <string name="notification_needs_permission_project">%1$s 在 %2$s 需要权限</string>
     <string name="notification_needs_permission">%1$s 需要权限</string>
     <string name="notification_has_question_project">%1$s 在 %2$s 有问题</string>

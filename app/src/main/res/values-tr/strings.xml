@@ -290,6 +290,7 @@
     <string name="notification_status_connecting">Bağlanıyor…</string>
     <string name="notification_response_ready">Cevap hazır</string>
     <string name="notification_new_session">Yeni oturum</string>
+    <string name="notification_new_message">Yeni mesaj</string>
     <string name="notification_needs_permission_project">%2$s içinde %1$s izin istiyor</string>
     <string name="notification_needs_permission">%1$s izin istiyor</string>
     <string name="notification_has_question_project">%2$s içinde %1$s soru sordu</string>
