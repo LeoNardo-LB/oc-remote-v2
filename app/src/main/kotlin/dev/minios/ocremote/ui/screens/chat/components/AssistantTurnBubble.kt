@@ -169,7 +169,6 @@ internal fun AssistantTurnBubble(
                 for ((renderableParts, errorPair) in allContent) {
                     val (errorText, assistantMsg) = errorPair
 
-                    // Collect image files for thumbnail display while preserving order
                     for (part in renderableParts) {
                         key(part.id) {
                             PartContent(

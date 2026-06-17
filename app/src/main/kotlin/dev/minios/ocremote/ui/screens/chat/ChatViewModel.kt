@@ -21,6 +21,14 @@ import dev.minios.ocremote.data.repository.ServerTerminalRegistry
 import dev.minios.ocremote.data.repository.SessionStatusManager
 import dev.minios.ocremote.ui.navigation.routes.ChatNav
 import dev.minios.ocremote.ui.screens.chat.tools.ToolCardResolver
+import dev.minios.ocremote.ui.screens.chat.util.ContextBreakdown
+import dev.minios.ocremote.ui.screens.chat.util.ContextDetailState
+import dev.minios.ocremote.ui.screens.chat.util.MessageCount
+import dev.minios.ocremote.ui.screens.chat.util.ProviderModel
+import dev.minios.ocremote.ui.screens.chat.util.SessionTimestamps
+import dev.minios.ocremote.ui.screens.chat.util.cacheHitRate
+import dev.minios.ocremote.ui.screens.chat.util.countMessages
+import dev.minios.ocremote.ui.screens.chat.util.estimateContextBreakdown
 import dev.minios.ocremote.domain.model.Draft
 import dev.minios.ocremote.domain.repository.DraftRepository
 import dev.minios.ocremote.domain.model.*
@@ -771,6 +779,81 @@ class ChatViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5000),
         TokenStatsState()
     )
+
+    /**
+     * Session directory — current chat's working directory, used for the top bar subtitle.
+     * Empty when session is not yet resolved or has no directory.
+     */
+    val directoryState: StateFlow<String> = _sessionId.flatMapLatest { sid ->
+        sessionRepository.getSessionsFlow(serverId).map { sessions ->
+            sessions.find { it.id == sid }?.directory.orEmpty()
+        }
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        ""
+    )
+
+    /**
+     * Aggregated context detail — provider/model, timestamps, message count, breakdown,
+     * cache hit rate, and per-call token metrics. Built from the last assistant message
+     * (with token-bearing StepFinish) plus session-level stats. Drives [ContextDetailDialog].
+     */
+    val contextDetailState: StateFlow<ContextDetailState> = _sessionId.flatMapLatest { sid ->
+        combine(
+            messageListState,
+            tokenStatsState,
+            sessionRepository.getSessionsFlow(serverId),
+            modelConfigState,
+        ) { msgList, stats, sessions, modelCfg ->
+            val session = sessions.find { it.id == sid }
+            buildContextDetailState(msgList.messages, stats, session, modelCfg.contextWindow)
+        }
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        ContextDetailState()
+    )
+
+    private fun buildContextDetailState(
+        messages: List<ChatMessage>,
+        stats: TokenStatsState,
+        session: Session?,
+        contextWindow: Int,
+    ): ContextDetailState {
+        // Use stats-derived values (single source of truth, avoids re-scanning messages)
+        val realInput = stats.totalInputTokens
+        // Estimate role-breakdown only when we have a real input to anchor percentages against
+        val breakdown: ContextBreakdown? = if (realInput > 0) {
+            // ChatMessage uses .message, estimateContextBreakdown expects MessageWithParts (.info)
+            val mwp = messages.map { MessageWithParts(it.message, it.parts) }
+            estimateContextBreakdown(mwp, realInput)
+        } else null
+        val messageCount: MessageCount = countMessages(messages.map { it.message })
+        // provider/model from last assistant message (not available in stats)
+        val providerModel: ProviderModel? =
+            (messages.lastOrNull { it.message is Message.Assistant }?.message as? Message.Assistant)
+                ?.let { ProviderModel(it.providerId, it.modelId) }
+        val timestamps: SessionTimestamps? = session?.time
+            ?.let { SessionTimestamps(it.created, it.updated) }
+        // Cache hit rate = cacheRead / input (only meaningful when there is real input)
+        val cacheHitRateVal: Float? = cacheHitRate(stats.totalCacheReadTokens, stats.totalInputTokens)
+        return ContextDetailState(
+            inputTokens = stats.totalInputTokens,
+            outputTokens = stats.totalOutputTokens,
+            reasoningTokens = stats.totalReasoningTokens,
+            cacheReadTokens = stats.totalCacheReadTokens,
+            cacheWriteTokens = stats.totalCacheWriteTokens,
+            totalCost = stats.totalCost,
+            contextWindow = contextWindow,
+            contextTokens = stats.lastContextTokens,
+            messageCount = messageCount,
+            providerModel = providerModel,
+            timestamps = timestamps,
+            cacheHitRate = cacheHitRateVal,
+            breakdown = breakdown,
+        )
+    }
 
     /**
      * Legacy uiState for backward compatibility (tests).

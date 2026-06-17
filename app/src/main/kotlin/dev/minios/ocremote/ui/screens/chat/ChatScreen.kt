@@ -272,6 +272,8 @@ fun ChatScreen(
     val interaction by viewModel.interactionState.collectAsStateWithLifecycle()
     val tokenStats by viewModel.tokenStatsState.collectAsStateWithLifecycle()
     val modelConfig by viewModel.modelConfigState.collectAsStateWithLifecycle()
+    val directory by viewModel.directoryState.collectAsStateWithLifecycle()
+    val contextDetail by viewModel.contextDetailState.collectAsStateWithLifecycle()
     val restoredDraft by viewModel.restoredDraftState.collectAsStateWithLifecycle()
     val draftText by viewModel.draftText.collectAsStateWithLifecycle()
     val draftAttachmentUris by viewModel.draftAttachmentUris.collectAsStateWithLifecycle()
@@ -533,13 +535,8 @@ fun ChatScreen(
                 Column {
                     ChatTopBar(
                         sessionTitle = sessionMeta.sessionTitle,
-                        messageCount = messageState.messageCount,
-                        totalInputTokens = tokenStats.totalInputTokens,
-                        totalOutputTokens = tokenStats.totalOutputTokens,
-                        totalReasoningTokens = tokenStats.totalReasoningTokens,
-                        totalCacheReadTokens = tokenStats.totalCacheReadTokens,
-                        totalCacheWriteTokens = tokenStats.totalCacheWriteTokens,
-                        totalCost = tokenStats.totalCost,
+                        directory = directory,
+                        contextDetail = contextDetail,
                         sessionParentId = sessionMeta.sessionParentId,
                         shareUrl = sessionMeta.shareUrl,
                         contextWindow = modelConfig.contextWindow,
