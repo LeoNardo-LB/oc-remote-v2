@@ -290,6 +290,7 @@
     <string name="notification_status_connecting">Підключення…</string>
     <string name="notification_response_ready">Відповідь готова</string>
     <string name="notification_new_session">Нова сесія</string>
+    <string name="notification_new_message">Нове повідомлення</string>
     <string name="notification_needs_permission_project">%1$s у %2$s потребує дозволу</string>
     <string name="notification_needs_permission">%1$s потребує дозволу</string>
     <string name="notification_has_question_project">%1$s у %2$s має питання</string>
