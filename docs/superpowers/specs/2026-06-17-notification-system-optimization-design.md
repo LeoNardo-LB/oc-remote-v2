@@ -35,6 +35,7 @@
 | 前台感知方案 | SessionFocusHolder (新增 Singleton) | 职责分离，可测试，符合现有架构 |
 | MessagingStyle 显示 | 最近 5 条用户消息 | 简单可靠，无需持久化状态 |
 | serverId 维度 | activeFocus 包含 (serverId, sessionId) pair | 避免不同服务器同 sessionId 误判 |
+| TaskComplete 类型标签 | conversationTitle 加前缀："响应就绪 · 会话名" | MessagingStyle 不丢失类型语义，折叠态一眼可见 |
 
 ## 4. 架构设计
 
@@ -136,7 +137,7 @@ fun cancelSessionNotifications(
 ```
 当前：                          改为 MessagingStyle：
 ┌──────────────────┐           ┌────────────────────────────┐
-│ 响应就绪          │           │ 会话名称                    │
+│ 响应就绪          │           │ 响应就绪 · 会话名称          │
 │ session.title    │           │ ────────────────────────── │
 │                  │           │ 你: 用户消息1               │
 │                  │           │ 你: 用户消息2               │
@@ -157,10 +158,14 @@ suspend fun showTaskCompleteNotification(
     val displayName = sessionTitle?.takeIf { it.isNotBlank() }
         ?: context.getString(R.string.notification_new_session)
 
+    // 类型前缀 + 会话名，保留"响应就绪"语义
+    val typeLabel = context.getString(R.string.notification_response_ready)
+    val conversationTitle = "$typeLabel · $displayName"
+
     val userMessages = findLatestUserMessages(sessionId, limit = 5)
 
     val style = NotificationCompat.MessagingStyle("你").apply {
-        conversationTitle = displayName
+        this.conversationTitle = conversationTitle
         for (msg in userMessages) {
             addMessage(msg.text, msg.timestamp, "你" as CharSequence)
         }
@@ -168,7 +173,7 @@ suspend fun showTaskCompleteNotification(
     // 如果没有用户消息，fallback 到 BigTextStyle 显示会话名
     val effectiveStyle = if (userMessages.isEmpty()) {
         NotificationCompat.BigTextStyle()
-            .setBigContentTitle(displayName)
+            .setBigContentTitle(conversationTitle)
             .bigText(context.getString(R.string.notification_new_message))
     } else style
 
