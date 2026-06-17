@@ -316,35 +316,41 @@ fun ChatMessageList(
                                         constraints.copy(maxHeight = Constraints.Infinity)
                                     )
                                     val realHeight = placeable.height
-                                    val reportedHeight = when {
-                                        freezeState.autoScrollEnabled -> {
-                                            if (freezeState.frozenHeight != null && freezeState.frozenHeight!! < realHeight) {
-                                                // Gradual unfreeze: catch up with exponential decay
-                                                val gap = realHeight - freezeState.frozenHeight!!
-                                                val catchUp = maxOf((gap * 0.1f).toInt(), 20)
-                                                freezeState.frozenHeight = freezeState.frozenHeight!! + catchUp
-                                                freezeLog("EXPAND: frozen=${freezeState.frozenHeight} real=$realHeight gap=$gap catch=$catchUp")
-                                                freezeState.frozenHeight!!
-                                            } else {
-                                                if (freezeState.frozenHeight != null) freezeLog("UNFREEZE: frozen=${freezeState.frozenHeight} real=$realHeight")
-                                                freezeState.frozenHeight = null
-                                                realHeight
-                                            }
+                                    val itemInfo = listState.layoutInfo.visibleItemsInfo
+                                        .firstOrNull { it.key == msg.message.id }
+                                    val currentOffset = itemInfo?.offset
+
+                                    val (reportedHeight, yOffset) = when {
+                                        // Item not visible → normal layout
+                                        currentOffset == null -> {
+                                            freezeState.frozenHeight = null
+                                            realHeight to 0
                                         }
+                                        // First freeze: record snapshot
                                         freezeState.frozenHeight == null -> {
                                             freezeState.frozenHeight = realHeight
-                                            realHeight
+                                            freezeState.frozenOffset = currentOffset
+                                            realHeight to 0
                                         }
-                                        else -> freezeState.frozenHeight!!
+                                        // Fully scrolled back → passthrough (unfreeze)
+                                        currentOffset <= 0 && freezeState.autoScrollEnabled -> {
+                                            freezeLog("UNFREEZE: frozen=${freezeState.frozenHeight} real=$realHeight off=$currentOffset")
+                                            freezeState.frozenHeight = null
+                                            realHeight to 0
+                                        }
+                                        // Frozen: expand via yOffset driven by finger scroll
+                                        else -> {
+                                            val slideBack = (freezeState.frozenOffset - currentOffset).coerceAtLeast(0)
+                                            val maxShift = maxOf(realHeight - freezeState.frozenHeight!!, 0)
+                                            val ratio = if (freezeState.frozenOffset > 0)
+                                                maxShift.toFloat() / freezeState.frozenOffset else 0f
+                                            val shift = (slideBack * ratio).toInt().coerceIn(0, maxShift)
+                                            if (shift > 0) freezeLog("EXPAND: slide=$slideBack shift=$shift max=$maxShift ratio=${"%.1f".format(ratio)} off=$currentOffset")
+                                            freezeState.frozenHeight!! to -shift
+                                        }
                                     }
                                     layout(placeable.width, reportedHeight) {
-                                        if (freezeState.autoScrollEnabled && freezeState.frozenHeight != null) {
-                                            // Expanding phase: bottom-aligned (see latest)
-                                            placeable.placeRelative(0, reportedHeight - placeable.height)
-                                        } else {
-                                            // Frozen phase: top-aligned (see snapshot)
-                                            placeable.placeRelative(0, 0)
-                                        }
+                                        placeable.placeRelative(0, yOffset)
                                     }
                                 }
                         } else Modifier.fillMaxWidth()
@@ -624,5 +630,6 @@ private fun RetryBanner(retry: SessionStatus.Retry) {
 
 private class FreezeState {
     var frozenHeight: Int? = null
+    var frozenOffset: Int = 0
     var autoScrollEnabled: Boolean = true
 }
