@@ -37,6 +37,8 @@ import dev.minios.ocremote.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.minios.ocremote.ui.screens.chat.util.formatAssistantErrorMessage
 import dev.minios.ocremote.ui.screens.chat.util.isAmoledTheme
 import dev.minios.ocremote.ui.screens.chat.util.performHaptic
+import dev.minios.ocremote.ui.screens.chat.util.groupContextTools
+import dev.minios.ocremote.ui.screens.chat.util.PartRenderUnit
 import dev.minios.ocremote.ui.theme.ShapeTokens
 import dev.minios.ocremote.ui.theme.AlphaTokens
 
@@ -169,16 +171,28 @@ internal fun AssistantTurnBubble(
                 for ((renderableParts, errorPair) in allContent) {
                     val (errorText, assistantMsg) = errorPair
 
-                    // Collect image files for thumbnail display while preserving order
-                    for (part in renderableParts) {
-                        key(part.id) {
-                            PartContent(
-                                part = part,
-                                textColor = textColor,
-                                isUser = false,
-                                onViewSubSession = onViewSubSession,
-                                turnAgentName = if (part is Part.Tool && part.tool == "task") taskAgentNames[part.id] else null
-                            )
+                    for (unit in groupContextTools(renderableParts)) {
+                        when (unit) {
+                            is PartRenderUnit.Single -> {
+                                key(unit.part.id) {
+                                    PartContent(
+                                        part = unit.part,
+                                        textColor = textColor,
+                                        isUser = false,
+                                        onViewSubSession = onViewSubSession,
+                                        turnAgentName = if (unit.part is Part.Tool && unit.part.tool == "task") taskAgentNames[unit.part.id] else null
+                                    )
+                                }
+                            }
+                            is PartRenderUnit.ContextGroup -> {
+                                key(unit.tools.first().id) {
+                                    ContextToolGroupCard(
+                                        tools = unit.tools,
+                                        onViewSubSession = onViewSubSession,
+                                        turnAgentName = null
+                                    )
+                                }
+                            }
                         }
                     }
 
