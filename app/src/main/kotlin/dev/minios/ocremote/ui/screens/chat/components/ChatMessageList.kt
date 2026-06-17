@@ -118,6 +118,23 @@ fun ChatMessageList(
     }
 
     val freezeState = remember(streamingMsgId) { FreezeState() }
+
+    // File logger: writes to Download/oc_remote_freeze.log for debugging without adb
+    val freezeLogFile = remember {
+        val downloadFile = java.io.File(
+            android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS
+            ),
+            "oc_remote_freeze.log"
+        )
+        if (downloadFile.parentFile?.canWrite() == true) downloadFile
+        else context.getExternalFilesDir(null)?.resolve("freeze.log")
+    }
+    val freezeLog: (String) -> Unit = { msg ->
+        android.util.Log.d("FREEZE", msg)
+        runCatching { freezeLogFile?.appendText("${System.currentTimeMillis()} $msg\n") }
+    }
+
     LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
         if (listState.isScrollInProgress) {
             freezeState.autoScrollEnabled = false
@@ -306,10 +323,10 @@ fun ChatMessageList(
                                                 val gap = realHeight - freezeState.frozenHeight!!
                                                 val catchUp = maxOf((gap * 0.1f).toInt(), 20)
                                                 freezeState.frozenHeight = freezeState.frozenHeight!! + catchUp
-                                                android.util.Log.d("FREEZE", "EXPAND: frozen=${freezeState.frozenHeight} real=$realHeight gap=$gap catch=$catchUp")
+                                                freezeLog("EXPAND: frozen=${freezeState.frozenHeight} real=$realHeight gap=$gap catch=$catchUp")
                                                 freezeState.frozenHeight!!
                                             } else {
-                                                if (freezeState.frozenHeight != null) android.util.Log.d("FREEZE", "UNFREEZE: frozen=${freezeState.frozenHeight} real=$realHeight")
+                                                if (freezeState.frozenHeight != null) freezeLog("UNFREEZE: frozen=${freezeState.frozenHeight} real=$realHeight")
                                                 freezeState.frozenHeight = null
                                                 realHeight
                                             }
