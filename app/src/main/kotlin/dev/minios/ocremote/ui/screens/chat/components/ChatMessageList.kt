@@ -326,10 +326,10 @@ fun ChatMessageList(
                                             freezeState.frozenHeight = null
                                             realHeight to 0
                                         }
-                                        // User at bottom (autoScroll) → ALWAYS passthrough
-                                        freezeState.autoScrollEnabled -> {
+                                        // Truly at bottom (can't scroll forward) → passthrough
+                                        !listState.canScrollForward -> {
                                             if (freezeState.frozenHeight != null) {
-                                                freezeLog("UNFREEZE(auto): frozen=${freezeState.frozenHeight} real=$realHeight off=$currentOffset")
+                                                freezeLog("UNFREEZE(bottom): frozen=${freezeState.frozenHeight} real=$realHeight")
                                             }
                                             freezeState.frozenHeight = null
                                             realHeight to 0
@@ -343,12 +343,18 @@ fun ChatMessageList(
                                         }
                                         // Frozen: expand via yOffset driven by finger scroll
                                         else -> {
-                                            val slideBack = (freezeState.frozenOffset - currentOffset).coerceAtLeast(0)
+                                            // Track farthest scroll position (user may scroll further up after freeze)
+                                            if (currentOffset < freezeState.frozenOffset) {
+                                                freezeState.frozenOffset = currentOffset
+                                            }
+                                            // slideBack: how far user has scrolled back toward bottom
+                                            val slideBack = (currentOffset - freezeState.frozenOffset).coerceAtLeast(0)
                                             val maxShift = maxOf(realHeight - freezeState.frozenHeight!!, 0)
-                                            val ratio = if (freezeState.frozenOffset > 0)
-                                                minOf(maxShift.toFloat() / freezeState.frozenOffset, 1.0f) else 0f
+                                            val absFrozen = kotlin.math.abs(freezeState.frozenOffset)
+                                            val ratio = if (absFrozen > 0)
+                                                minOf(maxShift.toFloat() / absFrozen, 1.0f) else 0f
                                             val shift = (slideBack * ratio).toInt().coerceIn(0, maxShift)
-                                            freezeLog("FROZEN: slide=$slideBack shift=$shift max=$maxShift ratio=${"%.2f".format(ratio)} off=$currentOffset fOff=${freezeState.frozenOffset} frozen=${freezeState.frozenHeight} real=$realHeight")
+                                            freezeLog("FROZEN: slide=$slideBack shift=$shift max=$maxShift ratio=${"%.2f".format(ratio)} off=$currentOffset fOff=${freezeState.frozenOffset}")
                                             freezeState.frozenHeight!! to -shift
                                         }
                                     }
