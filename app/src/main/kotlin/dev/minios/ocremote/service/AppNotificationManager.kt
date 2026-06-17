@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
 import dev.minios.ocremote.BuildConfig
 import dev.minios.ocremote.MainActivity
 import dev.minios.ocremote.R
@@ -186,21 +187,41 @@ class AppNotificationManager @Inject constructor(
         sessionId: String
     ) {
         val (sessionTitle, _) = getSessionInfo(sessionId)
-        val body = sessionTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.notification_new_session)
+        val displayName = sessionTitle?.takeIf { it.isNotBlank() }
+            ?: context.getString(R.string.notification_new_session)
+
+        // Type label prefix preserves "Response ready" semantic in MessagingStyle title
+        val typeLabel = context.getString(R.string.notification_response_ready)
+        val conversationTitle = "$typeLabel · $displayName"
+
+        val userMessages = findLatestUserMessages(sessionId, 5)
+
+        val style: NotificationCompat.Style = if (userMessages.isNotEmpty()) {
+            val userPerson = Person.Builder().setName("你").build()
+            NotificationCompat.MessagingStyle(userPerson).also {
+                it.conversationTitle = conversationTitle
+                for (msg in userMessages) {
+                    it.addMessage(msg.text, msg.timestamp, userPerson)
+                }
+            }
+        } else {
+            // Fallback when no extractable user message (image-only, etc.)
+            NotificationCompat.BigTextStyle()
+                .setBigContentTitle(conversationTitle)
+                .bigText(context.getString(R.string.notification_new_message))
+        }
 
         val pendingIntent = createSessionPendingIntent(context, server, sessionId, sessionId.hashCode())
-
         val silent = settingsRepository.silentNotifications.first()
         val channelId = if (silent) NOTIFICATION_CHANNEL_TASKS_SILENT_ID else NOTIFICATION_CHANNEL_TASKS_ID
-
         val notifId = eventNotificationId(server.id, sessionId, 0)
+
         val builder = NotificationCompat.Builder(context, channelId)
-            .setContentTitle(context.getString(R.string.notification_response_ready))
-            .setContentText(body)
-            .setSubText(server.displayName)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
+            .setStyle(style)
+            .setSubText(server.displayName)
             .setPriority(if (silent) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
             .setGroup("server_${server.id}")
 
