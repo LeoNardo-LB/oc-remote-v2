@@ -303,17 +303,22 @@ fun ChatMessageList(
                                     )
                                     val realHeight = placeable.height
 
-                                    // Compensate SSE height growth — only when NOT scrolling.
-                                    // requestScrollToItem cancels fling (calls scroll{} internally),
-                                    // so we skip compensation during active scroll/fling.
-                                    // With 48ms batching, drift during fling is minimal.
-                                    if (compensateState.shouldCompensate && !listState.isScrollInProgress) {
+                                    // Compensate SSE height growth.
+                                    // Two paths: dispatchRawDelta during scroll (doesn't cancel fling),
+                                    // requestScrollToItem when static (zero delay via scheduleRemeasure).
+                                    if (compensateState.shouldCompensate) {
                                         val delta = realHeight - compensateState.lastHeight
                                         if (delta > 0) {
-                                            listState.requestScrollToItem(
-                                                listState.firstVisibleItemIndex,
-                                                listState.firstVisibleItemScrollOffset + delta
-                                            )
+                                            if (listState.isScrollInProgress) {
+                                                // Scroll/fling active — dispatchRawDelta doesn't cancel fling
+                                                listState.dispatchRawDelta(-delta.toFloat())
+                                            } else {
+                                                // Static — requestScrollToItem for zero-delay compensation
+                                                listState.requestScrollToItem(
+                                                    listState.firstVisibleItemIndex,
+                                                    listState.firstVisibleItemScrollOffset + delta
+                                                )
+                                            }
                                         }
                                     }
                                     compensateState.lastHeight = realHeight
