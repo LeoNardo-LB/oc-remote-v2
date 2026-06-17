@@ -10,6 +10,8 @@ import dev.minios.ocremote.domain.repository.ChatRepository
 import dev.minios.ocremote.domain.repository.DraftRepository
 import dev.minios.ocremote.data.repository.EventDispatcher
 import dev.minios.ocremote.data.repository.SessionStatusManager
+import dev.minios.ocremote.service.SessionFocusHolder
+import dev.minios.ocremote.service.AppNotificationManager
 import dev.minios.ocremote.data.repository.handler.*
 import dev.minios.ocremote.domain.model.MessageWithParts
 import dev.minios.ocremote.domain.model.Session
@@ -58,6 +60,8 @@ class ChatViewModelDeleteTest {
     private lateinit var messagePaging: MessagePaginationUseCase
     private val tokenStatsTracker = TokenStatsTracker()
     private val sessionStatusManager: SessionStatusManager = mockk(relaxed = true)
+    private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
+    private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
 
     private val testSessionId = "session-123"
     private val testServerId = "server-1"
@@ -227,7 +231,9 @@ class ChatViewModelDeleteTest {
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
             sseClient = mockk(relaxed = true),
-            sessionStatusManager = sessionStatusManager
+            sessionStatusManager = sessionStatusManager,
+            sessionFocusHolder = sessionFocusHolder,
+            appNotificationManager = appNotificationManager
         )
     }
 
