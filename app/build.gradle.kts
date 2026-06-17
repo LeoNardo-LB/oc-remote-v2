@@ -60,15 +60,14 @@ android {
         }
         create("beta") {
             dimension = "channel"
+            manifestPlaceholders["appLabel"] = "@string/app_name"
         }
     }
 
     buildTypes {
         debug {
-            manifestPlaceholders["appLabel"] = "OC Remote v2"
         }
         release {
-            manifestPlaceholders["appLabel"] = "@string/app_name"
             isMinifyEnabled = true
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(

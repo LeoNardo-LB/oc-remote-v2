@@ -164,17 +164,7 @@ fun ChatMessageList(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize()
-                        .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) }
-                        .pointerInput(Unit) {
-                            // Track finger state on Initial pass (before detectTapGestures
-                            // consumes events on Main pass) to distinguish drag from fling.
-                            awaitPointerEventScope {
-                                while (true) {
-                                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                                    compensateState.isPointerDown = event.changes.any { it.pressed }
-                                }
-                            }
-                        },
+                        .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
                     contentPadding = PaddingValues(
                         start = SpacingTokens.MD.dp,
                         top = SpacingTokens.SM.dp,
@@ -313,13 +303,11 @@ fun ChatMessageList(
                                     )
                                     val realHeight = placeable.height
 
-                                    // Compensate SSE height growth.
-                                    // Compensate when static OR dragging (pointer down).
-                                    // Skip during fling (pointer up) — requestScrollToItem
-                                    // cancels fling via scroll{}, but only executes immediately
-                                    // when no pointer is holding the gesture pipeline.
-                                    if (compensateState.shouldCompensate
-                                        && (!listState.isScrollInProgress || compensateState.isPointerDown)) {
+                                    // Compensate SSE height growth — only when NOT scrolling.
+                                    // During scroll (drag/fling), requestScrollToItem's internal
+                                    // scroll{} cancels the gesture via immediate dispatcher.
+                                    // With 48ms batching, drift during scroll is minimal.
+                                    if (compensateState.shouldCompensate && !listState.isScrollInProgress) {
                                         val delta = realHeight - compensateState.lastHeight
                                         if (delta > 0) {
                                             listState.requestScrollToItem(
@@ -612,5 +600,4 @@ private fun RetryBanner(retry: SessionStatus.Retry) {
 private class CompensateState {
     var lastHeight: Int = 0
     var shouldCompensate: Boolean = false
-    var isPointerDown: Boolean = false  // true during drag, false during fling
 }
