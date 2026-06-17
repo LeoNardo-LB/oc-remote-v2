@@ -327,8 +327,6 @@ fun ChatMessageList(
                                             realHeight to 0
                                         }
                                         // User at bottom (autoScroll) → ALWAYS passthrough
-                                        // Must check BEFORE frozenHeight to prevent
-                                        // incorrect freeze when SSE anchor shifts offset
                                         freezeState.autoScrollEnabled -> {
                                             if (freezeState.frozenHeight != null) {
                                                 freezeLog("UNFREEZE(auto): frozen=${freezeState.frozenHeight} real=$realHeight off=$currentOffset")
@@ -341,12 +339,6 @@ fun ChatMessageList(
                                             freezeLog("FREEZE: real=$realHeight off=$currentOffset")
                                             freezeState.frozenHeight = realHeight
                                             freezeState.frozenOffset = currentOffset
-                                            realHeight to 0
-                                        }
-                                        // Fully scrolled back → passthrough
-                                        currentOffset <= 0 -> {
-                                            freezeLog("UNFREEZE(bottom): frozen=${freezeState.frozenHeight} real=$realHeight off=$currentOffset")
-                                            freezeState.frozenHeight = null
                                             realHeight to 0
                                         }
                                         // Frozen: expand via yOffset driven by finger scroll
