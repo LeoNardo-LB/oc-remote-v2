@@ -113,7 +113,7 @@ for (unit in groupContextTools(turnParts)) {
 
 ### 3.5 范围边界
 
-- **turn 内跨多条 assistant message 聚合**（对齐 opencode `AssistantParts` 语义）。OC Remote 已有 `computeTurnGroups` + `flatMap` 支撑，无需重构渲染结构。
+- **单条 assistant message 内聚合（per-message，实现决策）**：实际实现保留 `AssistantTurnBubble` 的 per-message `errorText` 关联，在每组 `renderableParts` 内独立聚合，而非跨 message flatten。代价：turn 内跨多条 assistant message 边界处的连续探查工具会显示为多张聚合卡（罕见场景——主对话流的 read/glob/grep/list 通常集中在单条 assistant message 内）。如需严格对齐 opencode `AssistantParts` 的跨 message flatten，后续可重构 `allContent` 迭代方式。
 - 只聚合 `Part.Tool`；text/reasoning 等不影响（它们不在探查工具流里连续出现）。
 - `todoread`/`todowrite` 已在 `PartContent.kt` 按 webui convention 处理（skip / TodoListCard），聚合不介入。
 
