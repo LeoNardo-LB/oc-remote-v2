@@ -819,19 +819,8 @@ class ChatViewModel @Inject constructor(
         stats: TokenStatsState,
         session: Session?
     ): ContextDetailState {
-        // Last assistant message with token-bearing StepFinish → per-call metrics + provider/model
-        val lastAssistantWithTokens = messages
-            .lastOrNull { it.message is Message.Assistant }
-            ?.let { chatMsg ->
-                val tokens = chatMsg.parts
-                    .filterIsInstance<Part.StepFinish>()
-                    .lastOrNull()
-                    ?.tokens
-                chatMsg to tokens
-            }
-        // realInput anchors the role-breakdown percentages; provider/model is taken
-        // from the same last assistant regardless of whether it has tokens yet.
-        val realInput = lastAssistantWithTokens?.second?.input ?: 0
+        // Use stats-derived values (single source of truth, avoids re-scanning messages)
+        val realInput = stats.totalInputTokens
         // Estimate role-breakdown only when we have a real input to anchor percentages against
         val breakdown: ContextBreakdown? = if (realInput > 0) {
             // ChatMessage uses .message, estimateContextBreakdown expects MessageWithParts (.info)
@@ -839,8 +828,9 @@ class ChatViewModel @Inject constructor(
             estimateContextBreakdown(mwp, realInput)
         } else null
         val messageCount: MessageCount = countMessages(messages.map { it.message })
+        // provider/model from last assistant message (not available in stats)
         val providerModel: ProviderModel? =
-            (lastAssistantWithTokens?.first?.message as? Message.Assistant)
+            (messages.lastOrNull { it.message is Message.Assistant }?.message as? Message.Assistant)
                 ?.let { ProviderModel(it.providerId, it.modelId) }
         val timestamps: SessionTimestamps? = session?.time
             ?.let { SessionTimestamps(it.created, it.updated) }
@@ -854,7 +844,7 @@ class ChatViewModel @Inject constructor(
             cacheWriteTokens = stats.totalCacheWriteTokens,
             totalCost = stats.totalCost,
             contextWindow = stats.contextWindow,
-            contextTokens = realInput,
+            contextTokens = stats.lastContextTokens,
             messageCount = messageCount,
             providerModel = providerModel,
             timestamps = timestamps,
