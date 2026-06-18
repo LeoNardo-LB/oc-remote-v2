@@ -187,18 +187,18 @@ class OpenCodeApiTest {
         assertNull(decoded.schema)
     }
 
-    // ============ SearchMatch ============
+    // ============ SearchMatchDto ============
 
     @Test
-    fun `SearchMatch round-trip`() {
-        val match = SearchMatch(
+    fun `SearchMatchDto round-trip`() {
+        val match = SearchMatchDto(
             path = "src/Main.kt",
             lines = "fun main()",
             lineNumber = 42,
             absoluteOffset = 1024
         )
-        val encoded = json.encodeToString(SearchMatch.serializer(), match)
-        val decoded = json.decodeFromString(SearchMatch.serializer(), encoded)
+        val encoded = json.encodeToString(SearchMatchDto.serializer(), match)
+        val decoded = json.decodeFromString(SearchMatchDto.serializer(), encoded)
         assertEquals("src/Main.kt", decoded.path)
         assertEquals("fun main()", decoded.lines)
         assertEquals(42, decoded.lineNumber)
