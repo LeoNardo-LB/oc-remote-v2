@@ -567,185 +567,579 @@ http://{host}:{port}
 
 ## 5. Project 端点
 
-> 路由：`groups/project.ts`
+> 路由：`groups/project.ts` · Handler：`handlers/project.ts`
+> 核心：`@/project/project` 的 `Project.Service` + `ProjectV2.Service`
+> 中间件栈：Instance → Workspace → Authorization
+
+### Project 核心数据模型
+
+**`Project.Info`** —— 项目主对象（定义在 `@/project/project.ts`）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `ProjectV2.ID` | 项目 ID（`prj_` 前缀） |
+| `name` | `string` | 项目显示名 |
+| `icon?` | `string` | 图标（emoji 或 URL） |
+| `directory` | `string` | 主目录绝对路径 |
+| `worktree` | `string` | worktree 目录 |
+| `vcs?` | `VcsInfo` | VCS 信息（`{ branch?, default_branch? }`） |
+| `commands?` | `Record<string, string>` | 自定义命令 |
 
 ### GET `/project`
 
-列出所有曾经用 OpenCode 打开过的项目。
+**用途**：获取所有曾经用 OpenCode 打开过的项目。
 
-**响应** `200`: `List<`[`Project`](#project)`>`
+**请求参数**：
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `workspace`/`directory` | Query | 公共参数 | 否 | 工作区路由 |
+
+**返回数据结构**：`Project.Info[]`
+
+**字段说明**：见 [Project 核心数据模型](#project-核心数据模型)。
+
+**边界情况**：
+- 无项目时返回空数组 `[]`，非 `null`
+- 不含业务错误返回（除非实例/认证失败）
+
+**数据来源/原理**：
+- 源码：`handlers/project.ts`、`groups/project.ts`
+- `svc.list()` 从项目元数据数据库查询所有记录
+
+**建议用法**：
+- 用于项目选择器、历史列表
+- 客户端可自行按访问时间排序（数据库记录顺序不保证）
 
 ### GET `/project/current`
 
-获取当前实例对应的项目（从实例上下文直接获取，无需查询）。
+**用途**：获取当前实例对应的项目信息。
 
-**响应** `200`: [`Project`](#project)
+**请求参数**：`WorkspaceRoutingQuery`（公共参数）。
+
+**返回数据结构**：`Project.Info`
+
+**字段说明**：见 [Project 核心数据模型](#project-核心数据模型)。
+
+**边界情况**：
+- 实例上下文中始终存在 project，不会返回 null/404（除非实例已销毁）
+
+**数据来源/原理**：
+- 源码：`handlers/project.ts`
+- `(yield* InstanceState.context).project` —— 直接从实例上下文获取，**无数据库查询**，效率最高
+
+**建议用法**：
+- 优先用此端点获取当前项目（比 `/project` 过滤效率高）
+- 客户端启动时立即调用，获取 `vcs`/`worktree` 等元信息
 
 ### POST `/project/git/init`
 
-为当前项目初始化 git 仓库。
+**用途**：为当前项目初始化 git 仓库。
 
-**响应** `200`: [`Project`](#project)（含 vcs 字段）
+**请求参数**：`WorkspaceRoutingQuery`（无 body）。
 
-**⚠️ 关键行为**: 比较新旧 `id`/`vcs`/`worktree`，任一变化则 `markInstanceForReload()`（**reload 非 disposal**：保留实例进程和进行中会话，但 LSP/文件监听可能需重新初始化）。
+**返回数据结构**：`Project.Info`（初始化后的项目信息，含 `vcs` 字段）。
+
+**字段说明**：见 [Project 核心数据模型](#project-核心数据模型)。
+
+**边界情况**：
+- ⚠️ **触发实例 reload（非 disposal）**：保留实例进程和进行中会话，但 LSP/文件监听可能需重新初始化
+- 已是 git 仓库时：返回当前 Project，不重复 init
+
+**数据来源/原理**：
+- 源码：`handlers/project.ts:23-34`
+- `svc.initGit({ directory, project })` 执行 `git init`
+- **reload 决策逻辑**：比较新旧 `id` / `vcs` / `worktree` 三个字段，任一变化即 `markInstanceForReload(ctx, { directory, worktree, project })`；三者均不变则直接返回
+- **reload vs disposal**：`markInstanceForReload` 更新实例上下文但保留进程；`markInstanceForDisposal` 销毁实例。initGit 后通常需要 reload 因为 worktree/vcs 信息变了
+
+**建议用法**：
+- 调用后客户端应监听实例 reload 事件，重新初始化依赖 vcs 的视图
+- 已知是 git 项目时不要调用（避免无谓 reload）
 
 ### PATCH `/project/{projectID}`
 
-更新项目元数据。
+**用途**：更新项目元数据（名称、图标、命令）。
 
-**请求体**（所有字段可选，**全量替换**语义）:
-```json
-{
-  "name": "string?",
-  "icon": "string?",
-  "commands": { "key": "value" }?
-}
-```
+**请求参数**：
 
-**响应** `200`: [`Project`](#project)
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `projectID` | Path | `ProjectV2.ID` | 是 | 项目 ID（`prj_` 前缀） |
+| `workspace`/`directory` | Query | 公共参数 | 否 | 工作区路由 |
+| `name` | Body | `string` | 否 | 新名称 |
+| `icon` | Body | `string` | 否 | 新图标（emoji 或 URL） |
+| `commands` | Body | `Record<string, string>` | 否 | 新命令（**全量替换**，非合并） |
 
-**错误**: `ProjectNotFoundError`（404）
+**返回数据结构**：`Project.Info`（更新后的项目）。
+
+**字段说明**：见 [Project 核心数据模型](#project-核心数据模型)。Body 定义在 `groups/project.ts:12-16`（`UpdatePayload`）。
+
+**边界情况**：
+- ⚠️ `commands` 是**全量替换**语义，未提供的字段会丢失（必须传入完整的命令映射）
+- 不传任何可选字段：等于无操作，但仍返回更新后的 Project
+- `Project.NotFoundError` → HTTP 404（含 `projectID` + `message`）
+- 参数格式错误 → `HttpApiError.BadRequest`（400）
+
+**数据来源/原理**：
+- 源码：`groups/project.ts:12-16`（`UpdatePayload`）、`handlers/project.ts`
+- `svc.update()` 写入元数据数据库
+- 错误处理：`Project.NotFoundError` 映射为 `ProjectNotFoundError`（404）
+
+**建议用法**：
+- 更新前先 GET 当前 `commands`，合并后再 PATCH（避免全量替换丢失）
+- 仅修改单个命令时也需传完整 `commands` 映射
 
 ### GET `/project/{projectID}/directories`
 
-列出指定项目在本地已知的所有目录（含 worktree）。
+**用途**：列出指定项目在本地已知的所有目录（含 worktree）。
 
-**响应** `200`: `ProjectV2.Directories`
+**请求参数**：
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `projectID` | Path | `ProjectV2.ID` | 是 | 项目 ID |
+| `workspace`/`directory` | Query | 公共参数 | 否 | 工作区路由 |
+
+**返回数据结构**：`ProjectV2.Directories`
+
+**字段说明**：`ProjectV2.Directories` 通常为字符串数组（绝对路径列表），包含主目录和所有 worktree 目录。
+
+**边界情况**：
+- 项目无 worktree：仅返回主 `directory`
+- 项目不存在：`ProjectNotFoundError`（404）
+
+**数据来源/原理**：
+- 源码：`handlers/project.ts`
+- `project.directories({ projectID })` 查询项目元数据 + 扫描本地 worktree
+
+**建议用法**：
+- 用于 worktree 选择器、目录切换 UI
+- 与 `GET /experimental/worktree` 配合获取更详细的 worktree 信息
 
 ---
 
 ## 6. ProjectCopy 端点（实验性）
 
-> 路由：`groups/project-copy.ts` · 路径前缀 `/experimental/project/:projectID/copy` · 核心：`ProjectCopy.Service`
+> 路由：`groups/project-copy.ts` · Handler：`handlers/project-copy.ts`
+> 核心：`@opencode-ai/core/project/copy` 的 `ProjectCopy.Service`
+> 路径前缀：`/experimental/project/:projectID/copy`
+> 中间件栈：Instance → Workspace → Authorization
 
-**项目副本**是项目的物理拷贝（如 git worktree、文件复制），用于在不影响原项目的情况下实验/分支工作。
+### ProjectCopy 核心概念
+
+**项目副本**是项目的物理拷贝，用于在不影响原项目的情况下进行实验/分支工作。通过 **strategy**（策略）机制支持不同的复制方式（如 git worktree、文件复制等）。
+
+**核心数据模型 `ProjectCopy.Copy`**（见 [数据模型 §ProjectCopyInfo](#projectcopyinfo)）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `projectID` | `ProjectV2.ID` | 父项目 ID |
+| `strategy` | `ProjectCopy.StrategyID` | 使用的策略（如 `git-worktree`） |
+| `directory` | `string` | 副本绝对目录路径 |
+| `name` | `string` | 副本显示名 |
+| `time.created` | `number` | 创建时间戳（ms） |
 
 ### POST `/experimental/project/{projectID}/copy`
 
-使用指定策略创建项目副本。
+**用途**：使用指定策略创建项目副本。
 
-**请求体**:
-```json
-{
-  "strategy": "git-worktree",         // 策略 ID
-  "directory": "/abs/path",           // 目标目录绝对路径
-  "name": "string?",                  // 副本名（缺省由 LLM 生成 3-4 词名称，失败 fallback 随机 slug）
-  "context": "string?"                // 任务描述（用于 AI 生成名称）
-}
-```
+**请求参数**：
 
-**响应** `200`: [`ProjectCopyInfo`](#projectcopyinfo)
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `projectID` | Path | `ProjectV2.ID` | 是 | 父项目 ID |
+| `workspace` | Query | string | 否 | 工作区路由 |
+| `strategy` | Body | `ProjectCopy.StrategyID` | 是 | 策略 ID（如 `git-worktree`） |
+| `directory` | Body | `string` | 是 | 目标目录绝对路径 |
+| `name` | Body | `string` | 否 | 副本名（缺省由 LLM 生成） |
+| `context` | Body | `string` | 否 | 任务描述（用于 AI 生成名称） |
 
-**错误**（`ApiProjectCopyError` HTTP 400）: `SourceDirectoryNotFoundError` / `DestinationExistsError` / `DirectoryUnavailableError` / `StrategyNotFoundError`。`forceRequired: true` 时可通过 remove 端点的 `force: true` 强制。
+**返回数据结构**：`ProjectCopy.Copy`（创建的副本信息）
+
+**字段说明**：见 [ProjectCopy 核心概念](#projectcopy-核心概念)。Payload 定义在 `groups/project-copy.ts:19-24`（`CreatePayload`）。
+
+**边界情况**：
+- ⚠️ **AI 名称生成可能静默失败**：`name` 缺省但提供 `context` 时，调用 `title` agent（small model）生成 3-4 词名称；LLM 失败或无可用模型 → 静默 fallback 到 `Slug.create()`（随机短 ID）。客户端**无法感知**是否使用了 AI 名称
+- 名称 slugify：转小写 + 非字母数字替换为 `-`
+- 目标目录已存在 → `DestinationExistsError`（400）
+- 源目录不存在 → `SourceDirectoryNotFoundError`（400）
+- 策略不支持 → `StrategyNotFoundError`（400）
+- 目录不可用（权限等）→ `DirectoryUnavailableError`（400）
+- `Git.WorktreeError` 且 `forceRequired: true` 时，可通过 remove 端点的 `force: true` 强制
+
+**数据来源/原理**：
+- 源码：`groups/project-copy.ts:19-24`（`CreatePayload`）、`handlers/project-copy.ts:48-95`（AI 名称生成）、`handlers/project-copy.ts:147-156`（错误子类型）
+- AI 名称生成：`title` agent + small model
+- 物理拷贝：由 `ProjectCopy.Service` 委托给对应 strategy 实现
+- 错误子类型 message 模板：
+
+| Error 类 | message 模板 |
+|----------|-------------|
+| `SourceDirectoryNotFoundError` | `Project copy source not found: ${directory}` |
+| `DestinationExistsError` | `Project copy destination already exists: ${directory}` |
+| `DirectoryUnavailableError` | `Project copy directory unavailable: ${directory}` |
+| `StrategyNotFoundError` | `Project copy strategy not found for: ${directory}` |
+
+**建议用法**：
+- 名称可读性重要时，**显式传入 `name`** 字段，避免依赖 LLM
+- 或检查返回的 `name` 是否像 slug（短随机字符串）判断是否为 fallback
+- 创建后用返回的 `directory` 作为新实例的 directory 启动会话
 
 ### DELETE `/experimental/project/{projectID}/copy`
 
-移除项目副本（**DELETE 带 body**）。
+**用途**：移除指定的项目副本。
 
-**请求体**:
-```json
-{ "directory": "/abs/path", "force": false }
-```
+**请求参数**：
 
-**响应** `204`
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `projectID` | Path | `ProjectV2.ID` | 是 | 父项目 ID |
+| `workspace` | Query | string | 否 | 工作区路由 |
+| `directory` | Body | `string` | 是 | 待移除副本的目录 |
+| `force` | Body | `boolean` | 否 | 强制移除（覆盖未提交变更） |
 
-> ⚠️ 某些 HTTP 代理可能剥离 DELETE body，导致服务端收到空 body → 400。fetch API 支持。
+**返回数据结构**：`HttpApiSchema.NoContent`（HTTP 204，无 body）
+
+**字段说明**：无返回 body。Body 定义在 `groups/project-copy.ts:25-28`（`RemovePayload`）。
+
+**边界情况**：
+- ⚠️ **DELETE 请求带 body**：HTTP DELETE 通常不带 body，但此端点要求 `RemovePayload`。某些 HTTP 代理/网关可能剥离 DELETE body → 服务端收到空 body → 400
+- fetch API 原生支持 DELETE body
+- 未提交变更且 `force: false` → 错误（含 `forceRequired: true` 提示）
+
+**数据来源/原理**：
+- 源码：`groups/project-copy.ts:25-28`（`RemovePayload`）、`handlers/project-copy.ts`
+- 由 `ProjectCopy.Service` 委托 strategy 执行清理（如 `git worktree remove`）
+
+**建议用法**：
+- 客户端需显式设置 body：
+  ```javascript
+  fetch(url, {
+    method: "DELETE",
+    body: JSON.stringify({ directory: "/path", force: false }),
+    headers: { "Content-Type": "application/json" }
+  })
+  ```
+- 若服务端返回 400 且提示 `forceRequired`，重试时传 `force: true`
 
 ### POST `/experimental/project/{projectID}/copy/refresh`
 
-扫描本地，发现并注册未被系统知晓的项目副本。
+**用途**：扫描本地，发现并注册未被系统知晓的项目副本。
 
-**请求体**: 空 body（必需）
+**请求参数**：
 
-**响应** `204`
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `projectID` | Path | `ProjectV2.ID` | 是 | 父项目 ID |
+| `workspace`/`directory` | Query | 公共参数 | 否 | 工作区路由 |
+| — | Body | `NoContent` | 是 | **空 body 必需**（Content-Type: application/json，body 为 `null` 或空） |
+
+**返回数据结构**：`HttpApiSchema.NoContent`（HTTP 204）
+
+**字段说明**：无返回 body。
+
+**边界情况**：
+- 必须发送 body（即使是空），否则可能触发 400
+- 不返回发现的具体副本列表（需调用 GET 列表查看结果）
+
+**数据来源/原理**：
+- 源码：`handlers/project-copy.ts`
+- `service.refresh({ projectID })` 遍历所有 strategy，每个 strategy 自扫描本地后向数据库注册遗漏的副本
+
+**建议用法**：
+- 用户外部创建了 worktree（如手动 `git worktree add`）后调用此端点同步到系统
+- 调用后再 GET `/project/{id}/directories` 或列表端点查看结果
 
 ---
 
 ## 7. Workspace 端点（实验性）
 
-> 路由：`groups/workspace.ts` · 路径前缀 `/experimental/workspace`
+> 路由：`groups/workspace.ts` · Handler：`handlers/workspace.ts`
+> 核心：`@/control-plane/workspace` 的 `Workspace.Service` + `listAdapters`
+> 路径前缀：`/experimental/workspace`
+> 中间件栈：Instance → Workspace → Authorization
 
-**工作区**是项目的并行工作单元（类似分支），通过 adapter 支持本地/远程 SSH/Docker 等。
+### Workspace 核心概念
+
+**工作区（Workspace）** 是项目下的并行工作单元，可理解为项目的"分支"。一个项目可有多个工作区，每个工作区有自己的目录、连接状态和会话历史。工作区通过 **adapter**（适配器）机制支持不同类型（本地目录、远程 SSH、Docker 等）。
+
+**核心数据模型**（见 [数据模型 §WorkspaceInfo](#workspaceinfo) / [§WorkspaceConnectionStatus](#workspaceconnectionstatus) / [§WorkspaceAdapterEntry](#workspaceadapterentry)）：
+
+**`Workspace.Info`**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `WorkspaceID` | 工作区 ID |
+| `projectID` | `ProjectV2.ID` | 所属项目 ID |
+| `name` | `string` | 显示名 |
+| `directory` | `string` | 工作区目录 |
+| `adapter` | `string?` | 适配器类型（`local`/`ssh`/`docker` 等） |
+| `extra` | `unknown?` | 适配器特定数据 |
+
+**`Workspace.ConnectionStatus`**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `workspaceID` | `WorkspaceID` | 工作区 ID |
+| `connected` | `boolean` | 是否已连接 |
+| `error` | `string?` | 连接错误（失败时） |
+
+**`WorkspaceAdapterEntry`**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `string` | 适配器 ID（`local`/`ssh`/`docker`） |
+| `name` | `string` | 显示名 |
+| `available` | `boolean` | 当前是否可用 |
 
 ### GET `/experimental/workspace/adapter`
 
-列出当前项目可用的所有工作区适配器类型。
+**用途**：列出当前项目可用的所有工作区适配器类型。
 
-**响应** `200`: `List<`[`WorkspaceAdapterEntry`](#workspaceadapterentry)`>`
+**请求参数**：`WorkspaceRoutingQuery`（公共参数）。
+
+**返回数据结构**：`WorkspaceAdapterEntry[]`
+
+**字段说明**：见 [Workspace 核心概念](#workspace-核心概念) 中的 `WorkspaceAdapterEntry`。
+
+**边界情况**：
+- 至少返回 `local` adapter（始终可用）
+- 远程 adapter（ssh/docker）的 `available` 取决于配置和运行环境
+
+**数据来源/原理**：
+- 源码：`handlers/workspace.ts`
+- `listAdapters(instance.project.id)` 同步函数，从 adapter 注册表查询
+
+**建议用法**：
+- 创建工作区前先调用此端点，UI 上展示可用 adapter
+- 灰显 `available: false` 的 adapter
 
 ### GET `/experimental/workspace`
 
-列出当前项目的所有工作区。
+**用途**：列出当前项目的所有工作区。
 
-**响应** `200`: `List<`[`WorkspaceInfo`](#workspaceinfo)`>`
+**请求参数**：`WorkspaceRoutingQuery`。
+
+**返回数据结构**：`Workspace.Info[]`
+
+**字段说明**：见 [Workspace 核心概念](#workspace-核心概念) 中的 `Workspace.Info`。
+
+**边界情况**：
+- 无工作区时返回空数组 `[]`
+- 仅返回当前项目的工作区（按 `projectID` 过滤）
+
+**数据来源/原理**：
+- 源码：`handlers/workspace.ts`
+- `workspace.list(instance.project)` 从数据库查询
+
+**建议用法**：
+- 工作区选择器、切换 UI
+- 与 `GET /experimental/workspace/status` 配合展示连接状态
 
 ### POST `/experimental/workspace`
 
-创建新工作区。
+**用途**：为当前项目创建新工作区。
 
-**请求体**: `Workspace.CreateInput`（去除 `projectID`，自动从实例上下文获取）
+**请求参数**：
 
-**响应** `200`: [`WorkspaceInfo`](#workspaceinfo)
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `workspace`/`directory` | Query | 公共参数 | 否 | 工作区路由 |
+| (body) | Body | `Workspace.CreateInput` | 是 | 创建参数（不含 `projectID`，自动从实例上下文获取） |
 
-**错误**: `ApiWorkspaceCreateError`（400，插件错误以 defect 形式穿透，handler 通过 `Effect.catchCause` 提取真实 error message）
+**返回数据结构**：`Workspace.Info`
+
+**字段说明**：见 [Workspace 核心概念](#workspace-核心概念) 中的 `Workspace.Info`。Payload 定义在 `groups/workspace.ts:13`（`CreatePayload`，即 `Workspace.CreateInput` 去除 `projectID`）。
+
+**边界情况**：
+- ⚠️ **插件错误以 defect 形式穿透**：绕过 `Effect.mapError`，handler 通过 `Effect.catchCause` + 遍历 cause 提取真实 error 消息
+- 失败 → `ApiWorkspaceCreateError`（400，含 `message`）
+- 参数错误 → `HttpApiError.BadRequest`（400）
+
+**数据来源/原理**：
+- 源码：`groups/workspace.ts:13`、`handlers/workspace.ts:33-48`
+- 由 adapter 执行实际创建（如 ssh adapter 在远程主机创建目录）
+
+**建议用法**：
+- 创建前确保 adapter 可用（参考 `GET /experimental/workspace/adapter`）
+- 捕获 400 错误时，`message` 可能来自 defect cause，需要解析
 
 ### POST `/experimental/workspace/sync-list`
 
-注册 adapter 中存在但本地数据库缺失的工作区。
+**用途**：注册 adapter 中存在但本地数据库中缺失的工作区。
 
-**响应** `204`
+**请求参数**：`WorkspaceRoutingQuery`（无 body）。
+
+**返回数据结构**：`HttpApiSchema.NoContent`（HTTP 204）
+
+**字段说明**：无返回 body。
+
+**边界情况**：
+- 不返回具体同步的工作区列表，需调用 GET 列表查看
+
+**数据来源/原理**：
+- 源码：`handlers/workspace.ts`
+- `workspace.syncList(instance.project)` 遍历所有 adapter，对比数据库注册遗漏的工作区
+
+**建议用法**：
+- 外部修改工作区后调用，确保本地数据库一致
+- 类似 ProjectCopy 的 refresh 机制
 
 ### GET `/experimental/workspace/status`
 
-获取当前项目所有工作区的连接状态（过滤为当前项目）。
+**用途**：获取当前项目所有工作区的连接状态。
 
-**响应** `200`: `List<`[`WorkspaceConnectionStatus`](#workspaceconnectionstatus)`>`
+**请求参数**：`WorkspaceRoutingQuery`。
+
+**返回数据结构**：`Workspace.ConnectionStatus[]`
+
+**字段说明**：见 [Workspace 核心概念](#workspace-核心概念) 中的 `Workspace.ConnectionStatus`。
+
+**边界情况**：
+- 仅返回当前项目的状态（过滤掉其他项目）
+- 远程工作区连接失败时 `connected: false` 且 `error` 有值
+
+**数据来源/原理**：
+- 源码：`handlers/workspace.ts:55-58`
+- **过滤逻辑**：
+  1. `workspace.list(project)` 获取当前项目的 workspace ID 集合
+  2. `workspace.status()` 返回所有 workspace 状态
+  3. 过滤：`ids.has(item.workspaceID)` —— 只返回当前项目的状态
+
+**建议用法**：
+- 工作区列表 UI 中实时展示连接状态
+- 远程工作区断连时提示用户重连
 
 ### DELETE `/experimental/workspace/{id}`
 
-移除工作区。
+**用途**：移除一个工作区。
 
-**响应** `200`: [`WorkspaceInfo`](#workspaceinfo)` | undefined`
+**请求参数**：
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `id` | Path | `Workspace.Info["id"]` | 是 | 工作区 ID |
+| `workspace`/`directory` | Query | 公共参数 | 否 | 工作区路由 |
+
+**返回数据结构**：`Workspace.Info | undefined`（被移除的工作区信息，若不存在则 undefined）
+
+**字段说明**：见 [Workspace 核心概念](#workspace-核心概念) 中的 `Workspace.Info`。
+
+**边界情况**：
+- 工作区不存在：返回 undefined（**非 404**）
+- 参数错误 → `HttpApiError.BadRequest`（400）
+
+**数据来源/原理**：
+- 源码：`handlers/workspace.ts`
+- `workspace.remove(id)` 从数据库删除记录
+
+**建议用法**：
+- 删除前可选 GET 确认存在
+- 删除后客户端应刷新本地缓存
 
 ### POST `/experimental/workspace/warp`
 
-迁移会话到目标工作区，或从工作区脱离到本地项目。
+**用途**：将会话的同步历史迁移到目标工作区，或从工作区脱离到本地项目。
 
-**请求体**:
-```json
-{
-  "id": "workspaceID | null",     // null 表示显式脱离工作区（区分"未提供"和"显式脱离"）
-  "sessionID": "ses_...",
-  "copyChanges": true              // 是否复制本地未提交变更（通过 git patch）
-}
-```
+**请求参数**：
 
-**响应** `204`
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `workspace`/`directory` | Query | 公共参数 | 否 | 工作区路由 |
+| `id` | Body | `WorkspaceID \| null` | 是 | 目标工作区 ID（`null` 表示脱离到本地项目） |
+| `sessionID` | Body | `SessionID` | 是 | 待迁移的会话 ID |
+| `copyChanges` | Body | `boolean` | 是 | 是否复制本地未提交变更（通过 git patch） |
 
-**错误**: `ApiWorkspaceWarpError`（400）/ `ApiVcsApplyError`（400，`reason: "non-git" | "not-clean"`）/ `ApiNotFoundError`（404，工作区不存在）
+**返回数据结构**：`HttpApiSchema.NoContent`（HTTP 204）
+
+**字段说明**：无返回 body。Payload 定义在 `groups/workspace.ts:14-18`（`WarpPayload`，`id` 使用 `Schema.NullOr(Workspace.Info.fields.id)` 允许 null）。
+
+**边界情况**：
+- ⚠️ **`id: null` 不是错误**，而是显式"脱离工作区"语义：将 session 从任何工作区迁出，回归到本地项目。这种"nullable 而非 optional"的设计是为了区分"未提供"和"显式脱离"
+- 工作区不存在 → `ApiNotFoundError`（404）
+- VCS patch 应用失败 → `ApiVcsApplyError`（400，`reason: "non-git"` 或 `"not-clean"`）
+- 其他错误 → `ApiWorkspaceWarpError`（400）
+
+**数据来源/原理**：
+- 源码：`groups/workspace.ts:14-18`、`handlers/workspace.ts:71-90`
+- **错误映射**：
+
+| 内部错误 | API 错误 | HTTP |
+|---------|---------|------|
+| `Workspace.WorkspaceNotFoundError` | `ApiNotFoundError` | 404 |
+| `Vcs.PatchApplyError` | `ApiVcsApplyError` | 400（含 `reason`） |
+| 其他 | `ApiWorkspaceWarpError` | 400 |
+
+**建议用法**：
+- "切换工作区"功能：传入新的 `id` 和 `sessionID`
+- "脱离工作区"功能：传入 `id: null`
+- `copyChanges: true` 时确保工作目录已 git 化且干净（否则 `non-git`/`not-clean` 错误）
 
 ---
 
 ## 8. Reference 端点
 
-> 路由：`groups/reference.ts` · 核心：`Reference.Service`
+> 路由：`groups/reference.ts` · Handler：`handlers/reference.ts`
+> 核心：`@/reference/reference` 的 `Reference.Service`
+> 中间件栈：Instance → Workspace → Authorization
 
-**引用**是配置中定义的命名快捷方式（本地路径或 git 仓库），通过 `@alias` 让 AI 快速访问常用代码/文档。
+### Reference 核心概念
+
+**引用（Reference）** 是用户在配置中定义的命名快捷方式，可以是本地路径或 git 仓库。在 OpenCode 中通过 `@alias` 或 `@alias/path` 引用，让 AI 快速访问常用代码/文档。
+
+**返回类型 `ReferenceDescriptor`** 是按 `kind` 判别的联合类型（定义在 `groups/reference.ts:8-27`）：
+
+**Local 引用**（`kind: "local"`）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `name` | `string` | 引用别名 |
+| `kind` | `"local"` | 类型判别 |
+| `path` | `string` | 本地绝对路径 |
+
+**Git 引用**（`kind: "git"`）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `name` | `string` | 引用别名 |
+| `kind` | `"git"` | 类型判别 |
+| `repository` | `string` | git 仓库 URL |
+| `path` | `string` | 仓库内路径 |
+| `branch` | `string?` | 分支（仅当非默认分支时出现） |
+
+**Invalid 引用**（`kind: "invalid"`，解析失败）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `name` | `string` | 引用别名 |
+| `kind` | `"invalid"` | 类型判别 |
+| `repository` | `string?` | 仓库 URL（若可解析） |
+| `message` | `string` | 错误信息（如"仓库不存在"、"路径无效"） |
 
 ### GET `/reference`
 
-列出当前工作区已解析的配置引用。
+**用途**：列出当前工作区已解析的配置引用。
 
-**响应** `200`: `List<ReferenceDescriptor>`（按 `kind` 判别联合）
+**请求参数**：`WorkspaceRoutingQuery`（公共参数）。
 
-```jsonc
-// 本地引用
-{ "name": "alias", "kind": "local", "path": "/abs/path" }
-// Git 引用（branch 仅当非默认分支时出现）
-{ "name": "alias", "kind": "git", "repository": "url", "path": "sub/path", "branch": "dev" }
-// 无效引用（解析失败）
-{ "name": "alias", "kind": "invalid", "repository": "url?", "message": "错误信息" }
-```
+**返回数据结构**：`ReferenceDescriptor[]`（按 `kind` 判别联合）
+
+**字段说明**：见 [Reference 核心概念](#reference-核心概念)。
+
+**边界情况**：
+- ⚠️ **`branch` 字段是条件性序列化的**：handler 显式地**仅当 `branch !== undefined` 时**才输出该字段（`handlers/reference.ts:13-22`，使用 `...(item.branch !== undefined ? { branch: item.branch } : {})`）。客户端**不能用 `branch === undefined` 区分"主分支"和"未指定"**——两者都不出现 `branch` 字段
+- 无配置引用时返回空数组 `[]`
+- 解析失败的引用以 `kind: "invalid"` 返回（非整体错误，单条引用失败不影响其他）
+
+**数据来源/原理**：
+- 源码：`groups/reference.ts:8-27`（`ReferenceDescriptor` schema）、`handlers/reference.ts:13-22`
+- `reference.list()` 解析配置中的 `reference` 字段，对每条引用执行解析（本地路径校验 / git 仓库 probe）
+- handler 对非 git 引用原样返回，对 git 引用做 `branch` 条件序列化以避免输出 `branch: null`
+
+**建议用法**：
+- 客户端 `@` 补全：输入 `@` 时调用此端点列出可用引用
+- 对 `kind: "invalid"` 的引用，UI 标红并展示 `message` 提示用户修复配置
+- 不要依赖 `branch` 字段判断是否为默认分支
 
 ---
 
@@ -1907,79 +2301,223 @@ TUI 处理完请求后提交响应。
 
 ## 20. File / Find 端点
 
-> 路由：`groups/file.ts` · 核心：ripgrep + fff（frecency）+ LSP
+> 路由：`groups/file.ts` · Handler：`handlers/file.ts`
+> 核心：`@opencode-ai/core/filesystem` + `ripgrep` + `Search` + `LSP`
+> 中间件栈：Instance → Workspace → Authorization
+> 路径常量：`FilePaths`（`groups/file.ts:82-89`）
 
 ### GET `/find`
 
-文本搜索（ripgrep）。
+**用途**：使用 ripgrep 在项目文件中搜索文本模式。
 
-| Query 参数 | 类型 | 说明 |
-|-----------|------|------|
-| `pattern` | string | ripgrep 兼容的正则/字面量模式 |
+**请求参数**：
 
-**响应** `200`: `List<`[`SearchMatch`](#searchmatch)`>`
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `pattern` | Query | `string` | 是 | ripgrep 兼容的正则/字面量模式 |
+| `directory`/`workspace` | Query | 公共参数 | 否 | 工作区路由 |
 
-> **硬编码 limit: 10**（客户端无法调整）。搜索失败用 `Effect.orDie` 转化为 defect（500）。
+**返回数据结构**：`Ripgrep.SearchMatch[]`（最多 10 条）
+
+**字段说明**（`Ripgrep.SearchMatch`，来自 `@opencode-ai/core/filesystem/ripgrep`，见 [数据模型 §SearchMatch](#searchmatch)）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `path` | `{ text: string }` | 文件路径（对象形式以兼容二进制路径） |
+| `lines` | `{ text: string }` | 匹配行内容 |
+| `line_number` | `number` | 行号 |
+| `absolute_offset` | `number` | 文件内绝对字节偏移 |
+| `submatches` | `Array<{ match: { text: string }, start: number, end: number }>` | 子匹配列表 |
+
+**边界情况**：
+- ⚠️ **硬编码 limit: 10**（`handlers/file.ts:27`），客户端无法调整结果数量
+- 搜索失败用 `Effect.orDie` 转化为 defect → **HTTP 500**（非可恢复错误，无错误 body）
+- ripgrep 二进制不可用时：500
+
+**数据来源/原理**：
+- 源码：`groups/file.ts:21-24`（`FindTextQuery`）、`handlers/file.ts:27`
+- 调用 `ripgrep.search({ cwd, pattern, limit: 10 })`，spawn 本地 `rg` 二进制
+
+**建议用法**：
+- 全文搜索 / 关键字定位
+- 需要更多结果时，建议通过 PTY 直接运行 `rg` 命令（可控制 limit 和输出格式）
+- `pattern` 是 ripgrep 兼容的正则，特殊字符需转义
 
 ### GET `/find/file`
 
-模糊文件搜索（fff 引擎，不可用降级到 ripgrep `FileSystem.find`）。
+**用途**：通过文件名/路径模糊匹配查找文件。
 
-| Query 参数 | 类型 | 默认 | 说明 |
-|-----------|------|------|------|
-| `query` | string | — | 搜索关键词（必填） |
-| `dirs` | `"true" \| "false"` | — | 是否包含目录（`"false"` 等价 `type=file`） |
-| `type` | `"file" \| "directory"` | — | 限定类型（覆盖 `dirs`） |
-| `limit` | int 1-200 | 10 | 结果数量上限 |
+**请求参数**：
 
-**响应** `200`: `string[]`（文件路径列表）
+| 参数 | 位置 | 类型 | 必填 | 默认 | 说明 |
+|------|------|------|------|------|------|
+| `query` | Query | `string` | 是 | — | 搜索关键词 |
+| `dirs` | Query | `"true" \| "false"` | 否 | — | 是否包含目录（`"false"` 等价 `type=file`） |
+| `type` | Query | `"file" \| "directory"` | 否 | — | 限定类型（覆盖 `dirs`） |
+| `limit` | Query | `integer 1-200` | 否 | `10` | 结果数量上限 |
+| `directory`/`workspace` | Query | 公共参数 | 否 | — | 工作区路由 |
 
-> ⚠️ **双引擎结果不一致**: fff 基于 frecency + 模糊评分，ripgrep 基于字面匹配，两次相同查询顺序可能不同。
+**返回数据结构**：`string[]`（文件路径列表）
+
+**字段说明**：字符串数组，每项为文件路径（具体格式取决于 adapter 实现）。
+
+**边界情况**：
+- ⚠️ **双引擎结果不一致**：fff 基于 frecency + 模糊评分，ripgrep `FileSystem.find` 基于字面匹配。两次相同查询顺序可能不同
+- **`kind` 解析逻辑**（`handlers/file.ts:36`）：`type` 优先；否则 `dirs === "false"` → `"file"`；否则 `"all"`
+- **降级策略**（`handlers/file.ts:40-71`）：
+  1. `search.file({ cwd, query, limit, kind })` —— fff 引擎
+  2. fff 返回 `undefined`（不可用）→ 调用 `FileSystem.find` 作为 fallback
+  3. 两者都记录日志（`engine` / `results` / `duration`）
+
+**数据来源/原理**：
+- 源码：`groups/file.ts:26-34`（`FindFileQuery`）、`handlers/file.ts:36-71`
+- fff 优先（frecency 排序），降级到 ripgrep 字面搜索
+
+**建议用法**：
+- 快速跳转（类似 VSCode Cmd+P）使用 fff 的 frecency 优势
+- 不要假设结果顺序稳定（依赖 fff 是否可用）
+- 通过服务端日志的 `engine` 字段诊断实际使用了哪个引擎
 
 ### GET `/find/symbol`
 
-符号搜索（LSP workspace symbols）。
+**用途**：通过 LSP workspace symbols 查找函数/类/变量。
 
-| Query 参数 | 类型 | 说明 |
-|-----------|------|------|
-| `query` | string | 搜索查询 |
+**请求参数**：
 
-**响应** `200`: `List<`[`SymbolInfo`](#symbolinfo)`>`
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `query` | Query | `string` | 是 | 搜索查询 |
+| `directory`/`workspace` | Query | 公共参数 | 否 | 工作区路由 |
 
-> **⚠️ 桩实现**: 当前实现恒返回空数组 `[]`。替代方案：直接调用 LSP 或通过 PTY 运行 ctags/grep。
+**返回数据结构**：`LSP.Symbol[]`
+
+**字段说明**（`LSP.Symbol`，来自 `@/lsp/lsp`，见 [数据模型 §SymbolInfo](#symbolinfo)）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `name` | `string` | 符号名 |
+| `kind` | `number` | LSP `SymbolKind` 枚举值 |
+| `location` | `{ uri: string, range: { start, end } }` | 符号位置 |
+| `containerName` | `string?` | 包含此符号的父符号名 |
+
+**边界情况**：
+- 🔴 **桩实现**：当前实现恒返回空数组 `[]`（`handlers/file.ts:74-76`）：
+  ```typescript
+  const findSymbol = Effect.fn(function* () {
+    return []   // 未实现
+  })
+  ```
+
+**数据来源/原理**：
+- 源码：`handlers/file.ts:74-76`
+- 设计意图是 LSP workspace/symbol 请求，但尚未接入
+
+**建议用法**：
+- ⚠️ **不要依赖此端点**，目前永远返回 `[]`
+- 替代方案：直接调用 LSP，或通过 PTY 运行 `ctags` / `grep`
 
 ### GET `/file`
 
-列出目录内容。
+**用途**：列出指定路径下的文件和目录。
 
-| Query 参数 | 类型 | 说明 |
-|-----------|------|------|
-| `path` | string | 相对路径（相对于实例 directory） |
+**请求参数**：
 
-**响应** `200`: `List<`[`FileNode`](#filenode)`>`
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `path` | Query | `string` | 是 | 相对路径（相对于实例 directory） |
+| `directory`/`workspace` | Query | 公共参数 | 否 | 工作区路由 |
+
+**返回数据结构**：`LegacyEntry[]`（identifier: `"FileNode"`，见 [数据模型 §FileNode](#filenode)）
+
+**字段说明**（`LegacyEntry`，源码 `groups/file.ts:41-47`）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `name` | `string` | 文件/目录名（basename） |
+| `path` | `string` | 相对路径 |
+| `absolute` | `string` | 绝对路径（`directory + path`） |
+| `type` | `"file" \| "directory"` | 类型 |
+| `ignored` | `boolean` | 是否被 gitignore 忽略 |
+
+**边界情况**：
+- 路径不存在：行为未明确（可能返回空数组或 500）
+- 无权限：500（defect）
+
+**数据来源/原理**：
+- 源码：`groups/file.ts:16-19`（`FileQuery`）、`groups/file.ts:41-47`（`LegacyEntry`）、`handlers/file.ts`
+- `fs.list({ path: RelativePath })` 列出目录，对每个条目调用 `fs.isIgnored(path, type)` 判断忽略状态
+
+**建议用法**：
+- 文件浏览器 UI
+- 利用 `ignored` 字段灰显 gitignore 项
 
 ### GET `/file/content`
 
-读取文件内容（文本或 base64 二进制）。
+**用途**：读取文件内容（文本或 base64 二进制）。
 
-| Query 参数 | 类型 | 说明 |
-|-----------|------|------|
-| `path` | string | 文件路径 |
+**请求参数**：
 
-**响应** `200`: [`FileContent`](#filecontent)
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `path` | Query | `string` | 是 | 文件路径 |
+| `directory`/`workspace` | Query | 公共参数 | 否 | 工作区路由 |
 
-**安全行为**:
-- 路径逃逸检查: `FSUtil.contains(directory, file)`，逃逸 → `Effect.die`（**500 而非 400**）
-- 文件不存在 → 返回 `{ type: "text", content: "" }`（空字符串，**非 404**）
-- 文本内容 `trim()` 去除首尾空白
+**返回数据结构**：`LegacyContent`（identifier: `"FileContent"`，见 [数据模型 §FileContent](#filecontent)）
+
+**字段说明**（`LegacyContent`，源码 `groups/file.ts:49-73`）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `type` | `"text" \| "binary"` | 内容类型 |
+| `content` | `string` | 文本内容 或 base64 编码的二进制 |
+| `diff` | `string?` | git diff（可选） |
+| `patch` | `Patch?` | 结构化 patch（含 hunks） |
+| `encoding` | `"base64"?` | 仅 binary 时出现 |
+| `mimeType` | `string?` | 仅 binary 时出现 |
+
+**边界情况**：
+- 🔴 **路径逃逸检查返回 500 而非 400**：尝试读取 `../../etc/passwd` 等逃逸路径 → `Effect.die(new Error("Path escapes the location"))` → HTTP 500（非 400）
+- **文件不存在 → 返回 `{ type: "text", content: "" }`**（空字符串，**非 404**）
+- 文本内容 `trim()` 去除首尾空白（**会修改原始内容**，影响字节精确匹配）
+
+**数据来源/原理**：
+- 源码：`groups/file.ts:49-73`（`LegacyContent`）、`handlers/file.ts:97-110`
+- **安全流程**：
+  1. `path.resolve(directory, ctx.query.path)` 解析为绝对路径
+  2. **路径逃逸检查**：`FSUtil.contains(directory, file)` —— 若解析后的路径在 directory 之外 → `Effect.die`（500）
+  3. **存在性检查**：`fs.existsSafe(file)` —— 不存在 → 返回空 text 内容
+  4. 文本内容 `item.content.trim()`
+
+**建议用法**：
+- 客户端应**自行验证路径**，避免触发服务端逃逸检查（500 难以与其他服务端错误区分）
+- 区分"文件不存在"和"空文件"：两者都返回 `content: ""`，需先 `GET /file` 验证存在
+- 需要字节精确内容时，二进制走 base64（不被 trim 影响）
 
 ### GET `/file/status`
 
-获取文件变更状态。
+**用途**：获取项目中所有文件的 git 变更状态。
 
-**响应** `200`: `List<`[`FileStatusInfo`](#filestatusinfo)`>`
+**请求参数**：`WorkspaceRoutingQuery`（无 `path` 参数）
 
-> **⚠️ 桩实现**: 当前实现恒返回空数组 `[]`。替代方案：使用 `GET /vcs/status`。
+**返回数据结构**：`LegacyStatus[]`（identifier: `"File"`，见 [数据模型 §FileStatusInfo](#filestatusinfo)）
+
+**字段说明**：`LegacyStatus` 通常包含文件路径和变更类型（added/modified/deleted 等），但**当前实现永远为空**。
+
+**边界情况**：
+- 🔴 **桩实现**：当前实现恒返回空数组 `[]`（`handlers/file.ts:113-115`）：
+  ```typescript
+  const status = Effect.fn(function* () {
+    return []   // 未实现
+  })
+  ```
+
+**数据来源/原理**：
+- 源码：`handlers/file.ts:113-115`
+- 设计意图是 git status，但未接入
+
+**建议用法**：
+- ⚠️ **不要依赖此端点**，目前永远返回 `[]`
+- 替代方案：使用 `GET /vcs/status`（完整实现）
 
 ---
 
