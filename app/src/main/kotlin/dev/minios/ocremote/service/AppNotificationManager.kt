@@ -232,7 +232,8 @@ class AppNotificationManager @Inject constructor(
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_session)
         val title = "${context.getString(R.string.notification_tag_permission)} · $displayName"
-        val contentText = permission.ifBlank { context.getString(R.string.notification_permission_required) }
+        val contentText = findLatestUserMessages(sessionId, 1).firstOrNull()?.text
+            ?: permission.ifBlank { context.getString(R.string.notification_new_message) }
 
         val notifId = eventNotificationId(server.id, sessionId, 1000)
         val pendingIntent = createSessionPendingIntent(context, server, sessionId, notifId)
@@ -265,7 +266,8 @@ class AppNotificationManager @Inject constructor(
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_session)
         val title = "${context.getString(R.string.notification_tag_question)} · $displayName"
-        val contentText = questionText.ifBlank { context.getString(R.string.notification_question) }
+        val contentText = findLatestUserMessages(sessionId, 1).firstOrNull()?.text
+            ?: questionText.ifBlank { context.getString(R.string.notification_new_message) }
 
         val notifId = eventNotificationId(server.id, sessionId, 2000)
         val pendingIntent = createSessionPendingIntent(context, server, sessionId, notifId)
@@ -298,7 +300,8 @@ class AppNotificationManager @Inject constructor(
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_session)
         val title = "${context.getString(R.string.notification_tag_error)} · $displayName"
-        val contentText = error.ifBlank { context.getString(R.string.error_unknown) }
+        val contentText = (sessionId?.let { findLatestUserMessages(it, 1).firstOrNull()?.text })
+            ?: error.ifBlank { context.getString(R.string.notification_new_message) }
 
         val notifId = eventNotificationId(server.id, sessionId ?: "error", 3000)
         val pendingIntent = createSessionPendingIntent(context, server, sessionId, notifId)

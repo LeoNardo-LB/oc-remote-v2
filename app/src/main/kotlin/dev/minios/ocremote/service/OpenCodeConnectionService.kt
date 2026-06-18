@@ -345,6 +345,7 @@ class OpenCodeConnectionService : Service() {
                     event.sessionId
                 }
                 Log.i(TAG, "[${server.displayName}] Permission asked: ${event.permission} (session=${event.sessionId}, target=$targetSessionId)")
+                if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return
                 appNotificationManager.showPermissionNotification(
                     this, systemNotificationManager, server, targetSessionId, event.permission
                 )
@@ -358,6 +359,7 @@ class OpenCodeConnectionService : Service() {
                     event.sessionId
                 }
                 Log.i(TAG, "[${server.displayName}] Question asked for session ${event.sessionId} (target=$targetSessionId)")
+                if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return
                 val questionText = event.questions.firstOrNull()?.question
                     ?: getString(R.string.notification_has_question, getString(R.string.notification_new_session))
                 appNotificationManager.showQuestionNotification(
@@ -373,6 +375,7 @@ class OpenCodeConnectionService : Service() {
                     event.sessionId
                 }
                 Log.i(TAG, "[${server.displayName}] Session error: ${event.error} (session=${event.sessionId}, target=$targetSessionId)")
+                if (targetSessionId != null && sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return
                 appNotificationManager.showErrorNotification(
                     this, systemNotificationManager, server, targetSessionId, event.error
                 )
