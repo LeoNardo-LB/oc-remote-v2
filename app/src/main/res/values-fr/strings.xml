@@ -231,6 +231,7 @@
     <string name="chat_session_rename_failed">Session renommée</string>
     <string name="chat_load_earlier">Échec du renommage</string>
     <string name="chat_loading_earlier">Charger les messages précédents</string>
+    <string name="chat_menu_open_workspace">Voir l\'espace de travail</string>
     <string name="menu_open_in_web">Chargement…</string>
     <string name="menu_new_session">Ouvrir dans le Web</string>
     <string name="menu_fork_session">Nouvelle session</string>

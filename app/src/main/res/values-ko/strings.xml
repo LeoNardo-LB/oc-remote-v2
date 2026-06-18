@@ -231,6 +231,7 @@
     <string name="chat_session_rename_failed">이름 변경 실패</string>
     <string name="chat_load_earlier">이전 메시지 불러오기</string>
     <string name="chat_loading_earlier">불러오는 중…</string>
+    <string name="chat_menu_open_workspace">워크스페이스 보기</string>
     <string name="menu_open_in_web">웹에서 열기</string>
     <string name="menu_new_session">새 세션</string>
     <string name="menu_fork_session">세션 포크</string>

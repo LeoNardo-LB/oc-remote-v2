@@ -231,6 +231,7 @@
     <string name="chat_session_rename_failed">Nie udało się zmienić nazwy</string>
     <string name="chat_load_earlier">Wczytaj wcześniejsze wiadomości</string>
     <string name="chat_loading_earlier">Wczytywanie…</string>
+    <string name="chat_menu_open_workspace">Wyświetl obszar roboczy</string>
     <string name="menu_open_in_web">Otwórz w przeglądarce</string>
     <string name="menu_new_session">Nowa sesja</string>
     <string name="menu_fork_session">Rozdziel sesję</string>

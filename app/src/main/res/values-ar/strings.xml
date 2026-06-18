@@ -231,6 +231,7 @@
     <string name="chat_session_rename_failed">فشل في إعادة التسمية</string>
     <string name="chat_load_earlier">تحميل الرسائل السابقة</string>
     <string name="chat_loading_earlier">جاري التحميل…</string>
+    <string name="chat_menu_open_workspace">عرض مساحة العمل</string>
     <string name="menu_open_in_web">فتح في الويب</string>
     <string name="menu_new_session">جلسة جديدة</string>
     <string name="menu_fork_session">تفرع الجلسة</string>

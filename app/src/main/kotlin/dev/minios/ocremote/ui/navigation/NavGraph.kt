@@ -457,6 +457,19 @@ fun NavGraph(
                         navController.navigate(route) { launchSingleTop = true }
                     }
                 },
+                onOpenWorkspace = {
+                    navController.navigate(
+                        WorkspaceNav.createRoute(
+                            serverUrl = params.server.serverUrl,
+                            username = params.server.username,
+                            password = params.server.password,
+                            serverName = params.server.serverName,
+                            serverId = params.server.serverId,
+                            sessionId = params.sessionId,
+                            directory = params.directory
+                        )
+                    ) { launchSingleTop = true }
+                },
                 initialSharedImages = imagesForThisSession,
                 onSharedImagesConsumed = {
                     pendingShareUris = emptyList()

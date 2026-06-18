@@ -262,6 +262,7 @@ fun ChatScreen(
     onNavigateToSession: (sessionId: String) -> Unit = {},
     onNavigateToChildSession: (String) -> Unit = {},
     onOpenInWebView: () -> Unit = {},
+    onOpenWorkspace: () -> Unit = {},
     initialSharedImages: List<Uri> = emptyList(),
     onSharedImagesConsumed: () -> Unit = {},
     startInTerminalMode: Boolean = false,
@@ -608,6 +609,7 @@ fun ChatScreen(
                                 .ifBlank { "session" }
                             attachmentHandler.launchExport("$slug.json")
                         },
+                        onOpenWorkspace = onOpenWorkspace,
 
                     )
                     // Indeterminate progress bar under the top bar when busy

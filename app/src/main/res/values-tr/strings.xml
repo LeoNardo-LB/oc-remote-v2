@@ -231,6 +231,7 @@
     <string name="chat_session_rename_failed">Yeniden adlandırılamadı</string>
     <string name="chat_load_earlier">Önceki mesajları yükle</string>
     <string name="chat_loading_earlier">Yükleniyor…</string>
+    <string name="chat_menu_open_workspace">Çalışma alanını görüntüle</string>
     <string name="menu_open_in_web">Web\'de aç</string>
     <string name="menu_new_session">Yeni oturum</string>
     <string name="menu_fork_session">Oturumu çatalla</string>

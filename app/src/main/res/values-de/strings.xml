@@ -231,6 +231,7 @@
     <string name="chat_session_rename_failed">Konnte nicht umbenennen</string>
     <string name="chat_load_earlier">Frühere Nachrichten laden</string>
     <string name="chat_loading_earlier">Laden…</string>
+    <string name="chat_menu_open_workspace">Arbeitsbereich anzeigen</string>
     <string name="menu_open_in_web">Im Web öffnen</string>
     <string name="menu_new_session">Neue Sitzung</string>
     <string name="menu_fork_session">Sitzung forken</string>

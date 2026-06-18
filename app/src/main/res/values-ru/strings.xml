@@ -279,6 +279,7 @@
     <string name="chat_load_earlier">Загрузить более ранние сообщения</string>
     <string name="chat_loading_earlier">Загрузка…</string>
     <string name="chat_summarized">Контекст сжат</string>
+    <string name="chat_menu_open_workspace">Открыть рабочую область</string>
     <string name="menu_open_in_web">Открыть в Web</string>
     <string name="menu_new_session">Новая сессия</string>
     <string name="menu_fork_session">Форкнуть сессию</string>

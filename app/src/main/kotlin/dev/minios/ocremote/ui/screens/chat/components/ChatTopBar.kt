@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.CopyAll
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
@@ -34,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -64,6 +66,7 @@ fun ChatTopBar(
     onUnshare: () -> Unit,
     onRename: () -> Unit,
     onExport: () -> Unit,
+    onOpenWorkspace: () -> Unit,
 
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -139,7 +142,10 @@ fun ChatTopBar(
             if (sessionParentId == null) {
                 Box {
                     val isAmoled = isAmoledTheme()
-                    IconButton(onClick = { showMenu = true }) {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.testTag("more_vert")
+                    ) {
                         Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.more_options))
                     }
                     DropdownMenu(
@@ -148,6 +154,17 @@ fun ChatTopBar(
                         containerColor = MaterialTheme.colorScheme.surface,
                         border = if (isAmoled) AmoledDefaultBorder else null
                     ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.chat_menu_open_workspace)) },
+                            onClick = {
+                                showMenu = false
+                                onOpenWorkspace()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Folder, contentDescription = null)
+                            },
+                            modifier = Modifier.testTag("menu_open_workspace")
+                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.tool_terminal)) },
                             onClick = {

@@ -231,6 +231,7 @@
     <string name="chat_session_rename_failed">Не вдалося перейменувати</string>
     <string name="chat_load_earlier">Завантажити попередні повідомлення</string>
     <string name="chat_loading_earlier">Завантаження…</string>
+    <string name="chat_menu_open_workspace">Переглянути робочий простір</string>
     <string name="menu_open_in_web">Відкрити у веб</string>
     <string name="menu_new_session">Нова сесія</string>
     <string name="menu_fork_session">Розділити сесію</string>
