@@ -44,6 +44,12 @@ class AppNotificationManager @Inject constructor(
     /** Dedup response-ready notifications per session by last assistant message ID. */
     private val lastNotifiedAssistantMessageBySession = ConcurrentHashMap<String, String>()
 
+    /** Dedup permission notifications per session by permission name. */
+    private val lastNotifiedPermissionBySession = ConcurrentHashMap<String, String>()
+
+    /** Dedup question notifications per session by question text. */
+    private val lastNotifiedQuestionBySession = ConcurrentHashMap<String, String>()
+
     // ============ Notification Channels ============
 
     fun createNotificationChannels(notificationManager: NotificationManager, context: Context) {
@@ -228,6 +234,10 @@ class AppNotificationManager @Inject constructor(
         sessionId: String,
         permission: String
     ) {
+        // Dedup: skip if same permission already notified for this session
+        if (lastNotifiedPermissionBySession[sessionId] == permission) return
+        lastNotifiedPermissionBySession[sessionId] = permission
+
         val (sessionTitle, _) = getSessionInfo(sessionId)
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_session)
@@ -262,6 +272,9 @@ class AppNotificationManager @Inject constructor(
         sessionId: String,
         questionText: String
     ) {
+        // Dedup: skip if same question already notified for this session
+        if (lastNotifiedQuestionBySession[sessionId] == questionText) return
+        lastNotifiedQuestionBySession[sessionId] = questionText
         val (sessionTitle, _) = getSessionInfo(sessionId)
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_session)
@@ -406,6 +419,9 @@ class AppNotificationManager @Inject constructor(
         for (offset in intArrayOf(0, 1000, 2000, 3000)) {
             notificationManager.cancel(eventNotificationId(serverId, sessionId, offset))
         }
+        // Reset dedup state so next round of permission/question can notify again
+        lastNotifiedPermissionBySession.remove(sessionId)
+        lastNotifiedQuestionBySession.remove(sessionId)
     }
 
     // ============ Private Helpers ============
