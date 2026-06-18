@@ -100,258 +100,468 @@ http://{host}:{port}
 
 ## 1. Global 端点
 
-> 路由：`groups/global.ts` · 注册在 `RootHttpApi`，**不经过** Instance/Workspace/Authorization 中间件
+> 路由：`groups/global.ts` · Handler：`handlers/global.ts` · 详细分析见 [调研报告 2](opencode-api-deep-research/2-config-provider.md#24-global-路由组6-个)。
+> **⚠️ 全部端点无认证**：注册在 `RootHttpApi`（非实例级 `InstanceHttpApi`），**不经过** Instance/Workspace/Authorization 中间件。路径常量：`GlobalPaths`（`groups/global.ts:67-73`）。共 6 个端点。
 
 ### GET `/global/health`
 
-健康检查（无认证，可用于 k8s/lb 探针）。
+**用途**：健康探针，用于负载均衡器/k8s 健康检查。
 
-**响应** `200`:
+**返回** `200` —— `GlobalHealth`（`groups/global.ts:11-14`）：
 
-```json
-{
-  "healthy": true,
-  "version": "string (OpenCode 版本)"
-}
-```
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `healthy` | `true`（字面量） | 恒为 `true`（unhealthy 时服务本身已不可达，无法响应） |
+| `version` | `string` | OpenCode 版本（`InstallationVersion` 常量） |
 
-> `healthy` 恒为 `true`（服务不可达时本身已无法响应）。
+**认证**：**无**（公开端点）。
+**建议用法**：k8s liveness/readiness probe、LB 健康检查。注意此端点只能验证"进程存活"，无法反映内部状态（DB/上游服务等），不适合做深度健康检查。
 
-### GET `/global/config`
-
-获取全局配置（`~/.config/opencode/opencode.json`，跨所有项目）。无认证。
-
-**响应** `200`: [`ConfigInfo`](#configinfo)
-
-### PATCH `/global/config`
-
-更新全局配置。**无认证**。
-
-**请求体**: [`ConfigInfo`](#configinfo)（完整配置对象，全量替换）
-
-**响应** `200`: [`ConfigInfo`](#configinfo)
-
-**⚠️ 关键副作用**: 若配置实际变化（`result.changed === true`），异步触发 `disposeAllInstancesAndEmitGlobalDisposed()` —— **销毁所有运行中的实例**（包括进行中的会话）。客户端需监听 `global.disposed` 事件并重新建立连接。
+---
 
 ### GET `/global/event`
 
-全局 SSE 事件流（长连接）。推送所有目录的所有事件。无认证。
+**用途**：订阅**跨实例/跨项目**的全局事件流（SSE 长连接），推送所有目录的所有事件。
 
-**Headers**: `Accept: text/event-stream`，可选 `x-opencode-directory`
+**Headers**: `Accept: text/event-stream`，可选 `x-opencode-directory`。
+**认证**：**无**（公开端点）。
+**行为**：使用 `handleRaw` 手动构造 SSE 流（`handlers/global.ts:33-66`）。
 
-**事件格式**（全局端点用 `payload` 包装）:
+**SSE 编码**响应头：
 
+| Header | 值 | 作用 |
+|--------|----|------|
+| `Content-Type` | `text/event-stream` | SSE 标识 |
+| `Cache-Control` | `no-cache, no-transform` | 禁用缓存 |
+| `X-Accel-Buffering` | `no` | 禁用 nginx 缓冲 |
+| `X-Content-Type-Options` | `nosniff` | 安全头 |
+
+**事件结构**（`GlobalEventSchema`，`groups/global.ts:36-50`，用 `payload` 包装）：
+
+```typescript
+{
+  directory: string,                  // 实例目录
+  project?: string,                   // 项目 ID
+  workspace?: string,                 // 工作区 ID
+  payload: {
+    id: EventV2.ID,
+    type: string,                     // 事件类型
+    properties: unknown               // 事件数据
+  }
+}
 ```
-data: {"directory": "/path", "project": "...", "workspace": "...", "payload": {"id": "...", "type": "session.created", "properties": {...}}}
-```
 
-**连接生命周期**:
-1. 首个事件：`{ type: "server.connected", properties: {} }`
-2. 心跳：每 10 秒 `server.heartbeat`
-3. 不会因实例销毁关闭（监听全局 bus）
+**连接生命周期**（`handlers/global.ts:33-66`）：
+1. **首个事件**：`{ type: "server.connected", properties: {} }`
+2. **后续事件**：所有发布到 `GlobalBus` 的事件（实例级事件会通过 `EventV2Bridge` 桥接到 GlobalBus）
+3. **心跳**：每 10 秒发送 `{ type: "server.heartbeat", properties: {} }`
+4. **不会因实例销毁关闭**：监听全局 bus，实例销毁后仍能接收新实例的事件
+
+**payload 特殊形式 — sync 事件**：当事件类型在 registry 中标记为 `sync: true` 时，会额外发布一个 `payload.type = "sync"` 的事件，包裹原始事件和 `seq`/`aggregateID` 信息（用于跨工作区事件溯源同步）。
+
+**建议用法**：需要监听多个项目目录事件的客户端（如多项目仪表盘）。完整事件类型清单见 [21. SSE 事件体系](#21-sse-事件体系) 与 [调研报告 5](opencode-api-deep-research/5-sse-events.md)。
+
+---
+
+### GET `/global/config`
+
+**用途**：获取全局配置（位于 `~/.config/opencode/opencode.json`，跨所有项目共享）。
+
+**返回** `200`: [`ConfigInfo`](#configinfo)（`ConfigV1.Info`）
+**认证**：**无**。
+**数据来源**：`config.getGlobal()`（`handlers/global.ts`）。
+
+---
+
+### PATCH `/global/config`
+
+**用途**：更新全局配置（跨项目共享的 `opencode.json`）。
+
+**请求体**: [`ConfigInfo`](#configinfo) —— 完整配置对象，**全量替换**语义（未提供的字段会被清除）。
+**返回** `200`: [`ConfigInfo`](#configinfo)（更新后的配置 `result.info`）。
+**认证**：**无**。
+**错误**：`400 BadRequest`（配置无效）。
+
+**关键行为**（`handlers/global.ts:86-90`）：
+1. `config.updateGlobal(ctx.payload)` 写入全局配置文件
+2. 若 `result.changed === true`：通过 `EffectBridge` **异步**触发 `disposeAllInstancesAndEmitGlobalDisposed({ swallowErrors: true })` —— **销毁所有实例**让配置生效
+3. 返回 `result.info`（重新读取后的配置，与 `/config` 的 PATCH 不同）
+
+**⚠️ 关键副作用**：此端点会**销毁所有运行中的实例**，包括进行中的会话！客户端必须：
+- 监听 `global.disposed` 事件
+- 销毁后重新建立连接（可能需要重新创建实例）
+- **反模式**：在用户编辑配置时频繁 PATCH；应让用户在 UI 中编辑，确认后再一次性提交。
+
+---
 
 ### POST `/global/dispose`
 
-销毁所有 OpenCode 实例，释放资源。无认证。
+**用途**：清理并销毁所有 OpenCode 实例，释放资源。
 
-**响应** `200`: `boolean`（恒 `true`）
+**返回** `200`: `boolean`（恒 `true`）。
+**认证**：**无**。
+**原理**：**同步**执行 `disposeAllInstancesAndEmitGlobalDisposed()`，阻塞直到完成（与 `PATCH /global/config` 触发的异步销毁不同，这里是显式同步调用）。
 
-> 同步执行 `disposeAllInstancesAndEmitGlobalDisposed()`，阻塞直到完成。
+---
 
 ### POST `/global/upgrade`
 
-升级 OpenCode 到指定或最新版本。无认证。
+**用途**：升级 OpenCode 到指定或最新版本。
 
-**请求体**（允许空 body）:
-```json
-{ "target": "string? (目标版本号，缺省取最新)" }
-```
+**请求体**（`GlobalUpgradeInput`，`groups/global.ts:52-54`，**允许空 body**）：
 
-**响应** `200`: 联合类型
-```json
-// 成功
-{ "success": true, "version": "string" }
-// 失败
-{ "success": false, "error": "string" }
-```
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `target` | `string` | 否 | 目标版本号，缺省取最新 |
 
-升级成功后发布全局事件 `installation.updated`（携带新版本号）。
+**返回** `200` —— `GlobalUpgradeResult`（联合类型）：
+
+| 变体 | 字段 |
+|------|------|
+| 成功 | `{ success: true, version: string }` |
+| 失败 | `{ success: false, error: string }` |
+
+**认证**：**无**。
+**错误**：`400 BadRequest`。
+
+**⚠️ Raw Handler 行为**（`handlers/global.ts:129-146`）：
+- 使用 `handleRaw` 手动解析 body，支持空 body（升级到最新版）
+- 空 body 或非法 JSON → `{ success: false, error: "Invalid request body" }`（400）
+- 升级成功后**发布全局事件** `installation.updated`（携带新版本号）
+
+**失败场景**：
+- `installation.method() === "unknown"`（无法识别的安装方式，如手动编译）→ `{ success: false, error: "Unknown installation method" }`
+- 升级过程抛错 → 错误消息回传到 `error` 字段
 
 ---
 
 ## 2. Config 端点
 
-> 路由：`groups/config.ts` · Handler：`handlers/config.ts`
+> 路由：`groups/config.ts` · Handler：`handlers/config.ts` · 核心：`@/config/config` 的 `Config.Service` · 详细分析见 [调研报告 2](opencode-api-deep-research/2-config-provider.md#21-config-路由组3-个)。
+> 中间件栈：Instance → Workspace → Authorization。共 3 个端点。
 
 ### GET `/config`
 
-获取当前实例配置（合并全局配置 + 项目级 `opencode.json`）。
+**用途**：获取当前实例（项目目录）的 OpenCode 配置（合并全局配置 + 项目级 `opencode.json`）。
 
-**响应** `200`: [`ConfigInfo`](#configinfo)
+**Query 参数**：`WorkspaceRoutingQuery`（`directory?`, `workspace?`）。
+**返回** `200`: [`ConfigInfo`](#configinfo)（`ConfigV1.Info`，完整配置对象）。
+**认证**：Basic Auth（通过 Authorization 中间件）。
+**数据来源**：`configSvc.get()` 返回当前实例的配置（`handlers/config.ts`）。
+
+---
 
 ### PATCH `/config`
 
-更新当前实例配置。
+**用途**：更新当前实例的配置。
 
-**请求体**: [`ConfigInfo`](#configinfo)（完整配置对象，**全量替换**——未提供字段会被清除。客户端应先 GET 再修改后 PATCH）
+**Query 参数**：`WorkspaceRoutingQuery`。
+**请求体**: [`ConfigInfo`](#configinfo) —— 完整配置对象，**全量替换**语义（未提供的字段会被清除）。
+**返回** `200`: [`ConfigInfo`](#configinfo)。
+**认证**：Basic Auth。
+**错误**：`400 BadRequest`（配置无效）。
 
-**响应** `200`: [`ConfigInfo`](#configinfo)
+**⚠️ 关键行为**（`handlers/config.ts:18-22`）：
+1. `configSvc.update(ctx.payload)` 写入项目级配置文件（`opencode.json`）
+2. **`markInstanceForDisposal()` 标记当前实例待销毁** —— 配置变更需要重启实例才生效，SSE/WS 连接会断开
+3. 直接返回 `ctx.payload`（**⚠️ 不重新读取磁盘**，返回的是输入而非文件实际内容，可能不反映 JSON 规范化/字段补全结果）
 
-**⚠️ 关键行为**:
-1. `configSvc.update(payload)` 写入项目级配置文件
-2. `markInstanceForDisposal()` **标记当前实例待销毁**（配置变更需重启实例生效）—— SSE/WS 连接会断开
-3. 返回的是**输入 payload**，不重新读取磁盘（可能与下次 GET 因 JSON 规范化而不一致）
+**边界情况**：
+- 与 `PATCH /global/config` 的差异：本端点只销毁**当前**实例，后者销毁**所有**实例；本端点返回输入 payload，后者返回磁盘重读结果。
+- 若客户端依赖返回值显示配置，可能与下次 GET 不一致——应以 GET 为准。
+
+**建议用法**：客户端必须**先 GET 当前配置，修改后再 PATCH**（全量替换语义下，部分更新会丢失字段）。
+
+---
 
 ### GET `/config/providers`
 
-列出**配置文件中显式定义**的 provider（不含 models.dev 内置）。
+**用途**：列出**配置文件中显式定义**的 provider（仅来自配置，不含 models.dev 内置）。
 
-**响应** `200`:
-```json
+**Query 参数**：`WorkspaceRoutingQuery`。
+**返回** `200` —— `Provider.ConfigProvidersResult`（`provider.ts:1041-1045`）：
+
+```typescript
 {
-  "providers": [ProviderInfo],
-  "default": { "providerId": "modelId" }
+  providers: Provider.Info[],          // 配置中定义的 provider 列表
+  default: Record<string, string>      // providerID → 默认 modelID 映射
 }
 ```
 
-**与 `/provider` 的区别**: 此端点只返回用户自定义配置；`/provider` 返回所有可用 provider（models.dev + 已连接），更适合 UI 选择。
+**与 `/provider` 端点的区别**（核心语义差异）：
+
+| 端点 | 数据来源 | 用途 |
+|------|---------|------|
+| `GET /config/providers` | 仅配置文件，通过 `Provider.toPublicInfo()` 序列化 | 查看/编辑用户自定义的 provider 配置 |
+| `GET /provider` | models.dev + 已连接 provider，经 disabled/enabled 过滤 | 选择可用 provider 创建会话 |
+
+**建议用法**：UI 显示 provider 列表用 `/provider`；编辑 provider 配置用 `/config/providers`（或直接读 `/config` 的 `provider` 字段）。
 
 ---
 
 ## 3. Provider 端点
 
-> 路由：`groups/provider.ts`
+> 路由：`groups/provider.ts` · Handler：`handlers/provider.ts` · 核心：`@/provider/provider` 的 `Provider.Service` + `@/provider/auth` 的 `ProviderAuth.Service` · 详细分析见 [调研报告 2](opencode-api-deep-research/2-config-provider.md#22-provider-路由组4-个)。
+> 中间件栈：Instance → Workspace → Authorization。共 4 个端点。
 
 ### GET `/provider`
 
-获取所有可用 AI provider（models.dev 内置 + 已连接），含连接状态。
+**用途**：获取所有可用的 AI provider（models.dev 内置 + 已连接），含连接状态。
 
-**响应** `200`:
-```json
-{
-  "all": [ProviderInfo],
-  "default": { "providerId": "modelId" },
-  "connected": ["providerId"]
-}
-```
+**Query 参数**：`WorkspaceRoutingQuery`。
+**返回** `200` —— `Provider.ListResult`（`provider.ts:1034-1039`）：
 
-**过滤逻辑**: 若配置了 `enabled_providers` 则只保留白名单内；排除 `disabled_providers`。
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `all` | [`ProviderInfo`](#providerinfo)`[]` | 所有可用 provider（内置 + 已连接） |
+| `default` | `Record<string, string>` | 每个 provider 的默认模型 ID（`providerID → modelID`） |
+| `connected` | `string[]` | 已连接（已认证）的 provider ID 列表 |
+
+**数据来源与过滤逻辑**（`handlers/provider.ts:40-58`）：
+1. `cfg.get()` 读取 `disabled_providers` 和 `enabled_providers`
+2. `ModelsDev.Service.use((s) => s.get())` 获取 models.dev 全量 provider
+3. **过滤**：若 `enabled_providers` 存在则仅保留白名单内；排除 `disabled_providers` 中的 provider
+4. `provider.list()` 获取本地已认证 provider
+5. 合并：`mapValues(filtered, fromModelsDev)` + `connected`（已连接覆盖同名）
+6. 转换为 `Provider.toPublicInfo()` 后返回
+
+**建议用法**：UI 渲染 provider 选择列表、标记已连接状态。
+
+---
 
 ### GET `/provider/auth`
 
-获取每个 provider 支持的认证方式（OAuth/API Key）。
+**用途**：查询每个 provider 支持的认证方式（OAuth/API Key）。
 
-**响应** `200`: `Record<providerId, `[`ProviderAuthMethod`](#providerauthmethod)`[]>`
+**Query 参数**：`WorkspaceRoutingQuery`。
+**返回** `200`: `Record<providerId, `[`ProviderAuthMethod`](#providerauthmethod)`[]>`（即 `ProviderAuth.Methods`）。
+**原理**：`svc.methods()`（`auth.ts`）收集所有 provider 插件声明的认证方法。
+
+**字段说明** —— [`ProviderAuthMethod`](#providerauthmethod)：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `type` | `"oauth" \| "api"` | 认证类型 |
+| `label` | `string` | 显示标签 |
+| `prompts?` | `Prompt[]` | 用户需填写的字段（文本/选择，按 `type` 判别联合） |
+
+**Prompt 结构**（联合类型）：
+- **TextPrompt**：`{ type: "text", key, message, placeholder?, when? }`
+- **SelectPrompt**：`{ type: "select", key, message, options: SelectOption[], when? }`
+
+**条件显示**（`When`）：`{ key, op: "eq"|"neq", value }` —— 根据 provider 已有状态决定是否显示该 prompt。
+
+**建议用法**：渲染 provider 认证表单；`method` 字段的索引（数组下标）将传给 `oauth/authorize` 和 `oauth/callback`。
+
+---
 
 ### POST `/provider/{providerID}/oauth/authorize`
 
-启动 OAuth 认证。
+**用途**：启动指定 provider 的 OAuth 认证流程。
 
-**请求体**:
-```json
-{
-  "method": 0,                          // 认证方式索引（来自 /provider/auth 列表）
-  "inputs": { "key": "value" }          // 可选，用户填写的 prompt 答案
-}
-```
+**Path 参数**：`providerID: ProviderV2.ID`。
+**Query 参数**：`WorkspaceRoutingQuery`。
+**请求体**（`ProviderAuth.AuthorizeInput`，`auth.ts:55-59`）：
 
-**响应** `200`: [`ProviderOauthAuthorization`](#provideroauthauthorization)` | null`
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `method` | `Finite`（整数） | 是 | 认证方法索引（来自 `Methods[providerID][index]`） |
+| `inputs` | `Record<string, string>` | 否 | 用户填写的 prompt 答案 |
 
-> **⚠️ 返回 `null` 而非空对象**: 当 `authorize()` 返回 `undefined`（如已认证、无需重定向），HTTP body 是 JSON `null`。客户端应先检查 `result === null` 再访问字段。
+**返回** `200`: [`ProviderOauthAuthorization`](#provideroauthauthorization)` | null`（`ProviderAuth.Authorization | undefined`）。
+
+**返回字段** —— [`ProviderOauthAuthorization`](#provideroauthauthorization)（`auth.ts:49-53`）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `url` | `string` | 浏览器需要访问的认证 URL |
+| `method` | `"auto" \| "code"` | auto=自动回调；code=手动粘贴授权码 |
+| `instructions` | `string` | 给用户的指引文本 |
+
+**错误**：`ProviderAuthApiError`（400）。
+
+**⚠️ Raw Handler 行为**（`handlers/provider.ts:78-91`）：
+- 使用 `handleRaw` 手动解析 body，便于处理空结果
+- 当 `authorize()` 解析为 `undefined`（如已认证、无需进一步重定向），HTTP 响应体是 JSON `null`（非空 body），保证客户端可 `.json()` 解析
+- 错误映射到 `ProviderAuthApiError`（400）
+
+**边界情况**：客户端若直接访问 `result.url` 会抛错，**应先检查 `result === null`**。
+
+---
 
 ### POST `/provider/{providerID}/oauth/callback`
 
-完成 OAuth 回调，用授权码换取 token。
+**用途**：处理 OAuth 回调，使用授权码换取 token，完成认证。
 
-**请求体**:
-```json
-{
-  "method": 0,              // 必须与 authorize 时一致
-  "code": "string?"         // code method 时必填；auto method 时缺省
-}
-```
+**Path 参数**：`providerID`。
+**Query 参数**：`WorkspaceRoutingQuery`。
+**请求体**（`ProviderAuth.CallbackInput`，`auth.ts:61-65`）：
 
-**响应** `200`: `boolean`（恒 `true`）
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `method` | `Finite` | 是 | 认证方法索引（必须与 authorize 时一致） |
+| `code` | `string` | 条件 | OAuth 授权码（`code` method 时必填；`auto` method 时缺省） |
 
-**错误子类型**（统一 `ProviderAuthApiError` HTTP 400，通过 `name` 区分）:
-- `ProviderAuthOauthMissing` — provider 不支持 OAuth
-- `ProviderAuthOauthCodeMissing` — code method 缺少 code
-- `ProviderAuthOauthCallbackFailed` — token 交换失败
-- `ProviderAuthValidationFailed` — 输入校验失败（含 `field` + `message`）
+**返回** `200`: `boolean`（恒 `true`）。
+**错误**：`ProviderAuthApiError`（400）。
+
+**错误子类型**（统一 `ProviderAuthApiError` HTTP 400，通过 `name` 区分，`groups/provider.ts:14-19`）：
+
+| name | data 关键字段 | 触发场景 |
+|------|--------------|---------|
+| `ProviderAuthOauthMissing` | `providerID` | provider 不支持 OAuth |
+| `ProviderAuthOauthCodeMissing` | `providerID` | `code` method 但未提供 code |
+| `ProviderAuthOauthCallbackFailed` | — | token 交换失败 |
+| `ProviderAuthValidationFailed` | `field`, `message` | 输入字段校验失败 |
+| `BadRequest` | — | 兜底错误 |
 
 ---
 
 ## 4. MCP 端点
 
-> 路由：`groups/mcp.ts` · Handler：`handlers/mcp.ts` · 核心：`MCP.Service`
+> 路由：`groups/mcp.ts` · Handler：`handlers/mcp.ts` · 核心：`@/mcp` 的 `MCP.Service` · 详细分析见 [调研报告 2](opencode-api-deep-research/2-config-provider.md#23-mcp-路由组8-个)。
+> 路径常量：`McpPaths`（`groups/mcp.ts:32-39`）。中间件栈：Instance → Workspace → Authorization。共 8 个端点。
+
+**核心数据模型** —— [`MCPStatus`](#mcpstatus)（`mcp/index.ts:75-99`，5 种状态判别联合）：
+
+| status | 额外字段 | 说明 |
+|--------|---------|------|
+| `connected` | — | 已连接成功 |
+| `disabled` | — | 配置中禁用 |
+| `failed` | `error: string` | 连接失败 |
+| `needs_auth` | — | 需要完成 OAuth 认证 |
+| `needs_client_registration` | `error: string` | 需要动态客户端注册（RFC 7591） |
 
 ### GET `/mcp`
 
-获取所有 MCP 服务器的当前状态。
+**用途**：查询所有 MCP 服务器的当前状态。
 
-**响应** `200`: `Record<string, `[`MCPStatus`](#mcpstatus)`>`（key 为 MCP 名称）
+**Query 参数**：`WorkspaceRoutingQuery`。
+**返回** `200`: `Record<string, `[`MCPStatus`](#mcpstatus)`>` —— key 为 MCP 名称。
+**数据来源**：`mcp.status()`（`handlers/mcp.ts`）返回所有已注册 MCP 服务器的实时状态。
+
+---
 
 ### POST `/mcp`
 
-动态添加新的 MCP 服务器。
+**用途**：动态添加新的 MCP 服务器到系统。
 
-**请求体**:
-```json
-{
-  "name": "string",
-  "config": ConfigMCPInfo    // local 或 remote 联合，见数据模型
-}
-```
+**Query 参数**：`WorkspaceRoutingQuery`。
+**请求体**（`AddPayload`，`groups/mcp.ts:11-14`）：
 
-**响应** `200`: `Record<string, `[`MCPStatus`](#mcpstatus)`>`（仅含新添加的服务器）
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `name` | `string` | 是 | MCP 服务器名称 |
+| `config` | [`ConfigMCPInfo`](#configmcpinfomcp-配置localremote-联合) | 是 | 配置（local/remote 联合） |
+
+**返回** `200`: `Record<string, `[`MCPStatus`](#mcpstatus)`>`（仅含新添加的服务器）。
+**错误**：`400 BadRequest`（payload 校验失败或状态解码失败）。
+
+**关键行为**（`handlers/mcp.ts:16-21`）：
+1. `mcp.add(name, config)` 返回 `{ status }` 结果
+2. **特殊处理**：若 `result` 自身就是 status 对象（含 `status` 字段），包装为 `{ [name]: result }`；否则假设 result 已是 map，直接使用
+3. 通过 `Schema.decodeUnknownEffect(StatusMap)` 解码，失败映射到 `400 BadRequest`
+
+**边界情况**：`mcp.add()` 的返回可能是单个 status 对象或已经是 status map（鸭子类型判断）。由于 schema 强制解码为 `StatusMap`，最终返回始终是 map。
+
+---
 
 ### POST `/mcp/{name}/auth`
 
-启动 MCP OAuth 认证流程（两步式）。
+**用途**：启动指定 MCP 服务器的 OAuth 认证流程（两步式第一步）。
 
-**响应** `200`:
-```json
-{
-  "authorizationUrl": "string",    // 浏览器需访问的 URL
-  "oauthState": "string"           // OAuth state，用于回调验证
-}
-```
+**Path 参数**：`name: string`。
+**Query 参数**：`WorkspaceRoutingQuery`。
+**返回** `200` —— `AuthStartResponse`（`groups/mcp.ts:17-20`）：
 
-**错误**: `UnsupportedOAuthError`（400，MCP 不支持 OAuth）/ `McpServerNotFoundError`（404）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `authorizationUrl` | `string` | 浏览器需要访问的授权 URL |
+| `oauthState` | `string` | OAuth state 参数，用于回调验证 |
+
+**错误**：`UnsupportedOAuthError`（400，MCP 不支持 OAuth）、`McpServerNotFoundError`（404）。
+
+**前置校验**（`handlers/mcp.ts:23-34`）：
+1. `mcp.supportsOAuth(name)` 检查是否支持 OAuth，不支持 → `UnsupportedOAuthError`
+2. `mcp.startAuth(name)` 启动认证流程
+3. `MCP.NotFoundError` 映射为 `McpServerNotFoundError`
+
+---
 
 ### POST `/mcp/{name}/auth/callback`
 
-完成 MCP OAuth 认证（两步式的第二步）。
+**用途**：使用授权码完成 MCP OAuth 认证（两步式第二步）。
 
-**请求体**: `{ "code": "string" }`
+**Path 参数**：`name`。
+**Query 参数**：`WorkspaceRoutingQuery`。
+**请求体**（`AuthCallbackPayload`，`groups/mcp.ts:21-23`）：`{ code: string }` —— OAuth 授权码。
+**返回** `200`: [`MCPStatus`](#mcpstatus)（认证完成后的新状态，通常为 `connected`）。
+**错误**：`400 BadRequest`、`McpServerNotFoundError`（404）。
+**原理**：`mcp.finishAuth(name, code)` 使用持久化的 transport（`pendingOAuthTransports` Map）完成 token 交换。
 
-**响应** `200`: [`MCPStatus`](#mcpstatus)（通常为 `connected`）
+---
 
 ### POST `/mcp/{name}/auth/authenticate`
 
-**一键式** MCP OAuth 认证：服务端自动开浏览器并**阻塞**等待回调完成。
+**用途**：**一键式** MCP OAuth 认证 —— 启动 OAuth 流程并**阻塞等待回调**完成（服务端自动打开浏览器）。
 
-**响应** `200`: [`MCPStatus`](#mcpstatus)
+**Path 参数**：`name`。
+**Query 参数**：`WorkspaceRoutingQuery`。
+**返回** `200`: [`MCPStatus`](#mcpstatus)（认证完成后的状态）。
+**错误**：`UnsupportedOAuthError`、`McpServerNotFoundError`。
 
-> 不适用于无头/远程场景（无法打开浏览器会一直挂起）。
+**与 `/auth` 的区别**（MCP OAuth 双模式）：
+
+| 端点 | 模式 | 适用场景 |
+|------|------|---------|
+| `/auth` + `/auth/callback` | 两步式（先获取 URL，客户端引导用户访问，拿到 code 后交回） | Web/远程客户端，用户在另一设备完成认证 |
+| `/auth/authenticate` | 一键式（服务端自动开浏览器，阻塞等待回调） | 本地 TUI/桌面客户端 |
+
+**⚠️ 边界情况**：此端点**阻塞**等待回调，若浏览器无法打开（如无头/远程服务器）会一直挂起。**不适用于无头/远程场景**。
+
+---
 
 ### DELETE `/mcp/{name}/auth`
 
-移除 MCP OAuth 凭据。
+**用途**：删除指定 MCP 服务器的 OAuth 凭据。
 
-**响应** `200`: `{ "success": true }`
+**Path 参数**：`name`。
+**Query 参数**：`WorkspaceRoutingQuery`。
+**返回** `200`: `AuthRemoveResponse`（`{ success: true }`）。
+**错误**：`McpServerNotFoundError`（404）。
+**前置校验**（`handlers/mcp.ts:64-73`）：先 `mcp.status()` 检查 `name` 是否存在，不存在 → `McpServerNotFoundError`；然后 `mcp.removeAuth(name)` 删除凭据。
+
+---
 
 ### POST `/mcp/{name}/connect`
 
-显式触发 MCP 服务器连接（通常配置启用时自动连接，此端点用于手动重连）。
+**用途**：显式触发指定 MCP 服务器的连接。
 
-**响应** `200`: `boolean`（恒 `true`）
+**Path 参数**：`name`。
+**Query 参数**：`WorkspaceRoutingQuery`。
+**返回** `200`: `boolean`（恒 `true`）。
+**错误**：`McpServerNotFoundError`。
+**原理**：`mcp.connect(name)` 启动连接流程。通常配置启用时会自动连接，此端点用于手动重连。
+
+---
 
 ### POST `/mcp/{name}/disconnect`
 
-显式断开 MCP 服务器。
+**用途**：显式断开指定 MCP 服务器的连接。
 
-**响应** `200`: `boolean`（恒 `true`）
+**Path 参数**：`name`。
+**Query 参数**：`WorkspaceRoutingQuery`。
+**返回** `200`: `boolean`（恒 `true`）。
+**错误**：`McpServerNotFoundError`。
+**原理**：`mcp.disconnect(name)` 关闭 transport 并清理状态。
+
+---
+
+> **🔴 跨章节关键发现**（详见 [调研报告 2](opencode-api-deep-research/2-config-provider.md#关键发现)）：
+> 1. **配置更新必然销毁实例** — `PATCH /config` 销毁当前实例，`PATCH /global/config` 销毁所有实例。客户端必须监听 `server.instance.disposed` / `global.disposed` 并重连。
+> 2. **`PATCH /config` 不重读磁盘** — 返回输入 payload 而非文件内容，可能与下次 GET 不一致；`PATCH /global/config` 则返回重读结果。
+> 3. **Global 端点全部无认证** — `POST /global/dispose`、`POST /global/upgrade`、`PATCH /global/config` 可被任意客户端调用。生产环境应通过反向代理加认证层或仅监听 localhost。
+> 4. **OAuth `authorize` 返回 `null`** — 客户端必须先检查 `result === null` 再访问字段。
 
 ---
 
