@@ -14,7 +14,10 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -229,45 +232,79 @@ class WorkspaceViewModelTest {
     // ===== Test 11: loadDirectory during refreshRoot cancels stale =====
     @Test
     fun `loadDirectory during refreshRoot cancels stale`() = runTest {
-        var callCount = 0
-        coEvery { listDirectory(serverId, directory, "src") } coAnswers {
-            callCount++
-            Result.success(sampleFileNodes)
+        // StandardTestDispatcher makes coroutines suspend at delay points,
+        // so the "src" job is still in-flight when refreshRoot cancels it.
+        val standardDispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(standardDispatcher)
+        try {
+            var srcCompletedCount = 0
+            coEvery { listDirectory(serverId, directory, "src") } coAnswers {
+                delay(60_000L) // simulated slow API — coroutine suspends here
+                srcCompletedCount++
+                Result.success(sampleFileNodes)
+            }
+            coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
+            coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
+
+            val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus)
+
+            // "src" job launches but is suspended at delay(60s)
+            vm.loadDirectory("src")
+            // refreshRoot cancels all loadJobs (including the suspended "src" job)
+            // and clears dirCache, then re-launches loadDirectory("")
+            vm.refreshRoot()
+
+            advanceUntilIdle()
+
+            // The "src" job was cancelled by refreshRoot before completing,
+            // so its onSuccess callback never ran.
+            assert(srcCompletedCount == 0) {
+                "src job should have been cancelled by refreshRoot, got $srcCompletedCount completions"
+            }
+            // Root reload from refreshRoot should succeed
+            assert(vm.uiState.value.rootNodes.isNotEmpty()) {
+                "rootNodes should be populated after refreshRoot"
+            }
+        } finally {
+            Dispatchers.setMain(testDispatcher)
         }
-        coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
-        coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
-
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus)
-
-        // Start loading a subdirectory
-        vm.loadDirectory("src")
-        // Then call refreshRoot which cancels all jobs + clears cache
-        vm.refreshRoot()
-
-        // loadDirectory("src") was called once before refresh, then cache cleared
-        // After refreshRoot, loadDirectory("") fires but "src" is not re-loaded
-        // So listDirectory for "src" should be called exactly 1 time
-        coVerify(exactly = 1) { listDirectory(serverId, directory, "src") }
     }
 
     // ===== Test 12: rapid duplicate loadDirectory debounced =====
     @Test
     fun `rapid duplicate loadDirectory debounced`() = runTest {
-        var callCount = 0
-        coEvery { listDirectory(serverId, directory, "src") } coAnswers {
-            callCount++
-            Result.success(sampleFileNodes)
+        // StandardTestDispatcher makes coroutines suspend at delay points,
+        // so the first "src" job is still in-flight when the duplicate arrives.
+        val standardDispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(standardDispatcher)
+        try {
+            var completedCount = 0
+            coEvery { listDirectory(serverId, directory, "src") } coAnswers {
+                delay(60_000L) // simulated slow API — coroutine suspends here
+                completedCount++
+                Result.success(sampleFileNodes)
+            }
+            coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
+            coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
+
+            val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus)
+
+            // First call launches job, suspended at delay
+            vm.loadDirectory("src")
+            // Second call: loadJobs["src"]?.cancel() cancels the first job,
+            // then launches a replacement job
+            vm.loadDirectory("src")
+
+            advanceUntilIdle()
+
+            // Only the second (non-cancelled) job should have completed.
+            // Without loadJobs[path]?.cancel(), both jobs would complete (completedCount=2).
+            assert(completedCount == 1) {
+                "Expected exactly 1 completion (second job survives cancel), got $completedCount"
+            }
+        } finally {
+            Dispatchers.setMain(testDispatcher)
         }
-        coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
-        coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
-
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus)
-
-        // Rapid duplicate calls — second cancels first, only one completes
-        vm.loadDirectory("src")
-        vm.loadDirectory("src")
-
-        coVerify(exactly = 1) { listDirectory(serverId, directory, "src") }
     }
 
     // ===== Test 13: blank serverId sets rootError without calling useCase =====

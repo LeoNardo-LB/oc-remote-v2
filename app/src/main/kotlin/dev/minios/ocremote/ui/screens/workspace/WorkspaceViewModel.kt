@@ -107,7 +107,7 @@ class WorkspaceViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     val msg = e.message.orEmpty()
-                    val nonGit = msg.contains("non-git", true) || msg.contains("not a git")
+                    val nonGit = msg.contains("non-git", true) || msg.contains("not a git", true)
                     _uiState.update {
                         it.copy(gitLoading = false, isNonGit = nonGit, gitError = if (nonGit) null else msg)
                     }
