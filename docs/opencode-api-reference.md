@@ -171,6 +171,10 @@ http://{host}:{port}
 **认证**：**无**。
 **数据来源**：`config.getGlobal()`（`handlers/global.ts`）。
 
+**与 `GET /config` 的区别**：`/global/config` 返回全局配置文件原貌（`~/.config/opencode/opencode.json`），而 `/config` 返回全局配置 + 当前项目级 `opencode.json` 的**合并结果**。编辑全局默认值用本端点；查看某项目实际生效配置用 `/config`。
+
+**建议用法**：PATCH 全局配置前先 GET 获取基线（全量替换语义下不能盲改）；客户端展示"全局配置"独立页时使用。
+
 ---
 
 ### PATCH `/global/config`
@@ -203,6 +207,12 @@ http://{host}:{port}
 **认证**：**无**。
 **原理**：**同步**执行 `disposeAllInstancesAndEmitGlobalDisposed()`，阻塞直到完成（与 `PATCH /global/config` 触发的异步销毁不同，这里是显式同步调用）。
 
+**建议用法**：
+- **优雅关闭**：服务停止前调用，确保所有实例清理资源（flush 日志、断开上游连接）。
+- **强制配置生效**：修改了配置文件（非通过 API）后，调用此端点让所有实例重新加载。
+- **⚠️ 阻塞调用**：同步执行，若实例多或有长任务，响应会延迟；客户端应设合理超时。
+- 调用后客户端需监听 `global.disposed` 事件并重建实例。
+
 ---
 
 ### POST `/global/upgrade`
@@ -234,6 +244,12 @@ http://{host}:{port}
 - `installation.method() === "unknown"`（无法识别的安装方式，如手动编译）→ `{ success: false, error: "Unknown installation method" }`
 - 升级过程抛错 → 错误消息回传到 `error` 字段
 
+**建议用法**：
+- 升级成功后监听 `installation.updated` 事件（携带新版本号），触发客户端提示用户重启。
+- 升级是"下载 + 替换二进制"，**不会自动重启当前进程**；需配合 `POST /global/dispose` 或手动重启。
+- 客户端应展示 `result.version` 让用户确认目标版本。
+- **反模式**：在会话进行中静默升级——会打断用户工作。
+
 ---
 
 ## 2. Config 端点
@@ -249,6 +265,11 @@ http://{host}:{port}
 **返回** `200`: [`ConfigInfo`](#configinfo)（`ConfigV1.Info`，完整配置对象）。
 **认证**：Basic Auth（通过 Authorization 中间件）。
 **数据来源**：`configSvc.get()` 返回当前实例的配置（`handlers/config.ts`）。
+
+**建议用法**：
+- **PATCH 前必读**：由于 PATCH 是全量替换语义，修改任何字段前必须先 GET 获取完整配置作为基线。
+- **启动加载**：客户端初始化时 GET 一次，缓存 `model`/`small_model`/`agent` 等关键字段。
+- **配置对比**：与 `GET /global/config` 对比可得知项目级覆盖了哪些字段。
 
 ---
 
@@ -416,9 +437,17 @@ http://{host}:{port}
 | `ProviderAuthValidationFailed` | `field`, `message` | 输入字段校验失败 |
 | `BadRequest` | — | 兜底错误 |
 
----
+**建议用法**：完整 OAuth 流程编排——
+1. `GET /provider/auth` 获取 `methods[providerID]` 数组，渲染认证表单
+2. 用户选择 method 索引 `i` 并填写 prompts → `POST /provider/{id}/oauth/authorize` `{ method: i, inputs }`
+3. 根据 `result.method`：
+   - `"auto"` → 无需用户操作，服务端自动接收回调（此 callback 端点可省略或由服务端内部完成）
+   - `"code"` → 引导用户访问 `result.url`，拿到授权码后调用本端点 `POST /provider/{id}/oauth/callback` `{ method: i, code }`
+4. 返回 `true` 后，`GET /provider` 确认该 provider 已出现在 `connected` 列表
 
-## 4. MCP 端点
+**⚠️ method 一致性**：callback 的 `method` 索引必须与 authorize 时相同，否则校验失败。
+
+---
 
 > 路由：`groups/mcp.ts` · Handler：`handlers/mcp.ts` · 核心：`@/mcp` 的 `MCP.Service` · 详细分析见 [调研报告 2](opencode-api-deep-research/2-config-provider.md#23-mcp-路由组8-个)。
 > 路径常量：`McpPaths`（`groups/mcp.ts:32-39`）。中间件栈：Instance → Workspace → Authorization。共 8 个端点。
@@ -441,9 +470,12 @@ http://{host}:{port}
 **返回** `200`: `Record<string, `[`MCPStatus`](#mcpstatus)`>` —— key 为 MCP 名称。
 **数据来源**：`mcp.status()`（`handlers/mcp.ts`）返回所有已注册 MCP 服务器的实时状态。
 
----
+**建议用法**：
+- **启动时加载**：客户端初始化时 GET 一次，渲染 MCP 状态面板（标记 `connected`/`failed`/`needs_auth` 等）。
+- **操作后验证**：`POST /mcp`（添加）、`POST /mcp/{name}/connect`、`POST /mcp/{name}/auth/callback` 后轮询此端点确认最终状态。
+- **故障排查**：`failed` 状态的 `error` 字段含失败原因；`needs_auth` 提示用户走 OAuth 流程；`needs_client_registration` 提示需要动态注册。
 
-### POST `/mcp`
+---
 
 **用途**：动态添加新的 MCP 服务器到系统。
 
@@ -465,9 +497,12 @@ http://{host}:{port}
 
 **边界情况**：`mcp.add()` 的返回可能是单个 status 对象或已经是 status map（鸭子类型判断）。由于 schema 强制解码为 `StatusMap`，最终返回始终是 map。
 
----
+**建议用法**：
+- 动态添加 MCP 服务器（无需重启实例，与编辑 `opencode.json` 后 PATCH `/config` 不同）。
+- 添加后立即检查返回的 status：若为 `needs_auth`，需走 OAuth 流程；若为 `failed`，检查 `config` 中的 `command`/`url` 是否正确。
+- **持久化**：此端点添加的配置会写入项目级 `opencode.json`，实例销毁后依然生效。
 
-### POST `/mcp/{name}/auth`
+---
 
 **用途**：启动指定 MCP 服务器的 OAuth 认证流程（两步式第一步）。
 
@@ -487,9 +522,13 @@ http://{host}:{port}
 2. `mcp.startAuth(name)` 启动认证流程
 3. `MCP.NotFoundError` 映射为 `McpServerNotFoundError`
 
----
+**建议用法**：两步式认证第一步——
+1. 获取 `authorizationUrl` 和 `oauthState`
+2. 引导用户（或前端浏览器）访问该 URL 完成 OAuth 授权
+3. 拿到回调的 `code` 后调用 `POST /mcp/{name}/auth/callback` 完成认证
+- 适用 Web/远程客户端（用户在浏览器中完成认证）；本地 TUI 可直接用 `/auth/authenticate` 一键式。
 
-### POST `/mcp/{name}/auth/callback`
+---
 
 **用途**：使用授权码完成 MCP OAuth 认证（两步式第二步）。
 
@@ -500,9 +539,9 @@ http://{host}:{port}
 **错误**：`400 BadRequest`、`McpServerNotFoundError`（404）。
 **原理**：`mcp.finishAuth(name, code)` 使用持久化的 transport（`pendingOAuthTransports` Map）完成 token 交换。
 
----
+**建议用法**：两步式认证第二步——接收 `/auth` 返回的授权流程回调的 `code`，提交完成 token 交换。返回的 `MCPStatus` 通常为 `{ status: "connected" }`；若仍为 `needs_auth` 或 `failed`，检查 `code` 是否过期或已被使用。
 
-### POST `/mcp/{name}/auth/authenticate`
+---
 
 **用途**：**一键式** MCP OAuth 认证 —— 启动 OAuth 流程并**阻塞等待回调**完成（服务端自动打开浏览器）。
 
@@ -532,9 +571,12 @@ http://{host}:{port}
 **错误**：`McpServerNotFoundError`（404）。
 **前置校验**（`handlers/mcp.ts:64-73`）：先 `mcp.status()` 检查 `name` 是否存在，不存在 → `McpServerNotFoundError`；然后 `mcp.removeAuth(name)` 删除凭据。
 
----
+**建议用法**：
+- **切换账号**：删除旧凭据后重新走 OAuth 流程绑定新账号。
+- **故障排查**：token 过期或失效时，清除后重新认证。
+- 删除后 MCP 状态会变为 `needs_auth`，客户端应提示用户重新认证。
 
-### POST `/mcp/{name}/connect`
+---
 
 **用途**：显式触发指定 MCP 服务器的连接。
 
@@ -543,6 +585,11 @@ http://{host}:{port}
 **返回** `200`: `boolean`（恒 `true`）。
 **错误**：`McpServerNotFoundError`。
 **原理**：`mcp.connect(name)` 启动连接流程。通常配置启用时会自动连接，此端点用于手动重连。
+
+**建议用法**：
+- **故障恢复**：`failed` 状态后修复配置/网络，手动重连。
+- **断开后重连**：`disconnect` 后需要恢复连接时调用。
+- 返回 `true` 仅表示连接流程已启动，**不代表已连接成功**；需轮询 `GET /mcp` 确认最终状态（可能仍为 `failed`）。
 
 ---
 
@@ -555,6 +602,11 @@ http://{host}:{port}
 **返回** `200`: `boolean`（恒 `true`）。
 **错误**：`McpServerNotFoundError`。
 **原理**：`mcp.disconnect(name)` 关闭 transport 并清理状态。
+
+**建议用法**：
+- **临时禁用**：不删除配置，仅断开连接（区别于在配置中设 `enabled: false`）。
+- **资源释放**：长时间不用的 MCP 服务器可断开以释放进程/连接。
+- 断开后状态变为 `disabled`（区别于 `failed`），可随时通过 `connect` 恢复。
 
 ---
 
