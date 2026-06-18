@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.minios.ocremote.R
+import dev.minios.ocremote.ui.screens.workspace.tree.FileTreePanel
 import dev.minios.ocremote.ui.theme.SpacingTokens
 
 @Composable
@@ -68,7 +69,7 @@ fun WorkspaceScreen(
         }
     ) { padding ->
         when (uiState.currentPanel) {
-            WorkspacePanel.FILE_TREE -> FileTreePanelPlaceholder(
+            WorkspacePanel.FILE_TREE -> FileTreePanel(
                 uiState = uiState,
                 onRefreshRoot = onRefreshRoot,
                 onToggleShowIgnored = onToggleShowIgnored,
@@ -164,31 +165,6 @@ private fun WorkspaceTopBar(
             }
         }
     )
-}
-
-/**
- * Placeholder for the FileTreePanel that Task 13 will implement.
- * Real panel must match this signature so WorkspaceScreen only needs a call-site rename.
- */
-@Composable
-private fun FileTreePanelPlaceholder(
-    uiState: WorkspaceUiState,
-    onRefreshRoot: () -> Unit,
-    onToggleShowIgnored: () -> Unit,
-    onOpenFile: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(SpacingTokens.LG.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "FileTreePanel placeholder — Task 13",
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
 }
 
 /**
