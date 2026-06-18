@@ -117,6 +117,7 @@ fun ChatMessageList(
     }
 
     val compensateState = remember(streamingMsgId) { CompensateState() }
+    val toolCompensateState = remember(streamingMsgId) { CompensateState() }
 
     // Track whether user has scrolled away from bottom.
     // When shouldCompensate=true, SSE height growth is counteracted via
@@ -208,14 +209,39 @@ fun ChatMessageList(
                         }
                     }
 
-                    // Tool progress cards
+                    // Tool progress cards (with drift compensation)
                     if (activeTools.isNotEmpty()) {
-                        items(
-                            activeTools,
-                            key = { "tool_progress_${it.callId}" }
-                        ) { toolInfo ->
-                            ToolProgressCard(toolInfo = toolInfo)
+                        item(key = "tool_progress") {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .layout { measurable, constraints ->
+                                        val placeable = measurable.measure(
+                                            constraints.copy(maxHeight = Constraints.Infinity)
+                                        )
+                                        val realHeight = placeable.height
+                                        val delta = realHeight - toolCompensateState.lastHeight
+                                        if (compensateState.shouldCompensate && delta > 0) {
+                                            LazyListReflection.requestScrollToItemNoCancel(
+                                                listState,
+                                                listState.firstVisibleItemIndex,
+                                                listState.firstVisibleItemScrollOffset + delta
+                                            )
+                                        }
+                                        toolCompensateState.lastHeight = realHeight
+                                        layout(placeable.width, realHeight) {
+                                            placeable.placeRelative(0, 0)
+                                        }
+                                    }
+                            ) {
+                                activeTools.forEach { toolInfo ->
+                                    ToolProgressCard(toolInfo = toolInfo)
+                                }
+                            }
                         }
+                    } else {
+                        // Reset when no active tools
+                        toolCompensateState.lastHeight = 0
                     }
 
                     // Step progress indicator
