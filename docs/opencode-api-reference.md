@@ -3005,6 +3005,10 @@ for (const ev of newEvents) {
 
 ## 21. SSE 事件体系
 
+> 来源：`packages/core/src/event/` + `packages/opencode/src/server/` + `packages/core/src/session/event.ts`
+> 事件类型总数：**89 个**（v1 遗留 + v2 细粒度 + 系统/服务）
+> 事件框架：基于 `effect` 的类型安全 **EventV2** 系统
+
 ### 21.1 连接方式
 
 | 端点 | 范围 | 认证 | 用途 |
@@ -3012,21 +3016,21 @@ for (const ev of newEvents) {
 | `GET /event` | **实例级**（当前 directory + workspace） | Basic Auth | 推送当前实例的事件 |
 | `GET /global/event` | **全局**（跨项目） | 无 | 推送所有实例的事件 |
 
-**`/event` 行为**:
-1. 首个事件: `{ type: "server.connected", properties: {} }`
-2. 过滤: `event.location?.directory === instance.directory` && workspace 匹配
-3. 心跳: 每 10 秒 `server.heartbeat`
-4. 实例销毁检测: 监听 GlobalBus 的 `server.instance.disposed`（directory 匹配）→ 推送后关闭 SSE 流
+**`/event` 行为**（`handlers/event.ts:25-87`）:
+1. **首个事件**: `{ type: "server.connected", properties: {} }`
+2. **过滤**: `event.location?.directory === instance.directory` && workspace 匹配（`location.workspaceID === undefined || === workspaceID`，无 workspace 限制的事件放行）
+3. **心跳**: 每 10 秒 `server.heartbeat`（`Stream.tick("10 seconds")` + `Stream.drop(1)` 丢弃首个 tick，避免与 `server.connected` 重叠）
+4. **实例销毁检测**: 监听 GlobalBus 的 `server.instance.disposed`（directory 匹配），收到后推送并**关闭 SSE 流**（`Stream.takeUntil`）
 
-**`/global/event` 行为**:
+**`/global/event` 行为**（`handlers/global.ts:33-66`）:
 1. 首个事件: `server.connected`
-2. 后续: 所有 GlobalBus 事件（实例级事件通过 `EventV2Bridge` 桥接）
+2. 后续: 所有 GlobalBus 事件（实例级事件通过 `EventV2Bridge` 桥接 + 全局原生事件）
 3. 心跳: 每 10 秒
-4. **不自动关闭**（监听全局 bus）
+4. **不自动关闭**（监听全局 bus，不因单实例销毁而关闭）
 
 ### 21.2 事件格式
 
-**`/event` 端点**（无包装）:
+**`/event` 端点**（无包装，`Sse.encode()` 编码）:
 ```
 event: message
 data: {"id":"...","type":"session.updated","properties":{...}}
@@ -3038,17 +3042,29 @@ event: message
 data: {"directory":"/path","project":"...","workspace":"...","payload":{"id":"...","type":"session.updated","properties":{...}}}
 ```
 
-**⚠️ 关键**:
-- 所有事件的 SSE `event` 字段固定为 `"message"`，**类型信息在 `data` JSON 的 `type` 字段中**
+**⚠️ 关键 — SSE `event` 字段固定为 `"message"`**:
+- 标准 SSE 支持 `event: <name>` 区分类型，但 OpenCode 所有事件的 `event` 字段固定为 `"message"`，**类型信息在 `data` JSON 的 `type` 字段中**
 - 客户端**不要**使用 `es.addEventListener("session.next.text.delta", ...)` —— 不会触发
-- 正确做法: `es.addEventListener("message", (e) => { const data = JSON.parse(e.data); switch(data.type) {...} })`
+- 正确做法:
+  ```javascript
+  const es = new EventSource("/event")
+  es.addEventListener("message", (e) => {
+    const data = JSON.parse(e.data)
+    switch (data.type) {
+      case "session.next.text.delta": handleDelta(data.properties)
+      // ...
+    }
+  })
+  ```
+
+**`/global/event` 解析差异**: 全局事件多一层 `payload` 包装，包含来源信息（directory/project/workspace）。客户端需根据订阅端点使用不同解析逻辑（先解包 `payload` 再读 `type`）。
 
 **响应头**:
 ```
 Content-Type: text/event-stream
 Cache-Control: no-cache, no-transform
-X-Accel-Buffering: no          # 禁用 nginx 缓冲
-X-Content-Type-Options: nosniff
+X-Accel-Buffering: no          # 禁用 nginx 缓冲，确保实时推送
+X-Content-Type-Options: nosniff # 防 MIME 嗅探
 ```
 
 ### 21.3 事件分类总览（89 种）
@@ -3056,8 +3072,8 @@ X-Content-Type-Options: nosniff
 | 分类 | 事件数 | 同步 | 说明 |
 |------|--------|------|------|
 | 系统与服务 | 4 | ❌ | 连接、心跳、销毁 |
-| Session v1 遗留 | 7 | ✅ | 会话 CRUD（粗粒度） |
-| Message v1 遗留 | 5 | 部分 | 消息/Part 更新（含 delta 瞬时） |
+| Session v1 遗留 | 7 | ✅ | 会话/消息 CRUD（粗粒度） |
+| Message v1 流式 | 1 | ❌ | `message.part.delta`（瞬时） |
 | **Session.next v2 细粒度** | **31** | 27✅/4❌ | AI 推理流程的核心事件 |
 | Session 状态/生命周期 | 5 | ❌ | status、idle、diff、error、compacted |
 | Todo | 1 | ❌ | 任务列表更新 |
@@ -3076,262 +3092,629 @@ X-Content-Type-Options: nosniff
 
 ### 21.4 系统与服务事件（4 个）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `server.connected` | `{}` | 客户端建立 SSE 连接时，服务端主动发送的首个事件 |
-| `server.heartbeat` | `{}` | 每 10 秒（`Stream.tick` drop 第一个避免立即触发） |
-| `server.instance.disposed` | `{ directory }` | 当前实例被销毁时（配置变更、显式 dispose、升级）。**不在 EventV2 registry**，是 `/event` handler 手动监听 GlobalBus 构造 |
-| `global.disposed` | `{}` | 所有实例被销毁时（`POST /global/dispose`、全局配置更新） |
+> 来源：`packages/opencode/src/server/event.ts` + `handlers/event.ts`
+
+**`server.connected`** — 连接建立
+- **触发**：客户端建立 SSE 连接时，服务端主动发送的**首个事件**
+- **properties**：`{}`
+- **同步**：❌ 不持久化
+- **客户端建议**：用作连接就绪信号，可在此触发初始数据拉取（会话列表、配置等）
+
+**`server.heartbeat`** — 心跳
+- **触发**：每 10 秒（`Stream.tick("10 seconds").pipe(Stream.drop(1))`，`drop(1)` 丢弃首个 tick 避免与 `server.connected` 重叠，真正首次心跳在连接后 10 秒）
+- **properties**：`{}`
+- **同步**：❌
+- **客户端建议**：用于保活检测，超时未收到应判定断线并重连
+
+**`server.instance.disposed`** — 实例销毁
+- **触发**：当前实例被销毁时（配置变更、显式 dispose、升级等）
+- **properties**：`{ directory: string }`（被销毁实例的目录）
+- **来源**：`groups/global.ts:9-13` 的 `InstanceDisposed` schema
+- **同步**：❌（**不在 EventV2 registry**，由 `/event` handler 手动监听 GlobalBus 构造）
+- **客户端建议**：收到后应**关闭当前 SSE 并重建连接**（实例已失效）；在 `/global/event` 上以原始 GlobalBus 事件形式出现
+
+**`global.disposed`** — 全局销毁
+- **触发**：所有实例被销毁时（`POST /global/dispose`、全局配置更新）
+- **properties**：`{}`
+- **来源**：`packages/opencode/src/server/event.ts:6`
+- **客户端建议**：整个 OpenCode 服务正在关闭，应提示用户并停止重连
 
 ### 21.5 Session v1 遗留事件（7 个，✅ 同步）
 
-> 粗粒度，传递完整 `SessionInfo` 或 `Info` 对象
+> 来源：`packages/core/src/v1/session.ts:569-627`
+> v1 风格：粗粒度，传递完整 `SessionInfo` 或 `Info`（消息）对象
+> 通用字段：所有事件 properties 含 `sessionID`
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `session.created` | `{ sessionID, info: Session }` | `Session.create()` 后 |
-| `session.updated` | `{ sessionID, info: Session }` | 会话**元数据**变更（标题、权限、归档等） |
-| `session.deleted` | `{ sessionID, info: Session }` | `Session.remove()` 后（含被删除会话的最后状态） |
-| `message.updated` | `{ sessionID, info: Message }` | 消息内容/状态/Part 变更（粗粒度全量更新） |
-| `message.removed` | `{ sessionID, messageID }` | `session.removeMessage()` 后 |
-| `message.part.updated` | `{ sessionID, part: Part, time }` | Part 内容变更（工具调用完成、文本更新等） |
-| `message.part.removed` | `{ sessionID, messageID, partID }` | `DELETE .../part/:id` 后 |
+**`session.created`**
+- **触发**：`Session.create()` 后
+- **properties**：`{ sessionID, info: Session }`
+- **同步**：✅ `{ aggregate: "sessionID", version: 1 }`
 
-> **⚠️ Token 相关**: `session.updated` 的触发条件是**元数据变更**（标题/权限/归档），**token 累加不触发 `session.updated`**（详见 [§23 Token](#23-token--context-usage)）。
+**`session.updated`**
+- **触发**：会话**元数据**变更（标题、权限、归档等）
+- **properties**：`{ sessionID, info: Session }`
+- **同步**：✅
+- ⚠️ **Token 累加不触发** `session.updated`（详见 [§23 Token](#23-token--context-usage)）
+
+**`session.deleted`**
+- **触发**：`Session.remove()` 后
+- **properties**：`{ sessionID, info: Session }`（含被删除会话的最后状态）
+- **同步**：✅
+
+**`message.updated`**
+- **触发**：消息内容/状态/Part 变更（粗粒度全量更新）
+- **properties**：`{ sessionID, info: Message }`（`Message` 是 User | Assistant 判别联合）
+- **同步**：✅
+
+**`message.removed`**
+- **触发**：`session.removeMessage()` 后
+- **properties**：`{ sessionID, messageID }`
+- **同步**：✅
+
+**`message.part.updated`**
+- **触发**：Part 内容变更（工具调用完成、文本更新等）
+- **properties**：`{ sessionID, part: Part, time: number }`（`Part` 是 12 种联合类型）
+- **同步**：✅
+
+**`message.part.removed`**
+- **触发**：`DELETE .../part/:id` 后
+- **properties**：`{ sessionID, messageID, partID }`
+- **同步**：✅
 
 ### 21.6 Message v1 流式事件（1 个，❌ 瞬时）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `message.part.delta` | `{ sessionID, messageID, partID, field, delta }` | Part 字段的流式增量更新（`field`: `"output"` 工具输出追加 / `"text"` 文本追加 / 自定义） |
-
-> **瞬时事件**，不持久化，断线丢失。
+**`message.part.delta`**
+- **触发**：Part 字段的流式增量更新
+- **来源**：`packages/opencode/src/session/message-v2.ts:61-70`
+- **properties**：`{ sessionID, messageID, partID, field: string, delta: string }`
+- **字段**：`field` —— `"output"`（工具输出追加）/ `"text"`（文本追加）/ 自定义字段名
+- **同步**：❌ **瞬时事件**，不持久化，断线丢失
+- **客户端建议**：维护 Part 本地副本，收到 delta 时 append 到对应字段；这是 v1 流式遗留，v2 提供了更细粒度的 `session.next.*.delta`
 
 ### 21.7 Session.next v2 细粒度事件（31 个，核心）
 
-> v2 风格: 生命周期 + delta 模式（`*.started` → `*.delta` → `*.ended`）
-> 通用字段: `{ timestamp: ISO 8601 UTC, sessionID, ... }`
+> 来源：`packages/core/src/session/event.ts`
+> v2 风格：**生命周期 + delta 模式**（`*.started` → `*.delta` → `*.ended`）
+> 这是 OpenCode 事件体系的核心，AI 推理流程的细粒度事件
 
-**同步语义**: 27 个 Durable（可同步），4 个 Ephemeral（瞬时 `.delta`）
+#### 21.7.1 通用字段与同步语义
 
-#### 会话控制事件（9 个）
-
-| type | properties（除 timestamp/sessionID） | 同步 |
-|------|-------------------------------------|------|
-| `session.next.agent.switched` | `messageID, agent` | ✅ v1 |
-| `session.next.model.switched` | `messageID, model: { id, providerID }` | ✅ v1 |
-| `session.next.moved` | `location: Location.Ref, subdirectory?` | ✅ v1 |
-| `session.next.prompted` | `messageID, prompt, delivery: "steer" \| "queue"` | ✅ v1 |
-| `session.next.prompt.admitted` | 同 prompted | ✅ v1 |
-| `session.next.prompt.promoted` | `messageID, prompt, timeCreated` | ✅ v1 |
-| `session.next.interrupt.requested` | — | ✅ v1 |
-| `session.next.context.updated` | `messageID, text` | ✅ v1 |
-| `session.next.synthetic` | `messageID, text` | ✅ v1 |
-
-**`delivery` 字段**: `"steer"`（引导当前对话）/ `"queue"`（排队等待处理）
-
-#### Shell 命令事件（2 个）
-
-| type | properties | 同步 |
-|------|-----------|------|
-| `session.next.shell.started` | `messageID, callID, command` | ✅ v1 |
-| `session.next.shell.ended` | `callID, output` | ✅ v1 |
-
-#### Step（推理步骤）事件（3 个）
-
-| type | properties | 同步 |
-|------|-----------|------|
-| `session.next.step.started` | `assistantMessageID, agent, model, snapshot?` | ✅ v1 |
-| `session.next.step.ended` | `assistantMessageID, finish, cost, tokens, snapshot?` | ✅ **v2** |
-| `session.next.step.failed` | `assistantMessageID, error: { type: "unknown", message }` | ✅ **v2** |
-
-**`finish` 值**: `"stop"` / `"length"` / `"tool-calls"` / `"content-filter"` 等
-
-**`tokens` 结构**（**Token 相关事件 payload 核心**）:
+所有 `session.next.*` 事件包含：
 ```typescript
 {
-  input: number,        // 输入 token（不含 cache）
-  output: number,       // 输出 token（含 reasoning）
-  reasoning: number,    // output 中用于推理的部分
-  cache: { read: number, write: number }  // 缓存读写（独立于 input）
+  timestamp: string,    // ISO 8601 UTC
+  sessionID: string,
+  ...事件特定字段
 }
 ```
 
-**`snapshot`**: 文件系统快照 ID，用于 revert 时恢复文件状态。
+**同步语义**：
+- **Durable（持久化）**：27 个事件可同步（`sync: { aggregate: "sessionID", version: 1 或 2 }`）
+- **Ephemeral（瞬时）**：4 个 `.delta` 事件不同步（仅实时流，不持久化，断线永久丢失）
 
-#### Text（文本输出）事件（3 个）
+**v2 设计哲学（生命周期 + delta 模式）**：
 
-| type | properties | 同步 |
-|------|-----------|------|
-| `session.next.text.started` | `assistantMessageID, textID` | ✅ v1 |
-| `session.next.text.delta` | `assistantMessageID, textID, delta` | ❌ **瞬时** |
-| `session.next.text.ended` | `assistantMessageID, textID, text`（完整内容） | ✅ v1 |
+v1 的 `message.part.updated` 传递**完整 Part 对象**，每次更新全量替换，流式场景下效率低下（每次 delta 都序列化整个 Part）。v2 采用：
+- `*.started` — 开始（告知客户端创建新对象）
+- `*.delta` — 增量（**瞬时**，仅推送一次，客户端累积）
+- `*.ended` — 结束（传递完整值，作为权威状态）
 
-#### Reasoning（推理过程）事件（3 个）
+**客户端实现要点**：
+1. 收到 `started` → 创建本地对象
+2. 收到 `delta` → append 到本地对象（**必须实时处理，不能依赖回放**）
+3. 收到 `ended` → 用完整值覆盖本地对象（权威）
+4. 回放时只有 `started` 和 `ended`，没有 `delta` → 用 `ended` 的完整值重建
 
-| type | properties | 同步 |
-|------|-----------|------|
-| `session.next.reasoning.started` | `assistantMessageID, reasoningID, providerMetadata?` | ✅ v1 |
-| `session.next.reasoning.delta` | `assistantMessageID, reasoningID, delta` | ❌ **瞬时** |
-| `session.next.reasoning.ended` | `assistantMessageID, reasoningID, text, providerMetadata?` | ✅ v1 |
+**子分类计数**（合计 31）：
 
-#### Tool（工具调用）事件（8 个）
+| 子分类 | 数量 | 同步 |
+|--------|------|------|
+| 会话控制 | 9 | 全部 ✅ v1 |
+| Shell 命令 | 2 | 全部 ✅ v1 |
+| Step（推理步骤） | 3 | started ✅v1 / ended+failed ✅v2 |
+| Text（文本输出） | 3 | started+ended ✅v1 / delta ❌ |
+| Reasoning（推理过程） | 3 | started+ended ✅v1 / delta ❌ |
+| Tool（工具调用） | 7 | input.started+ended+called+progress+success+failed ✅v1 / delta ❌ |
+| Retry（重试） | 1 | ✅ v1 |
+| Compaction（压缩） | 3 | started+ended ✅（ended 有 v1/v2 双 schema） / delta ❌ |
 
-| type | properties | 同步 |
-|------|-----------|------|
-| `session.next.tool.input.started` | `assistantMessageID, callID, name` | ✅ v1 |
-| `session.next.tool.input.delta` | `assistantMessageID, callID, delta` | ❌ **瞬时** |
-| `session.next.tool.input.ended` | `assistantMessageID, callID, text`（完整参数 JSON） | ✅ v1 |
-| `session.next.tool.called` | `assistantMessageID, callID, tool, input, provider: { executed, metadata? }` | ✅ v1 |
-| `session.next.tool.progress` | `assistantMessageID, callID, structured, content`（**有界更新**，非每行 stdout） | ✅ v1 |
-| `session.next.tool.success` | `assistantMessageID, callID, structured, content, outputPaths?, result?, provider` | ✅ v1 |
-| `session.next.tool.failed` | `assistantMessageID, callID, error, result?, provider` | ✅ v1 |
+#### 21.7.2 会话控制事件（9 个）
 
-> 已知命令字面量（22 个）: `session.list/new/share/interrupt/compact`、`session.page.up/down`、`session.line.up/down`、`session.half.page.up/down`、`session.first/last`、`prompt.clear/submit`、`agent.cycle`、`help.show`、`model.list`、`theme.list`
+**`session.next.agent.switched`** — Agent 切换
+- **触发**：会话切换到不同 agent（如从 build 切到 plan）
+- **properties**：`{ timestamp, sessionID, messageID, agent: string }`
+- **同步**：✅ v1
 
-**`provider.executed`**: 是否由 provider 端执行（如 OpenAI 内置工具）vs 本地执行。
-**`outputPaths`**: 工具输出保存到磁盘的文件路径列表（当输出超过阈值时）。
+**`session.next.model.switched`** — 模型切换
+- **触发**：会话切换到不同模型
+- **properties**：`{ timestamp, sessionID, messageID, model: { id: string, providerID: string } }`
+- **同步**：✅ v1
+- **客户端建议**：更新 UI 显示的当前模型
 
-#### Retry 事件（1 个）
+**`session.next.moved`** — 会话迁移
+- **触发**：会话被迁移到新目录（`POST /experimental/control-plane/move-session`）
+- **properties**：`{ timestamp, sessionID, location: Location.Ref, subdirectory?: RelativePath }`
+- **同步**：✅ v1
 
-| type | properties | 同步 |
-|------|-----------|------|
-| `session.next.retried` | `attempt, error: { message, statusCode?, isRetryable, responseHeaders?, responseBody?, metadata? }` | ✅ v1 |
+**`session.next.prompted`** — 收到 Prompt
+- **触发**：用户发送消息（prompt 被创建）
+- **properties**：`{ timestamp, sessionID, messageID, prompt: Prompt, delivery: "steer" | "queue" }`
+- **同步**：✅ v1
+- **`delivery` 字段**：`"steer"`（引导当前对话）/ `"queue"`（排队等待处理）
 
-#### Compaction（压缩）事件（4 个）
+**`session.next.prompt.admitted`** — Prompt 被接纳
+- **触发**：Prompt 通过验证，被加入处理队列
+- **properties**：同 `prompted`
+- **同步**：✅ v1
 
-| type | properties | 同步 |
-|------|-----------|------|
-| `session.next.compaction.started` | `messageID, reason: "auto" \| "manual"` | ✅ v1 |
-| `session.next.compaction.delta` | `messageID, text` | ❌ **瞬时** |
-| `session.next.compaction.ended` | v1: `{ text, include? }` / **v2**: `{ messageID, reason, text, recent }` | v1✅ / v2✅ |
+**`session.next.prompt.promoted`** — Prompt 被提升
+- **触发**：排队的 Prompt 开始被处理
+- **properties**：`{ timestamp, sessionID, messageID, prompt, timeCreated }`
+- **同步**：✅ v1
 
-> **⚠️ 双版本**: `compaction.ended` 同一 type 字符串有两个 schema 版本。当前发布使用 v2，v1 decoder 保留用于回放存储的 beta 事件，客户端解码时需尝试两种 schema。
+**`session.next.interrupt.requested`** — 请求中断
+- **触发**：`POST /session/:id/abort` 后
+- **properties**：`{ timestamp, sessionID }`
+- **同步**：✅ v1
+
+**`session.next.context.updated`** — 上下文更新
+- **触发**：会话上下文（系统 prompt、工具配置等）变更
+- **properties**：`{ timestamp, sessionID, messageID, text: string }`
+- **同步**：✅ v1
+
+**`session.next.synthetic`** — 合成消息
+- **触发**：系统注入的合成消息（非用户/AI 自然产生）
+- **properties**：`{ timestamp, sessionID, messageID, text: string }`
+- **同步**：✅ v1
+
+#### 21.7.3 Shell 命令事件（2 个）
+
+**`session.next.shell.started`** — Shell 命令开始
+- **触发**：工具执行 shell 命令开始
+- **properties**：`{ timestamp, sessionID, messageID, callID, command: string }`
+- **同步**：✅ v1
+
+**`session.next.shell.ended`** — Shell 命令结束
+- **触发**：shell 命令执行完成
+- **properties**：`{ timestamp, sessionID, callID, output: string }`
+- **同步**：✅ v1
+
+#### 21.7.4 Step（推理步骤）事件（3 个）
+
+> 每个 step 对应一次 LLM 调用。`snapshot` 字段用于 revert 时恢复文件状态。
+
+**`session.next.step.started`** — 步骤开始
+- **触发**：AI 推理的一个 step 开始（一次 LLM 调用）
+- **properties**：`{ timestamp, sessionID, assistantMessageID, agent: string, model: { id, providerID }, snapshot?: string }`
+- **`snapshot`**：文件系统快照 ID，用于 revert 时恢复文件状态
+- **同步**：✅ v1
+
+**`session.next.step.ended`** — 步骤结束（**Token 相关事件 payload 核心**）
+- **触发**：AI 推理 step 完成
+- **properties**：`{ timestamp, sessionID, assistantMessageID, finish: string, cost: number, tokens: Tokens, snapshot?: string }`
+- **同步**：✅ **v2**（`stepSettlementOptions`，version: 2）
+- **`finish` 值**：`"stop"`（正常停止）/ `"length"`（达到长度限制）/ `"tool-calls"`（调用工具）/ `"content-filter"`（内容过滤）等
+- **`tokens` 结构**：
+  ```typescript
+  {
+    input: number,        // 输入 token（不含 cache）
+    output: number,       // 输出 token（含 reasoning）
+    reasoning: number,    // output 中用于推理的部分
+    cache: { read: number, write: number }  // 缓存读写（独立于 input）
+  }
+  ```
+- **客户端建议**：累加所有 `step.ended` 的 `tokens` 和 `cost` 获取会话级实时消耗（详见 [§23 Token](#23-token--context-usage)）
+
+**`session.next.step.failed`** — 步骤失败
+- **触发**：AI 推理 step 抛错
+- **properties**：`{ timestamp, sessionID, assistantMessageID, error: { type: "unknown", message: string } }`
+- **同步**：✅ **v2**
+
+#### 21.7.5 Text（文本输出）事件（3 个）
+
+**`session.next.text.started`** — 文本开始
+- **触发**：AI 开始输出文本内容（一段新的文本块）
+- **properties**：`{ timestamp, sessionID, assistantMessageID, textID: string }`
+- **同步**：✅ v1
+- **客户端建议**：创建本地文本缓冲区
+
+**`session.next.text.delta`** — 文本增量（**瞬时**）
+- **触发**：AI 流式输出文本片段
+- **properties**：`{ timestamp, sessionID, assistantMessageID, textID, delta: string }`
+- **同步**：❌ **瞬时事件**，不持久化
+- ⚠️ **重要**：仅推送一次，不存入事件溯源系统。客户端必须实时监听并累积。回放时只能拿到 `text.ended` 的完整文本
+
+**`session.next.text.ended`** — 文本结束
+- **触发**：一段文本输出完成
+- **properties**：`{ timestamp, sessionID, assistantMessageID, textID, text: string }`（`text` 是完整内容）
+- **同步**：✅ v1
+- **客户端建议**：用完整 `text` 覆盖本地缓冲区（权威值）；断线重连后用此重建
+
+#### 21.7.6 Reasoning（推理过程）事件（3 个）
+
+**`session.next.reasoning.started`** — 推理开始
+- **触发**：AI 开始输出 reasoning（如 Claude 的 thinking）
+- **properties**：`{ timestamp, sessionID, assistantMessageID, reasoningID: string, providerMetadata?: object }`
+- **`providerMetadata`**：provider 特定元数据（如 OpenAI 的 `reasoning_effort`）
+- **同步**：✅ v1
+
+**`session.next.reasoning.delta`** — 推理增量（**瞬时**）
+- **触发**：reasoning 流式输出片段
+- **properties**：`{ timestamp, sessionID, assistantMessageID, reasoningID, delta: string }`
+- **同步**：❌ **瞬时事件**
+
+**`session.next.reasoning.ended`** — 推理结束
+- **触发**：reasoning 输出完成
+- **properties**：`{ timestamp, sessionID, assistantMessageID, reasoningID, text: string, providerMetadata?: object }`
+- **同步**：✅ v1
+
+#### 21.7.7 Tool（工具调用）事件（7 个）
+
+**`session.next.tool.input.started`** — 工具输入开始
+- **触发**：AI 开始生成工具调用的参数
+- **properties**：`{ timestamp, sessionID, assistantMessageID, callID, name: string }`
+- **同步**：✅ v1
+
+**`session.next.tool.input.delta`** — 工具输入增量（**瞬时**）
+- **触发**：工具参数流式生成片段
+- **properties**：`{ timestamp, sessionID, assistantMessageID, callID, delta: string }`
+- **同步**：❌ **瞬时事件**
+
+**`session.next.tool.input.ended`** — 工具输入结束
+- **触发**：工具参数生成完成
+- **properties**：`{ timestamp, sessionID, assistantMessageID, callID, text: string }`（`text` 是完整参数 JSON）
+- **同步**：✅ v1
+
+**`session.next.tool.called`** — 工具被调用
+- **触发**：工具被实际调用执行（与 `input.ended` 不同，这是执行点）
+- **properties**：`{ timestamp, sessionID, assistantMessageID, callID, tool: string, input: Record<string, unknown>, provider: { executed: boolean, metadata?: object } }`
+- **`provider.executed`**：是否由 provider 端执行（如 OpenAI 内置工具）vs 本地执行
+- **同步**：✅ v1
+
+**`session.next.tool.progress`** — 工具执行进度
+- **触发**：工具执行过程中的中间状态更新（长时间运行的工具）
+- **properties**：`{ timestamp, sessionID, assistantMessageID, callID, structured: ToolOutput.Structured, content: ToolOutput.Content[] }`
+- **同步**：✅ v1
+- ⚠️ **有界更新**（bounded cadence）：不是每个 stdout 行都发事件，应 checkpoint 语义转换点或按有界频率发送
+
+**`session.next.tool.success`** — 工具执行成功
+- **触发**：工具执行成功完成
+- **properties**：`{ timestamp, sessionID, assistantMessageID, callID, structured, content, outputPaths?: string[], result?: unknown, provider: { executed, metadata? } }`
+- **`outputPaths`**：工具输出保存到磁盘的文件路径列表（当输出超过阈值时）
+- **同步**：✅ v1
+
+**`session.next.tool.failed`** — 工具执行失败
+- **触发**：工具执行抛错
+- **properties**：`{ timestamp, sessionID, assistantMessageID, callID, error: { type: "unknown", message: string }, result?: unknown, provider: { executed, metadata? } }`
+- **同步**：✅ v1
+
+#### 21.7.8 Retry（重试）事件（1 个）
+
+**`session.next.retried`** — 推理重试
+- **触发**：LLM 调用失败后自动重试
+- **properties**：`{ timestamp, sessionID, attempt: number, error: RetryError }`
+- **`RetryError` 结构**：
+  ```typescript
+  {
+    message: string,
+    statusCode?: number,
+    isRetryable: boolean,
+    responseHeaders?: Record<string, string>,
+    responseBody?: string,
+    metadata?: Record<string, string>
+  }
+  ```
+- **同步**：✅ v1
+
+#### 21.7.9 Compaction（压缩）事件（3 个）
+
+**`session.next.compaction.started`** — 压缩开始
+- **触发**：会话上下文压缩开始
+- **properties**：`{ timestamp, sessionID, messageID, reason: "auto" | "manual" }`
+- **同步**：✅ v1
+
+**`session.next.compaction.delta`** — 压缩增量（**瞬时**）
+- **触发**：压缩过程的流式输出（AI 生成压缩摘要时）
+- **properties**：`{ timestamp, sessionID, messageID, text: string }`
+- **同步**：❌ **瞬时事件**
+
+**`session.next.compaction.ended`** — 压缩结束（v1 + v2 双 schema 版本）
+- **触发**：压缩完成
+- **v1 properties**：`{ timestamp, sessionID, text: string, include?: string }`
+- **v2 properties**：`{ timestamp, sessionID, messageID, reason, text: string, recent: string }`
+- **同步**：v1 → ✅ v1；v2 → ✅ **v2**
+- ⚠️ **双版本**：同一 type 字符串有两个 schema 版本。**当前发布使用 v2**（`{ aggregate: "sessionID", version: 2 }`），v1 decoder（`Compaction.EndedV1`）保留 unpublished 用于回放存储的 beta 事件。客户端解码时需**尝试两种 schema**
 
 ### 21.8 Session 状态与生命周期事件（5 个，❌ 不同步）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `session.status` | `{ sessionID, status: SessionStatus.Info }` | 状态从 idle/busy/retry 转换时 |
-| `session.idle` | `{ sessionID }` | 会话变 idle 时**与 `session.status` 同时发布**（**DEPRECATED**，新代码不应依赖） |
-| `session.diff` | `{ sessionID, diff: FileDiff[] }` | 文件 diff 重新计算后 |
-| `session.error` | `{ sessionID?, error? }` | 会话执行错误（如 `prompt_async` 后台失败）。`sessionID` 可选（全局错误）；`error` 是 7 种错误类型联合（`api_error`/`aborted`/`auth`/`output_length`/`context_overflow`/`structured_output` 等） |
-| `session.compacted` | `{ sessionID }` | 会话压缩完成（粗粒度通知，与 `session.next.compaction.ended` 不同） |
+> 来源：`packages/opencode/src/session/status.ts` + `session.ts` + `compaction.ts`
+> 纯内存状态，不进入事件溯源系统
 
-**`SessionStatus.Info`**（3 种判别联合）:
+**`session.status`** — 会话状态变更
+- **触发**：状态从 idle/busy/retry 转换时
+- **properties**：`{ sessionID, status: SessionStatus.Info }`
+- **同步**：❌
+- **`SessionStatus.Info`**（3 种判别联合）：
+  | type | 额外字段 | 说明 |
+  |------|---------|------|
+  | `idle` | — | 空闲 |
+  | `busy` | — | 处理中 |
+  | `retry` | `attempt`, `message`, `action?: { reason, provider, title, message, label, link? }`, `next` | 重试中（`next` 是下次重试 Unix 时间戳，可显示倒计时；`action` 提供用户可执行操作，`link` 是操作链接） |
 
-| type | 额外字段 | 说明 |
-|------|---------|------|
-| `idle` | — | 空闲 |
-| `busy` | — | 处理中 |
-| `retry` | `attempt`, `message`, `action?: { reason, provider, title, message, label, link? }`, `next` | 重试中（`next` 是下次重试 Unix 时间戳，可显示倒计时） |
+**`session.idle`** — 会话空闲（**DEPRECATED**）
+- **触发**：会话变 idle 时，**与 `session.status` 同时发布**
+- **properties**：`{ sessionID }`
+- **同步**：❌
+- ⚠️ 源码标注 `// deprecated`，是 `session.status` 的历史遗留子集，**新代码不应依赖**
+
+**`session.diff`** — 文件 diff 更新
+- **触发**：会话产生文件变更，diff 重新计算后
+- **properties**：`{ sessionID, diff: FileDiff[] }`
+- **同步**：❌
+
+**`session.error`** — 会话错误
+- **触发**：会话执行错误（如 `prompt_async` 后台失败）
+- **properties**：`{ sessionID?, error? }`
+- **`sessionID` 可选**：全局错误可能不绑定特定会话
+- **`error`**：7 种错误类型联合（`api_error`/`aborted`/`auth`/`output_length`/`context_overflow`/`structured_output` 等，来自 `SessionV1.Assistant.fields.error`）
+- **同步**：❌
+
+**`session.compacted`** — 会话已压缩
+- **触发**：会话压缩完成（粗粒度通知，与 `session.next.compaction.ended` 不同）
+- **properties**：`{ sessionID }`
+- **同步**：❌
 
 ### 21.9 Todo 事件（1 个）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `todo.updated` | `{ sessionID, todos: Todo.Info[] }` | Todo 列表变更 |
+**`todo.updated`** — Todo 列表更新
+- **触发**：会话的 Todo 列表变更
+- **来源**：`packages/opencode/src/session/todo.ts:20-26`
+- **properties**：`{ sessionID, todos: Todo.Info[] }`
+- **`Todo.Info` 结构**：`{ content: string, status: "pending" | "in_progress" | "completed" | "cancelled", priority: "high" | "medium" | "low" }`
+- **同步**：❌
 
 ### 21.10 Permission 事件（4 个，v1 + v2 双轨）
 
-| type | properties | 同步 |
-|------|-----------|------|
-| `permission.asked`（v1） | `{ id, sessionID, permission, patterns, metadata, always, tool? }` | ❌ |
-| `permission.replied`（v1） | `{ sessionID, requestID, reply: "once" \| "always" \| "reject" }` | ❌ |
-| `permission.v2.asked`（v2） | `Request.fields`（v2 schema，更严格类型） | ❌ |
-| `permission.v2.replied`（v2） | `{ sessionID, requestID, reply }` | ❌ |
+> v1 和 v2 **并行发布**（同时收到两套，信息重复）。客户端建议选择 v2，忽略 v1。v1 不会移除（向后兼容）。
 
-> **v1 和 v2 并行发布**: 客户端建议选择 v2，忽略 v1。
+**`permission.asked`**（v1）— 权限请求
+- **触发**：工具需要权限时
+- **来源**：`packages/opencode/src/permission/index.ts:11`
+- **properties**：`{ id, sessionID, permission, patterns, metadata, always, tool? }`
+- **同步**：❌
+
+**`permission.replied`**（v1）— 权限回复
+- **触发**：用户回复权限请求后
+- **properties**：`{ sessionID, requestID, reply: "once" | "always" | "reject" }`
+- **同步**：❌
+
+**`permission.v2.asked`**（v2）— 权限请求
+- **触发**：工具需要权限时（v2 风格）
+- **来源**：`packages/core/src/permission.ts:75`
+- **properties**：`Request.fields`（v2 schema，更严格的类型）
+- **同步**：❌
+
+**`permission.v2.replied`**（v2）— 权限回复
+- **触发**：用户回复权限请求后（v2）
+- **properties**：`{ sessionID, requestID, reply }`
+- **同步**：❌
 
 ### 21.11 Question 事件（6 个，v1 + v2 双轨）
 
-| type | properties |
-|------|-----------|
-| `question.asked`（v1） | `Request.fields` |
-| `question.replied`（v1） | `Replied.fields` |
-| `question.rejected`（v1） | `Rejected.fields` |
-| `question.v2.asked` | v2 schema |
-| `question.v2.replied` | `{ sessionID, requestID, answers: Answer[] }` |
-| `question.v2.rejected` | `{ sessionID, requestID }` |
+> 同 Permission，v1 和 v2 并行发布，建议优先使用 v2。
+
+**`question.asked`**（v1）— 问题请求
+- **来源**：`packages/opencode/src/question/index.ts:87`
+- **properties**：`Request.fields`
+- **同步**：❌
+
+**`question.replied`**（v1）— 问题回复
+- **properties**：`Replied.fields`
+- **同步**：❌
+
+**`question.rejected`**（v1）— 问题拒绝
+- **触发**：用户拒绝回答问题
+- **properties**：`Rejected.fields`
+- **同步**：❌
+
+**`question.v2.asked`**（v2）— 问题提出
+- **同步**：❌
+
+**`question.v2.replied`**（v2）— 问题回复
+- **properties**：`{ sessionID, requestID, answers: Answer[] }`
+- **同步**：❌
+
+**`question.v2.rejected`**（v2）— 问题拒绝
+- **properties**：`{ sessionID, requestID }`
+- **同步**：❌
 
 ### 21.12 PTY 事件（4 个）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `pty.created` | `{ info: PtyInfo }` | `POST /pty` 创建后 |
-| `pty.updated` | `{ info: PtyInfo }` | `PUT /pty/:id` 更新后 |
-| `pty.exited` | `{ id, exitCode }` | PTY 进程退出 |
-| `pty.deleted` | `{ id }` | `DELETE /pty/:id` 后 |
+> 来源：`packages/core/src/pty.ts:93-96`
+
+**`pty.created`** — PTY 创建
+- **触发**：`POST /pty` 创建新 PTY 后
+- **properties**：`{ info: PtyInfo }`（含 id、title、command、pid 等）
+- **同步**：❌
+
+**`pty.updated`** — PTY 更新
+- **触发**：`PUT /pty/:id` 更新标题/尺寸后
+- **properties**：`{ info: PtyInfo }`
+- **同步**：❌
+
+**`pty.exited`** — PTY 退出
+- **触发**：PTY 进程退出
+- **properties**：`{ id, exitCode: number }`
+- **同步**：❌
+
+**`pty.deleted`** — PTY 删除
+- **触发**：`DELETE /pty/:id` 后
+- **properties**：`{ id }`
+- **同步**：❌
 
 ### 21.13 MCP 事件（2 个）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `mcp.tools.changed` | `{ server }` | MCP 工具列表变更（收到后应重新获取 `GET /experimental/tool`） |
-| `mcp.browser.open.failed` | `{ mcpName, url }` | MCP OAuth 流程中浏览器打开失败（向用户显示 URL 手动打开） |
+> 来源：`packages/opencode/src/mcp/index.ts:50-63`
+
+**`mcp.tools.changed`** — MCP 工具变更
+- **触发**：MCP 服务器的工具列表变更（连接/断开/刷新）
+- **properties**：`{ server: string }`（变更的 MCP 服务器名）
+- **同步**：❌
+- **客户端建议**：收到后重新获取工具列表（`GET /experimental/tool`）
+
+**`mcp.browser.open.failed`** — 浏览器打开失败
+- **触发**：MCP OAuth 流程中尝试打开浏览器失败（如远程服务器无 GUI）
+- **properties**：`{ mcpName: string, url: string }`
+- **同步**：❌
+- **客户端建议**：向用户显示 URL，让用户手动在浏览器中打开
 
 ### 21.14 Project 与 VCS 事件（3 个）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `project.updated` | `Project.Info` 所有字段 | 项目元数据变更 |
-| `project.directories.updated` | `ProjectCopy.Updated` schema | 项目目录列表变更 |
-| `vcs.branch.updated` | `{ branch?, default_branch? }` | Git 分支切换 |
+**`project.updated`** — 项目更新
+- **来源**：`packages/opencode/src/project/project.ts:57`
+- **触发**：项目元数据变更
+- **properties**：`Project.Info` 所有字段
+- **同步**：❌
+
+**`project.directories.updated`** — 项目目录更新
+- **来源**：`packages/core/src/project/copy.ts:95`
+- **触发**：项目目录列表变更
+- **properties**：`ProjectCopy.Updated` schema
+- **同步**：❌
+
+**`vcs.branch.updated`** — VCS 分支更新
+- **来源**：`packages/opencode/src/project/vcs.ts:237`
+- **触发**：Git 分支切换
+- **properties**：`{ branch?: string, default_branch?: string }`
+- **同步**：❌
 
 ### 21.15 LSP / IDE / Command 事件（3 个）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `lsp.updated` | `{}`（仅通知信号） | LSP 索引变更（收到后应重新获取 `GET /lsp`） |
-| `ide.installed` | `IDE.Installed` schema | IDE 插件安装 |
-| `command.executed` | `{ name, sessionID, arguments, messageID }` | 命令执行完成 |
+**`lsp.updated`** — LSP 状态更新
+- **来源**：`packages/opencode/src/lsp/lsp.ts:17`
+- **触发**：LSP 索引变更
+- **properties**：`{}`（空对象，仅通知信号）
+- **同步**：❌
+- **客户端建议**：收到后重新获取 LSP 状态（`GET /lsp`）
+
+**`ide.installed`** — IDE 插件安装
+- **来源**：`packages/opencode/src/ide/index.ts:15`
+- **触发**：IDE 插件安装
+- **properties**：`IDE.Installed` schema
+- **同步**：❌
+
+**`command.executed`** — 命令执行
+- **来源**：`packages/opencode/src/command/index.ts:18`
+- **触发**：命令执行完成
+- **properties**：`{ name, sessionID, arguments, messageID }`
+- **同步**：❌
 
 ### 21.16 Account / Catalog / Plugin 事件（5 个）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `account.added` | `{ accountID, ... }` | 新 provider 账户添加 |
-| `account.removed` | `{ accountID, ... }` | 账户移除 |
-| `account.switched` | `{ accountID, ... }` | 活跃账户切换（如 Console 组织切换） |
-| `catalog.model.updated` | `Catalog.ModelUpdated` schema | models.dev 数据刷新后 |
-| `plugin.added` | `Plugin.Added` schema | 新插件加载后 |
+> 来源：`packages/core/src/auth.ts` + `catalog.ts` + `plugin.ts`
+
+**`account.added`** — 账户添加
+- **触发**：新 provider 账户被添加
+- **properties**：`{ accountID, ... }`
+- **同步**：❌
+
+**`account.removed`** — 账户移除
+- **properties**：`{ accountID, ... }`
+- **同步**：❌
+
+**`account.switched`** — 账户切换
+- **触发**：活跃账户切换（如 Console 组织切换）
+- **properties**：`{ accountID, ... }`
+- **同步**：❌
+
+**`catalog.model.updated`** — 模型目录更新
+- **来源**：`packages/core/src/catalog.ts:36`
+- **触发**：models.dev 数据刷新后
+- **properties**：`Catalog.ModelUpdated` schema
+- **同步**：❌
+
+**`plugin.added`** — 插件添加
+- **来源**：`packages/core/src/plugin.ts:15`
+- **触发**：新插件加载后
+- **properties**：`Plugin.Added` schema
+- **同步**：❌
 
 ### 21.17 Filesystem 事件（2 个）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `file.edited` | `Filesystem.Edited` schema | 文件被编辑（通过 opencode 工具） |
-| `file.watcher.updated` | `Filesystem.Watcher.Updated` schema | 文件系统 watcher 检测到外部变更 |
+**`file.edited`** — 文件编辑
+- **来源**：`packages/core/src/filesystem.ts:207`
+- **触发**：文件被编辑（通过 opencode 的工具）
+- **properties**：`Filesystem.Edited` schema
+- **同步**：❌
+
+**`file.watcher.updated`** — 文件监听更新
+- **来源**：`packages/core/src/filesystem/watcher.ts:23`
+- **触发**：文件系统 watcher 检测到外部变更
+- **properties**：`Filesystem.Watcher.Updated` schema
+- **同步**：❌
 
 ### 21.18 Installation 事件（2 个）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `installation.updated` | `{ version }` | OpenCode 升级完成 |
-| `installation.update-available` | `{ version, ... }` | 检测到新版本可用 |
+> 来源：`packages/opencode/src/installation/index.ts:20-26`
+
+**`installation.updated`** — 版本更新完成
+- **触发**：OpenCode 升级完成后
+- **properties**：`{ version: string }`
+- **同步**：❌
+
+**`installation.update-available`** — 有可用更新
+- **触发**：检测到新版本可用
+- **properties**：`{ version: string, ... }`
+- **同步**：❌
 
 ### 21.19 Workspace / Worktree 事件（5 个）
 
-| type | properties | 触发 |
-|------|-----------|------|
-| `workspace.ready` | `{ workspaceID, ... }` | 工作区就绪 |
-| `workspace.failed` | `{ workspaceID, error, ... }` | 工作区失败 |
-| `workspace.status` | `{ workspaceID, connected, error? }` | 工作区状态变更 |
-| `worktree.ready` | `{ name, directory, ... }` | 工作树就绪 |
-| `worktree.failed` | `{ name, error, ... }` | 工作树失败 |
+**`workspace.ready`** — 工作区就绪
+- **来源**：`packages/opencode/src/control-plane/workspace.ts:48`
+- **properties**：`{ workspaceID, ... }`
+- **同步**：❌
+
+**`workspace.failed`** — 工作区失败
+- **来源**：`packages/opencode/src/control-plane/workspace.ts:54`
+- **properties**：`{ workspaceID, error, ... }`
+- **同步**：❌
+
+**`workspace.status`** — 工作区状态
+- **来源**：`packages/opencode/src/control-plane/workspace.ts:60`
+- **properties**：`{ workspaceID, connected: boolean, error?: string }`
+- **同步**：❌
+
+**`worktree.ready`** — Worktree 就绪
+- **来源**：`packages/opencode/src/worktree/index.ts:22`
+- **properties**：`{ name, directory, ... }`
+- **同步**：❌
+
+**`worktree.failed`** — Worktree 失败
+- **来源**：`packages/opencode/src/worktree/index.ts:29`
+- **properties**：`{ name, error, ... }`
+- **同步**：❌
 
 ### 21.20 TUI 事件（4 个）
 
-> 主要由 TUI 进程消费，外部客户端通常不需要处理
+> 来源：`packages/opencode/src/server/tui-event.ts`
+> ⚠️ 主要由 TUI 进程消费，外部客户端通常不需要处理
 
-| type | properties |
-|------|-----------|
-| `tui.prompt.append` | `{ text }` |
-| `tui.command.execute` | `{ command: string \| known-literal }` |
-| `tui.toast.show` | `{ title?, message, variant, duration }` |
-| `tui.session.select` | `{ sessionID }` |
+**`tui.prompt.append`** — 追加提示文本
+- **properties**：`{ text: string }`
+
+**`tui.command.execute`** — 执行 TUI 命令
+- **properties**：`{ command: string | known-literal }`
+- **已知命令字面量**（22 个）：`session.list`、`session.new`、`session.share`、`session.interrupt`、`session.compact`、`session.page.up`、`session.page.down`、`session.line.up`、`session.line.down`、`session.half.page.up`、`session.half.page.down`、`session.first`、`session.last`、`prompt.clear`、`prompt.submit`、`agent.cycle`、`help.show`、`model.list`、`theme.list`
+
+**`tui.toast.show`** — 显示 Toast
+- **properties**：`{ title?, message, variant: "info" | "success" | "warning" | "error", duration: number }`
+
+**`tui.session.select`** — 选择会话
+- **properties**：`{ sessionID }`
 
 ### 21.21 v1/v2 迁移状态
+
+OpenCode 事件体系正在从 v1（粗粒度）向 v2（细粒度）迁移。**v1 和 v2 并行发布**（同时收到两套事件，信息重复），不是替换关系。当前状态：
 
 | 体系 | 事件前缀 | 状态 | 客户端建议 |
 |------|---------|------|-----------|
@@ -3343,39 +3726,79 @@ X-Content-Type-Options: nosniff
 | Question v1 | `question.asked/replied/rejected` | ⚠️ 维护 | 兼容 |
 | Question v2 | `question.v2.*` | ✅ 推荐 | 优先使用 |
 
-**v1 和 v2 并行发布**: 同时收到两套事件（重复信息），建议选择一套（推荐 v2），忽略另一套。v1 不会移除（向后兼容）。
+> **建议**：选择一套体系（推荐 v2），忽略另一套。v1 不会移除（向后兼容）。详见 [§21.7.1 v2 设计哲学](#2171-通用字段与同步语义)。
 
 ### 21.22 Sync 同步机制
 
-部分事件标记为 `sync: { aggregate: "sessionID", version: N }`，支持跨工作区事件溯源同步。
+部分事件标记为 `sync: { aggregate: "sessionID", version: N }`，支持**跨工作区事件溯源同步**。
 
-**支持同步的事件分类**:
+**工作原理**：
+1. **事件发布**：服务端发布事件时，如果该事件在 registry 中标记为 `sync: true`，会额外发布一个**包装事件**到 GlobalBus
+2. **事件存储**：所有 sync 事件持久化到 SQLite 的 `EventTable`，按 `(aggregateID, seq)` 索引
+3. **增量同步**：客户端通过 `POST /sync/history` 查询增量事件，传入 `{ aggregateID: lastKnownSeq }`
+4. **回放**：`POST /sync/replay` 接收完整事件序列，设置 `strictOwner: true` 验证归属后应用到本地
+
+**支持同步的事件分类**：
 
 | 分类 | 是否同步 | aggregate | version |
 |------|---------|-----------|---------|
 | Session v1 (created/updated/deleted) | ✅ | `sessionID` | 1 |
 | Message v1 (updated/removed/part.*) | ✅ | `sessionID` | 1 |
 | **Session.next 大部分** | ✅ | `sessionID` | 1 或 2 |
-| Session.next `.delta` 系列 | ❌ | — | — |
-| Session.status/idle/diff/error | ❌ | — | — |
+| Session.next `.delta` 系列（4 个） | ❌ | — | — |
+| Session.status/idle/diff/error/compacted | ❌ | — | — |
 | Permission/Question | ❌ | — | — |
-| PTY/MCP/Project/VCS | ❌ | — | — |
+| PTY/MCP/Project/VCS/其余 | ❌ | — | — |
 
-**sync 包装事件**（在 `/global/event` 上额外发布）:
+**sync 包装事件**（在 `/global/event` 上额外发布）：
 ```typescript
 {
   type: "sync",
   syncEvent: {
     id: EventV2.ID,
-    type: "<原始 type>@v<N>",          // 版本化 type，如 session.updated@v1
+    type: "<原始 type>@v<N>",          // 版本化 type，如 session.updated@v1 / session.next.step.ended@v2
     seq: number,                        // 单调递增序列号
-    aggregateID: string,                // 聚合根 ID
+    aggregateID: string,                // 聚合根 ID（如 sessionID）
     data: <原始 properties>
   }
 }
 ```
 
-> 客户端解码需根据 `@vN` 后缀选择正确的 schema 版本。
+> ⚠️ **客户端解码**：sync 事件的 `syncEvent.type` 带 `@vN` 后缀（与原始 type 不同）。需根据后缀选择正确的 schema 版本解码。同一 type 的不同 schema 版本可共存于事件流（如 `session.next.compaction.ended@v1` 与 `@v2`）。
+
+### 21.23 关键发现与实现陷阱
+
+**🔴 发现 1：v1 和 v2 事件并行发布，不是替换**
+- 客户端同时监听两套会收到**重复信息**
+- **策略**：选择一套（推荐 v2），忽略另一套
+
+**🔴 发现 2：4 个 `.delta` 事件是瞬时的，无法通过回放获取**
+- `session.next.text.delta`、`reasoning.delta`、`tool.input.delta`、`compaction.delta` **不持久化**
+- SSE 断线期间错过的 delta → **永久丢失**
+- sync/history 回放 → 只有 `*.ended` 的完整值
+- **客户端策略**：UI 展示用 delta（实时流式效果）；状态管理用 `ended`（权威完整值）；断线重连后用 `ended` 重建，不依赖 delta
+
+**🟡 发现 3：`session.next.compaction.ended` 存在双 schema 版本**
+- 同一 type 字符串，v1 `{ text, include? }` 与 v2 `{ messageID, reason, text, recent }` 共存
+- 当前发布使用 v2，v1 decoder 保留用于回放历史 beta 事件
+- **客户端解码需尝试两种 schema**
+
+**🟡 发现 4：`session.idle` 是 `session.status` 的废弃子集**
+- 每次会话变 idle，会**同时**发布 `session.status`（含 `status: { type: "idle" }`）和 `session.idle`
+- 后者历史遗留，**不应在新代码中依赖**
+
+**🟡 发现 5：全局事件的 payload 结构不同于实例事件**
+- `/event`：`{ id, type, properties }`
+- `/global/event`：`{ directory, project?, workspace?, payload: { id, type, properties } }`
+- 客户端需根据端点使用不同解析逻辑
+
+**🟢 发现 6：心跳的 `drop(1)` 设计**
+- `Stream.tick("10 seconds")` 订阅时立即产生第一个值，`drop(1)` 避免连接后立刻发送心跳（`server.connected` 已是首个事件）
+- 真正首次心跳在连接后 10 秒
+
+**🟢 发现 7：`session.status` 的 `retry` 状态含未来重试时间**
+- `retry.next` 是下次重试的 Unix 时间戳，客户端可据此显示倒计时
+- `retry.action` 提供用户可执行操作（如"添加付款方式"，`link` 是操作链接）
 
 ---
 
@@ -4353,7 +4776,7 @@ Provider: opencode-go (OpenCode Go)
 | Workspace/Worktree | 5 | `workspace.*` / `worktree.*` |
 | TUI | 4 | `tui.*` |
 
-**4 个瞬时事件**（不持久化，断线丢失）: `message.part.delta`、`session.next.text.delta`、`session.next.reasoning.delta`、`session.next.tool.input.delta`、`session.next.compaction.delta`（实际 5 个，其中 session.next.* 的 4 个 delta 是核心瞬时事件）
+**5 个瞬时事件**（不持久化，断线丢失）: `message.part.delta`（v1）、`session.next.text.delta`、`session.next.reasoning.delta`、`session.next.tool.input.delta`、`session.next.compaction.delta`（其中 session.next.* 的 4 个 delta 是 v2 核心瞬时事件，详见 [§21.7.1](#2171-通用字段与同步语义)）
 
 **关键事件订阅建议**:
 - 实时 token/cost: `session.next.step.ended`（携带 tokens + cost）
