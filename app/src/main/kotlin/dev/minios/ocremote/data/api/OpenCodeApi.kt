@@ -989,10 +989,36 @@ class OpenCodeApi @Inject constructor(
         }.body()
     }
 
-    suspend fun readFile(conn: ServerConnection, path: String): FileContentDto {
+    suspend fun readFile(conn: ServerConnection, path: String, directory: String? = null): FileContentDto {
         return httpClient.get("${conn.baseUrl}/file/content") {
             conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
             parameter("path", path)
+        }.body()
+    }
+
+    // ============ VCS ============
+
+    suspend fun getVcs(conn: ServerConnection, directory: String? = null): VcsBranchDto {
+        return httpClient.get("${conn.baseUrl}/vcs") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+        }.body()
+    }
+
+    suspend fun getVcsStatus(conn: ServerConnection, directory: String? = null): List<VcsChangeDto> {
+        return httpClient.get("${conn.baseUrl}/vcs/status") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+        }.body()
+    }
+
+    suspend fun getVcsDiff(conn: ServerConnection, mode: String, context: Int = 3, directory: String? = null): List<FileDiffDto> {
+        return httpClient.get("${conn.baseUrl}/vcs/diff") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+            parameter("mode", mode)
+            parameter("context", context)
         }.body()
     }
 
