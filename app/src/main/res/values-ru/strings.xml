@@ -279,6 +279,7 @@
     <string name="chat_load_earlier">Загрузить более ранние сообщения</string>
     <string name="chat_loading_earlier">Загрузка…</string>
     <string name="chat_summarized">Контекст сжат</string>
+    <string name="chat_menu_open_workspace">Открыть рабочую область</string>
     <string name="menu_open_in_web">Открыть в Web</string>
     <string name="menu_new_session">Новая сессия</string>
     <string name="menu_fork_session">Форкнуть сессию</string>
@@ -629,6 +630,14 @@
     <string name="a11y_icon_remove_from_list">Удалить из списка</string>
     <string name="a11y_icon_scroll_to_top">Прокрутить наверх</string>
     <string name="a11y_icon_hide_keyboard">Скрыть клавиатуру</string>
+    <string name="a11y_icon_git_changes">Изменения Git</string>
+    <string name="workspace_refresh">Обновить</string>
+    <string name="workspace_show_ignored">Показать игнорируемые</string>
+    <string name="workspace_empty_directory">Пустая папка</string>
+    <string name="workspace_retry">Повторить</string>
+    <string name="workspace_git_stats">%1$d изменений (%2$d M, %3$d A, %4$d D)</string>
+    <string name="workspace_git_not_a_repo">Не Git-репозиторий</string>
+    <string name="workspace_git_working_tree_clean">Рабочее дерево чистое</string>
     <string name="sessions_view_folders">Папки</string>
     <string name="sessions_view_recent">Недавние</string>
     <string name="sessions_clear_search">Очистить поиск</string>
@@ -645,4 +654,20 @@
     <string name="chat_thinking_in_progress">Размышление… %1$s</string>
     <string name="mcp_servers_title">Серверы MCP</string>
     <string name="mcp_no_servers">Серверы MCP не настроены</string>
+    <string name="chat_context_composition">Состав контекста (оценка)</string>
+    <string name="chat_context_other_note">Прочие (включая систему и т.д.)</string>
+    <string name="chat_role_user">Пользователь</string>
+    <string name="chat_role_assistant">Ассистент</string>
+    <string name="chat_role_tool">Вызовы инструментов</string>
+    <string name="chat_role_other">Прочие</string>
+    <string name="chat_context_msg_summary">Сообщение %1$d (Пользователь %2$d · Ассистент %3$d)</string>
+    <string name="chat_context_cache_hit">Попадание в кэш %1$d%%</string>
+    <string name="chat_context_timestamps">Создано %1$s · Активно %2$s</string>
+    <string name="viewer_binary_not_supported">Бинарный файл, предварительный просмотр не поддерживается</string>
+    <string name="viewer_binary_mime">MIME-тип: %1$s</string>
+    <string name="viewer_empty_file">Файл пуст</string>
+    <string name="viewer_truncated">Большой файл — показаны первые 5 000 строк</string>
+    <string name="viewer_diff_placeholder">Просмотр различий (Задача 16)</string>
+    <string name="a11y_icon_hunk_previous">Предыдущий блок изменений</string>
+    <string name="a11y_icon_hunk_next">Следующий блок изменений</string>
 </resources>

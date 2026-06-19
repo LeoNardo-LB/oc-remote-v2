@@ -18,6 +18,7 @@ import dev.minios.ocremote.ui.navigation.routes.ChatNav
  *     onNavigateToSession = { ... },
  *     onNavigateToChildSession = { ... },
  *     onOpenInWebView = { ... },
+ *     onOpenWorkspace = { ... },
  *     getPendingShare = { sessionId -> ... },
  *     consumeShare = { ... }
  * )
@@ -31,6 +32,9 @@ fun NavGraphBuilder.chatScreen(
                                serverName: String, serverId: String, sessionId: String) -> Unit,
     onOpenInWebView: (serverUrl: String, username: String, password: String,
                       serverName: String, sessionId: String) -> Unit,
+    onOpenWorkspace: (serverUrl: String, username: String, password: String,
+                      serverName: String, serverId: String, sessionId: String,
+                      directory: String) -> Unit,
     getPendingShare: (sessionId: String) -> List<Uri>,
     consumeShare: () -> Unit,
 ) {
@@ -60,6 +64,13 @@ fun NavGraphBuilder.chatScreen(
                 onOpenInWebView(
                     args.server.serverUrl, args.server.username, args.server.password,
                     args.server.serverName, args.sessionId,
+                )
+            },
+            onOpenWorkspace = {
+                onOpenWorkspace(
+                    args.server.serverUrl, args.server.username, args.server.password,
+                    args.server.serverName, args.server.serverId, args.sessionId,
+                    args.directory,
                 )
             },
             initialSharedImages = sharedImages,

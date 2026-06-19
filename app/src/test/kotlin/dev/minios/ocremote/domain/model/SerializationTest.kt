@@ -18,8 +18,8 @@ import dev.minios.ocremote.data.dto.response.QuestionInfo
 import dev.minios.ocremote.data.dto.response.QuestionOption
 import dev.minios.ocremote.data.dto.response.QuestionRequest
 import dev.minios.ocremote.data.dto.response.ServerConfigResponse
-import dev.minios.ocremote.data.dto.response.FileContent
-import dev.minios.ocremote.data.dto.response.FileNode
+import dev.minios.ocremote.data.dto.response.FileContentDto
+import dev.minios.ocremote.data.dto.response.FileNodeDto
 import dev.minios.ocremote.data.dto.response.SkillInfo
 import dev.minios.ocremote.data.dto.response.TodoItem
 import kotlinx.serialization.json.Json
@@ -1213,20 +1213,20 @@ class SerializationTest {
     }
 
     @Test
-    fun `FileNode round-trip`() {
-        val node = FileNode(name = "Main.kt", path = "/src/Main.kt", type = "file", absolute = "/abs/src/Main.kt", size = 1024)
-        val encoded = json.encodeToString(FileNode.serializer(), node)
-        val decoded = json.decodeFromString(FileNode.serializer(), encoded)
+    fun `FileNodeDto round-trip`() {
+        val node = FileNodeDto(name = "Main.kt", path = "/src/Main.kt", type = "file", absolute = "/abs/src/Main.kt", size = 1024)
+        val encoded = json.encodeToString(FileNodeDto.serializer(), node)
+        val decoded = json.decodeFromString(FileNodeDto.serializer(), encoded)
         assertEquals("Main.kt", decoded.name)
         assertEquals("file", decoded.type)
         assertEquals(1024L, decoded.size)
     }
 
     @Test
-    fun `FileContent round-trip`() {
-        val content = FileContent(type = "text", content = "hello world")
-        val encoded = json.encodeToString(FileContent.serializer(), content)
-        val decoded = json.decodeFromString(FileContent.serializer(), encoded)
+    fun `FileContentDto round-trip`() {
+        val content = FileContentDto(type = "text", content = "hello world")
+        val encoded = json.encodeToString(FileContentDto.serializer(), content)
+        val decoded = json.decodeFromString(FileContentDto.serializer(), encoded)
         assertEquals("text", decoded.type)
         assertEquals("hello world", decoded.content)
     }

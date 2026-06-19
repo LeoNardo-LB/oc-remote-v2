@@ -31,7 +31,9 @@ import dev.minios.ocremote.ui.screens.server.ServerModelFilterRoute
 import dev.minios.ocremote.ui.screens.server.ServerProvidersRoute
 import dev.minios.ocremote.ui.screens.server.ServerSettingsRoute
 import dev.minios.ocremote.ui.screens.settings.SettingsRoute
+import dev.minios.ocremote.ui.screens.viewer.FileViewerRoute
 import dev.minios.ocremote.ui.screens.webview.WebViewScreen
+import dev.minios.ocremote.ui.screens.workspace.WorkspaceRoute
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.firstOrNull
@@ -455,12 +457,76 @@ fun NavGraph(
                         navController.navigate(route) { launchSingleTop = true }
                     }
                 },
+                onOpenWorkspace = {
+                    navController.navigate(
+                        WorkspaceNav.createRoute(
+                            serverUrl = params.server.serverUrl,
+                            username = params.server.username,
+                            password = params.server.password,
+                            serverName = params.server.serverName,
+                            serverId = params.server.serverId,
+                            sessionId = params.sessionId,
+                            directory = params.directory
+                        )
+                    ) { launchSingleTop = true }
+                },
                 initialSharedImages = imagesForThisSession,
                 onSharedImagesConsumed = {
                     pendingShareUris = emptyList()
                     pendingShareSessionId = null
                 },
                 startInTerminalMode = params.openTerminal
+            )
+        }
+
+        // ============ Workspace Screen ============
+        composable(
+            route = WorkspaceNav.routePattern,
+            arguments = WorkspaceNav.navArguments
+        ) { entry ->
+            val p = WorkspaceNav.fromEntry(entry)
+            WorkspaceRoute(
+                onBack = { navController.popBackStack() },
+                onOpenFile = { filePath ->
+                    navController.navigate(
+                        FileViewerNav.createRoute(
+                            serverUrl = p.server.serverUrl,
+                            username = p.server.username,
+                            password = p.server.password,
+                            serverName = p.server.serverName,
+                            serverId = p.server.serverId,
+                            sessionId = p.sessionId,
+                            filePath = filePath,
+                            source = FileViewerNav.Source.LIVE,
+                            directory = p.directory
+                        )
+                    )
+                },
+                onOpenGitDiff = { filePath ->
+                    navController.navigate(
+                        FileViewerNav.createRoute(
+                            serverUrl = p.server.serverUrl,
+                            username = p.server.username,
+                            password = p.server.password,
+                            serverName = p.server.serverName,
+                            serverId = p.server.serverId,
+                            sessionId = p.sessionId,
+                            filePath = filePath,
+                            source = FileViewerNav.Source.GIT_DIFF,
+                            directory = p.directory
+                        )
+                    )
+                }
+            )
+        }
+
+        // ============ File Viewer Screen ============
+        composable(
+            route = FileViewerNav.routePattern,
+            arguments = FileViewerNav.navArguments
+        ) {
+            FileViewerRoute(
+                onBack = { navController.popBackStack() }
             )
         }
     }

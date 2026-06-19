@@ -6,12 +6,15 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.minios.ocremote.data.repository.AgentRepositoryImpl
 import dev.minios.ocremote.data.repository.DraftDataStore
+import dev.minios.ocremote.data.repository.FileRepositoryImpl
 import dev.minios.ocremote.data.repository.ServerRepositoryImpl
 import dev.minios.ocremote.data.repository.McpRepositoryImpl
 import dev.minios.ocremote.data.repository.SettingsRepositoryImpl
 import dev.minios.ocremote.data.repository.TerminalRepositoryImpl
+import dev.minios.ocremote.data.repository.VcsRepositoryImpl
 import dev.minios.ocremote.domain.repository.AgentRepository
 import dev.minios.ocremote.domain.repository.DraftRepository
+import dev.minios.ocremote.domain.repository.FileRepository
 import dev.minios.ocremote.domain.repository.LocalServerRepository
 import dev.minios.ocremote.domain.repository.McpRepository
 import dev.minios.ocremote.domain.repository.ProviderRepository
@@ -20,6 +23,7 @@ import dev.minios.ocremote.domain.repository.ServerConnectionRepository
 import dev.minios.ocremote.domain.repository.ServerRepository
 import dev.minios.ocremote.domain.repository.SettingsRepository
 import dev.minios.ocremote.domain.repository.TerminalRepository
+import dev.minios.ocremote.domain.repository.VcsRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -54,5 +58,11 @@ abstract class DomainModule {
 
     @Binds
     abstract fun bindMcpRepository(impl: McpRepositoryImpl): McpRepository
+
+    @Binds
+    abstract fun bindFileRepository(impl: FileRepositoryImpl): FileRepository
+
+    @Binds
+    abstract fun bindVcsRepository(impl: VcsRepositoryImpl): VcsRepository
 
 }

@@ -231,6 +231,7 @@
     <string name="chat_session_rename_failed">Не вдалося перейменувати</string>
     <string name="chat_load_earlier">Завантажити попередні повідомлення</string>
     <string name="chat_loading_earlier">Завантаження…</string>
+    <string name="chat_menu_open_workspace">Переглянути робочий простір</string>
     <string name="menu_open_in_web">Відкрити у веб</string>
     <string name="menu_new_session">Нова сесія</string>
     <string name="menu_fork_session">Розділити сесію</string>
@@ -628,6 +629,14 @@
     <string name="a11y_icon_remove_from_list">Видалити зі списку</string>
     <string name="a11y_icon_scroll_to_top">Прокрутити вгору</string>
     <string name="a11y_icon_hide_keyboard">Приховати клавіатуру</string>
+    <string name="a11y_icon_git_changes">Зміни Git</string>
+    <string name="workspace_refresh">Оновити</string>
+    <string name="workspace_show_ignored">Показати ігноровані</string>
+    <string name="workspace_empty_directory">Порожній каталог</string>
+    <string name="workspace_retry">Повторити</string>
+    <string name="workspace_git_stats">%1$d змін (%2$d M, %3$d A, %4$d D)</string>
+    <string name="workspace_git_not_a_repo">Не Git-репозиторій</string>
+    <string name="workspace_git_working_tree_clean">Робоче дерево чисте</string>
     <string name="sessions_view_folders">Папки</string>
     <string name="sessions_view_recent">Нещодавні</string>
     <string name="sessions_clear_search">Очистити пошук</string>
@@ -644,4 +653,20 @@
     <string name="chat_thinking_in_progress">Думає… %1$s</string>
     <string name="mcp_servers_title">Сервери MCP</string>
     <string name="mcp_no_servers">Сервери MCP не налаштовано</string>
+    <string name="chat_context_composition">Склад контексту (приблизно)</string>
+    <string name="chat_context_other_note">Решта (включаючи system тощо)</string>
+    <string name="chat_role_user">Користувач</string>
+    <string name="chat_role_assistant">Асистент</string>
+    <string name="chat_role_tool">Виклик інструменту</string>
+    <string name="chat_role_other">Інше</string>
+    <string name="chat_context_msg_summary">Повідомлення %1$d (користувач %2$d · асистент %3$d)</string>
+    <string name="chat_context_cache_hit">Попадання в кеш %1$d%%</string>
+    <string name="chat_context_timestamps">Створено %1$s · Активність %2$s</string>
+    <string name="viewer_binary_not_supported">Двійковий файл, попередній перегляд не підтримується</string>
+    <string name="viewer_binary_mime">Тип MIME: %1$s</string>
+    <string name="viewer_empty_file">Файл порожній</string>
+    <string name="viewer_truncated">Великий файл — показ перших 5 000 рядків</string>
+    <string name="viewer_diff_placeholder">Перегляд відмінностей (Завдання 16)</string>
+    <string name="a11y_icon_hunk_previous">Попередній блок змін</string>
+    <string name="a11y_icon_hunk_next">Наступний блок змін</string>
 </resources>

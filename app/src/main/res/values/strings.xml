@@ -533,6 +533,7 @@
     <string name="chat_summarized">Context compacted</string>
 
     <!-- Chat menu actions -->
+    <string name="chat_menu_open_workspace">View Workspace</string>
     <string name="menu_open_in_web">Open in Web</string>
     <string name="menu_new_session">New session</string>
     <string name="menu_fork_session">Fork session</string>
@@ -682,6 +683,18 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_remove_from_list">Remove from list</string>
     <string name="a11y_icon_scroll_to_top">Scroll to top</string>
     <string name="a11y_icon_hide_keyboard">Hide keyboard</string>
+    <string name="a11y_icon_git_changes">Git changes</string>
+
+    <!-- Workspace file tree -->
+    <string name="workspace_refresh">Refresh</string>
+    <string name="workspace_show_ignored">Show ignored</string>
+    <string name="workspace_empty_directory">Empty directory</string>
+    <string name="workspace_retry">Retry</string>
+
+    <!-- Workspace git changes -->
+    <string name="workspace_git_stats">%1$d changes (%2$d M, %3$d A, %4$d D)</string>
+    <string name="workspace_git_not_a_repo">Not a git repository</string>
+    <string name="workspace_git_working_tree_clean">Working tree clean</string>
 
     <!-- Session List view mode toggle -->
     <string name="sessions_view_folders">Folders</string>
@@ -702,4 +715,13 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="connection_error_title">Server unreachable</string>
     <string name="connection_error_retrying_in">Retrying in %1$ds…</string>
     <string name="connection_error_switch_server">Switch to another server</string>
+
+    <!-- File Viewer -->
+    <string name="viewer_binary_not_supported">Binary file, preview not supported</string>
+    <string name="viewer_binary_mime">MIME type: %1$s</string>
+    <string name="viewer_empty_file">File is empty</string>
+    <string name="viewer_truncated">Large file — showing first 5,000 lines</string>
+    <string name="viewer_diff_placeholder">Diff view (Task 16)</string>
+    <string name="a11y_icon_hunk_previous">Previous hunk</string>
+    <string name="a11y_icon_hunk_next">Next hunk</string>
 </resources>

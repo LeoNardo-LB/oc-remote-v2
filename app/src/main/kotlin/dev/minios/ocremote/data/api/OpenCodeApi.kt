@@ -971,7 +971,7 @@ class OpenCodeApi @Inject constructor(
 
     // ============ Files ============
 
-    suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatch> {
+    suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatchDto> {
         return httpClient.get("${conn.baseUrl}/find") {
             conn.authHeader?.let { header("Authorization", it) }
             parameter("pattern", pattern)
@@ -989,10 +989,36 @@ class OpenCodeApi @Inject constructor(
         }.body()
     }
 
-    suspend fun readFile(conn: ServerConnection, path: String): FileContent {
+    suspend fun readFile(conn: ServerConnection, path: String, directory: String? = null): FileContentDto {
         return httpClient.get("${conn.baseUrl}/file/content") {
             conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
             parameter("path", path)
+        }.body()
+    }
+
+    // ============ VCS ============
+
+    suspend fun getVcs(conn: ServerConnection, directory: String? = null): VcsBranchDto {
+        return httpClient.get("${conn.baseUrl}/vcs") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+        }.body()
+    }
+
+    suspend fun getVcsStatus(conn: ServerConnection, directory: String? = null): List<VcsChangeDto> {
+        return httpClient.get("${conn.baseUrl}/vcs/status") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+        }.body()
+    }
+
+    suspend fun getVcsDiff(conn: ServerConnection, mode: String, context: Int = 3, directory: String? = null): List<FileDiffDto> {
+        return httpClient.get("${conn.baseUrl}/vcs/diff") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+            parameter("mode", mode)
+            parameter("context", context)
         }.body()
     }
 
@@ -1009,7 +1035,7 @@ class OpenCodeApi @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun listDirectory(conn: ServerConnection, path: String = "", directory: String? = null): List<FileNode> {
+    suspend fun listDirectory(conn: ServerConnection, path: String = "", directory: String? = null): List<FileNodeDto> {
         val response = httpClient.get("${conn.baseUrl}/file") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)

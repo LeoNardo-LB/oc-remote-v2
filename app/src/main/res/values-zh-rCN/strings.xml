@@ -236,6 +236,7 @@
     <string name="chat_session_rename_failed">重命名失败</string>
     <string name="chat_load_earlier">加载更早的消息</string>
     <string name="chat_loading_earlier">加载中…</string>
+    <string name="chat_menu_open_workspace">查看工作空间</string>
     <string name="menu_open_in_web">在 Web 中打开</string>
     <string name="menu_new_session">新会话</string>
     <string name="menu_fork_session">分叉会话</string>
@@ -631,6 +632,14 @@
     <string name="a11y_icon_remove_from_list">从列表中移除</string>
     <string name="a11y_icon_scroll_to_top">滚动到顶部</string>
     <string name="a11y_icon_hide_keyboard">隐藏键盘</string>
+    <string name="a11y_icon_git_changes">Git更改</string>
+    <string name="workspace_refresh">刷新</string>
+    <string name="workspace_show_ignored">显示忽略项</string>
+    <string name="workspace_empty_directory">空目录</string>
+    <string name="workspace_retry">重试</string>
+    <string name="workspace_git_stats">%1$d 个变更（%2$d M，%3$d A，%4$d D）</string>
+    <string name="workspace_git_not_a_repo">当前项目不是 Git 仓库</string>
+    <string name="workspace_git_working_tree_clean">工作区干净，无变更</string>
     <string name="sessions_view_folders">文件夹</string>
     <string name="sessions_view_recent">最近</string>
     <string name="sessions_clear_search">清除搜索</string>
@@ -644,4 +653,20 @@
     <string name="connection_error_retrying_in">%1$d 秒后重试…</string>
     <string name="connection_error_switch_server">切换到其他服务器</string>
     <string name="chat_thinking_in_progress">思考中… %1$s</string>
+    <string name="chat_context_composition">上下文构成（估算）</string>
+    <string name="chat_context_other_note">其余（含系统等）</string>
+    <string name="chat_role_user">用户</string>
+    <string name="chat_role_assistant">助手</string>
+    <string name="chat_role_tool">工具调用</string>
+    <string name="chat_role_other">其余</string>
+    <string name="chat_context_msg_summary">消息 %1$d（用户 %2$d · 助手 %3$d）</string>
+    <string name="chat_context_cache_hit">缓存命中 %1$d%%</string>
+    <string name="chat_context_timestamps">创建 %1$s · 活动 %2$s</string>
+    <string name="viewer_binary_not_supported">二进制文件，不支持预览</string>
+    <string name="viewer_binary_mime">MIME类型：%1$s</string>
+    <string name="viewer_empty_file">文件为空</string>
+    <string name="viewer_truncated">大文件 — 显示前5000行</string>
+    <string name="viewer_diff_placeholder">差异视图（任务16）</string>
+    <string name="a11y_icon_hunk_previous">上一个差异块</string>
+    <string name="a11y_icon_hunk_next">下一个差异块</string>
 </resources>

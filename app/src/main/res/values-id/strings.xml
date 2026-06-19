@@ -304,6 +304,7 @@
     <string name="chat_loading_earlier">Memuat…</string>
     <string name="chat_summarized">Konteks dikompak</string>
     <!-- Chat menu actions -->
+    <string name="chat_menu_open_workspace">Lihat ruang kerja</string>
     <string name="menu_open_in_web">Buka di Web</string>
     <string name="menu_new_session">Sesi baru</string>
     <string name="menu_fork_session">Fork sesi</string>
@@ -634,6 +635,14 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_remove_from_list">Hapus dari daftar</string>
     <string name="a11y_icon_scroll_to_top">Gulir ke atas</string>
     <string name="a11y_icon_hide_keyboard">Sembunyikan keyboard</string>
+    <string name="a11y_icon_git_changes">Perubahan Git</string>
+    <string name="workspace_refresh">Segarkan</string>
+    <string name="workspace_show_ignored">Tampilkan yang diabaikan</string>
+    <string name="workspace_empty_directory">Direktori kosong</string>
+    <string name="workspace_retry">Coba lagi</string>
+    <string name="workspace_git_stats">%1$d perubahan (%2$d M, %3$d A, %4$d D)</string>
+    <string name="workspace_git_not_a_repo">Bukan repositori Git</string>
+    <string name="workspace_git_working_tree_clean">Pohon kerja bersih</string>
     <string name="sessions_view_folders">Folder</string>
     <string name="sessions_view_recent">Terbaru</string>
     <string name="sessions_clear_search">Hapus pencarian</string>
@@ -650,4 +659,20 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_thinking_in_progress">Berpikir… %1$s</string>
     <string name="mcp_servers_title">Server MCP</string>
     <string name="mcp_no_servers">Tidak ada server MCP dikonfigurasi</string>
+    <string name="chat_context_composition">Komposisi konteks (estimasi)</string>
+    <string name="chat_context_other_note">Sisanya (termasuk sistem, dll.)</string>
+    <string name="chat_role_user">Pengguna</string>
+    <string name="chat_role_assistant">Asisten</string>
+    <string name="chat_role_tool">Panggilan alat</string>
+    <string name="chat_role_other">Sisanya</string>
+    <string name="chat_context_msg_summary">Pesan %1$d (Pengguna %2$d · Asisten %3$d)</string>
+    <string name="chat_context_cache_hit">Cache hit %1$d%%</string>
+    <string name="chat_context_timestamps">Buat %1$s · Aktivitas %2$s</string>
+    <string name="viewer_binary_not_supported">Berkas biner, pratinjau tidak didukung</string>
+    <string name="viewer_binary_mime">Tipe MIME: %1$s</string>
+    <string name="viewer_empty_file">Berkas kosong</string>
+    <string name="viewer_truncated">Berkas besar — menampilkan 5.000 baris pertama</string>
+    <string name="viewer_diff_placeholder">Tampilan diff (Tugas 16)</string>
+    <string name="a11y_icon_hunk_previous">Blok sebelumnya</string>
+    <string name="a11y_icon_hunk_next">Blok berikutnya</string>
 </resources>

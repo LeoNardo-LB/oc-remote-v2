@@ -231,6 +231,7 @@
     <string name="chat_session_rename_failed">Konnte nicht umbenennen</string>
     <string name="chat_load_earlier">Frühere Nachrichten laden</string>
     <string name="chat_loading_earlier">Laden…</string>
+    <string name="chat_menu_open_workspace">Arbeitsbereich anzeigen</string>
     <string name="menu_open_in_web">Im Web öffnen</string>
     <string name="menu_new_session">Neue Sitzung</string>
     <string name="menu_fork_session">Sitzung forken</string>
@@ -628,6 +629,14 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_remove_from_list">Aus Liste entfernen</string>
     <string name="a11y_icon_scroll_to_top">Nach oben scrollen</string>
     <string name="a11y_icon_hide_keyboard">Tastatur ausblenden</string>
+    <string name="a11y_icon_git_changes">Git-Änderungen</string>
+    <string name="workspace_refresh">Aktualisieren</string>
+    <string name="workspace_show_ignored">Ignorierte anzeigen</string>
+    <string name="workspace_empty_directory">Leeres Verzeichnis</string>
+    <string name="workspace_retry">Erneut versuchen</string>
+    <string name="workspace_git_stats">%1$d Änderungen (%2$d M, %3$d A, %4$d D)</string>
+    <string name="workspace_git_not_a_repo">Kein Git-Repository</string>
+    <string name="workspace_git_working_tree_clean">Arbeitsverzeichnis sauber</string>
     <string name="sessions_view_folders">Ordner</string>
     <string name="sessions_view_recent">Letzte</string>
     <string name="sessions_clear_search">Suche löschen</string>
@@ -644,4 +653,20 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_thinking_in_progress">Denkt nach… %1$s</string>
     <string name="mcp_servers_title">MCP-Server</string>
     <string name="mcp_no_servers">Keine MCP-Server konfiguriert</string>
+    <string name="chat_context_composition">Kontextzusammensetzung (geschätzt)</string>
+    <string name="chat_context_other_note">Sonstige (inkl. System usw.)</string>
+    <string name="chat_role_user">Benutzer</string>
+    <string name="chat_role_assistant">Assistent</string>
+    <string name="chat_role_tool">Tool-Aufruf</string>
+    <string name="chat_role_other">Andere</string>
+    <string name="chat_context_msg_summary">Nachricht %1$d (Benutzer %2$d · Assistent %3$d)</string>
+    <string name="chat_context_cache_hit">Cache-Treffer %1$d%%</string>
+    <string name="chat_context_timestamps">Erstellt %1$s · Aktiv %2$s</string>
+    <string name="viewer_binary_not_supported">Binärdatei, Vorschau nicht unterstützt</string>
+    <string name="viewer_binary_mime">MIME-Typ: %1$s</string>
+    <string name="viewer_empty_file">Datei ist leer</string>
+    <string name="viewer_truncated">Große Datei — zeigt die ersten 5.000 Zeilen</string>
+    <string name="viewer_diff_placeholder">Diff-Ansicht (Aufgabe 16)</string>
+    <string name="a11y_icon_hunk_previous">Vorheriger Änderungsblock</string>
+    <string name="a11y_icon_hunk_next">Nächster Änderungsblock</string>
 </resources>
