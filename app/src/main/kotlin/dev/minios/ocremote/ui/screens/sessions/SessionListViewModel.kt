@@ -1,4 +1,4 @@
-﻿package dev.minios.ocremote.ui.screens.sessions
+package dev.minios.ocremote.ui.screens.sessions
 
 import android.util.Log
 import android.content.ClipData
@@ -12,7 +12,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.minios.ocremote.data.dto.response.FileNodeDto
 import dev.minios.ocremote.data.dto.response.ServerPaths
 import dev.minios.ocremote.data.api.OpenCodeApi
-import dev.minios.ocremote.data.api.ServerConnection
+import dev.minios.ocremote.domain.model.ServerConnection
 import dev.minios.ocremote.data.repository.EventDispatcher
 import dev.minios.ocremote.domain.model.Project
 import dev.minios.ocremote.domain.model.Session

@@ -1,6 +1,6 @@
 package dev.minios.ocremote.domain.model
 
-import dev.minios.ocremote.data.api.ServerConnection
+import dev.minios.ocremote.domain.model.ServerConnection
 import dev.minios.ocremote.data.dto.common.ModelSelection as DtoModelSelection
 import dev.minios.ocremote.data.dto.request.PromptPart as DtoPromptPart
 import dev.minios.ocremote.data.dto.request.PromptRequest

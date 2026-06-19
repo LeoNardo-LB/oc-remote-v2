@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap
 import dev.minios.ocremote.BuildConfig
 import dev.minios.ocremote.data.api.NetworkMonitor
 import dev.minios.ocremote.data.api.OpenCodeApi
-import dev.minios.ocremote.data.api.ServerConnection
+import dev.minios.ocremote.domain.model.ServerConnection
 import dev.minios.ocremote.data.api.SseClient
 import dev.minios.ocremote.data.api.SseReadTimeoutTracker
 import dev.minios.ocremote.data.repository.EventDispatcher

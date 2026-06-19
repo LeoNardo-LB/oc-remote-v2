@@ -8,6 +8,7 @@ import dev.minios.ocremote.data.dto.response.*
 import dev.minios.ocremote.domain.model.FileDiff
 import dev.minios.ocremote.domain.model.MessageWithParts
 import dev.minios.ocremote.domain.model.Project
+import dev.minios.ocremote.domain.model.ServerConnection
 import dev.minios.ocremote.domain.model.ServerHealth
 import dev.minios.ocremote.domain.model.Session
 import io.ktor.client.*

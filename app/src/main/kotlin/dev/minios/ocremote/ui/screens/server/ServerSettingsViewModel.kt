@@ -1,4 +1,4 @@
-﻿package dev.minios.ocremote.ui.screens.server
+package dev.minios.ocremote.ui.screens.server
 
 import android.util.Log
 import dev.minios.ocremote.BuildConfig
@@ -14,7 +14,7 @@ import dev.minios.ocremote.data.dto.response.ProviderModel
 import dev.minios.ocremote.data.dto.response.ProviderOauthAuthorization
 import dev.minios.ocremote.data.dto.request.ServerConfigPatch
 import dev.minios.ocremote.data.dto.response.ServerConfigResponse
-import dev.minios.ocremote.data.api.ServerConnection
+import dev.minios.ocremote.domain.model.ServerConnection
 import dev.minios.ocremote.data.repository.SettingsDataStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

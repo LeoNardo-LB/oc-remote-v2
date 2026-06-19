@@ -3,6 +3,7 @@ package dev.minios.ocremote.data.api
 import dev.minios.ocremote.data.dto.response.FileDiffDto
 import dev.minios.ocremote.data.dto.response.VcsBranchDto
 import dev.minios.ocremote.data.dto.response.VcsChangeDto
+import dev.minios.ocremote.domain.model.ServerConnection
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond

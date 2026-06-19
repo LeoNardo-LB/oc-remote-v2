@@ -1,7 +1,7 @@
 package dev.minios.ocremote.data.repository
 
 import dev.minios.ocremote.data.api.OpenCodeApi
-import dev.minios.ocremote.data.api.ServerConnection
+import dev.minios.ocremote.domain.model.ServerConnection
 import dev.minios.ocremote.ui.screens.chat.ServerTerminalWorkspace
 import javax.inject.Inject
 import javax.inject.Singleton

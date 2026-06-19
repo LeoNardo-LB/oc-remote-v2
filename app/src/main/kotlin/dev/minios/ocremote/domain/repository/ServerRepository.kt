@@ -1,6 +1,6 @@
 package dev.minios.ocremote.domain.repository
 
-import dev.minios.ocremote.data.api.ServerConnection
+import dev.minios.ocremote.domain.model.ServerConnection
 
 /**
  * Aggregate repository interface for server management.

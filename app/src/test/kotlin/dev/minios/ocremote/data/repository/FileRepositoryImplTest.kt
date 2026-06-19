@@ -1,7 +1,7 @@
 package dev.minios.ocremote.data.repository
 
 import dev.minios.ocremote.data.api.OpenCodeApi
-import dev.minios.ocremote.data.api.ServerConnection
+import dev.minios.ocremote.domain.model.ServerConnection
 import dev.minios.ocremote.data.dto.response.FileContentDto
 import dev.minios.ocremote.data.dto.response.FileNodeDto
 import dev.minios.ocremote.domain.model.FileContent

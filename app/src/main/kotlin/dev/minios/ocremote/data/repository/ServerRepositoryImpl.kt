@@ -3,7 +3,7 @@ package dev.minios.ocremote.data.repository
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.minios.ocremote.data.api.OpenCodeApi
-import dev.minios.ocremote.data.api.ServerConnection
+import dev.minios.ocremote.domain.model.ServerConnection
 import dev.minios.ocremote.data.dto.response.ProvidersResponse as DataProvidersResponse
 import dev.minios.ocremote.domain.model.LocalServerState
 import dev.minios.ocremote.domain.model.ModelCatalog

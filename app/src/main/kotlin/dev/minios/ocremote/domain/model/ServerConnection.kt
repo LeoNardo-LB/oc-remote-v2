@@ -1,4 +1,4 @@
-package dev.minios.ocremote.data.api
+package dev.minios.ocremote.domain.model
 
 import java.util.Base64
 

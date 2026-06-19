@@ -1,5 +1,6 @@
 package dev.minios.ocremote.data.api
 
+import dev.minios.ocremote.domain.model.ServerConnection
 import dev.minios.ocremote.domain.model.Session
 import io.mockk.coEvery
 import io.mockk.mockk
