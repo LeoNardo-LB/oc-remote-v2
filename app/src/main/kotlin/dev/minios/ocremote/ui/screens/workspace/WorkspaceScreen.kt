@@ -167,10 +167,11 @@ private fun WorkspaceTopBar(
     )
 }
 
-/** Returns the last path segment, or "/" for empty/root paths. */
+/** Returns the last path segment, or "/" for empty/root paths.
+ *  Handles both POSIX (/) and Windows (\) separators. */
 private fun basename(path: String): String {
     if (path.isBlank()) return "/"
-    val trimmed = path.trimEnd('/')
+    val trimmed = path.trimEnd('/', '\\')
     if (trimmed.isEmpty()) return "/"
-    return trimmed.substringAfterLast('/').ifBlank { trimmed }
+    return trimmed.substringAfterLast('/').substringAfterLast('\\').ifBlank { trimmed }
 }

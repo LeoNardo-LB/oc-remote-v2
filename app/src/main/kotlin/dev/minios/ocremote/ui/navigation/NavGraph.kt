@@ -480,19 +480,23 @@ fun NavGraph(
                     }
                 },
                 onOpenFile = { filePath ->
-                    navController.navigate(
-                        FileViewerNav.createRoute(
-                            serverUrl = params.server.serverUrl,
-                            username = params.server.username,
-                            password = params.server.password,
-                            serverName = params.server.serverName,
-                            serverId = params.server.serverId,
-                            sessionId = params.sessionId,
-                            filePath = filePath,
-                            source = FileViewerNav.Source.LIVE,
-                            directory = params.directory
+                    scope.launch {
+                        val session = sessionRepository.getSession(params.server.serverId, params.sessionId).getOrNull()
+                        val dir = session?.directory ?: params.directory
+                        navController.navigate(
+                            FileViewerNav.createRoute(
+                                serverUrl = params.server.serverUrl,
+                                username = params.server.username,
+                                password = params.server.password,
+                                serverName = params.server.serverName,
+                                serverId = params.server.serverId,
+                                sessionId = params.sessionId,
+                                filePath = filePath,
+                                source = FileViewerNav.Source.LIVE,
+                                directory = dir
+                            )
                         )
-                    )
+                    }
                 },
                 initialSharedImages = imagesForThisSession,
                 onSharedImagesConsumed = {
