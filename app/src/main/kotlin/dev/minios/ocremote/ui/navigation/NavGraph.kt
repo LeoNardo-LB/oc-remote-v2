@@ -27,6 +27,7 @@ import dev.minios.ocremote.ui.screens.about.AboutScreen
 import dev.minios.ocremote.ui.screens.chat.ChatScreen
 import dev.minios.ocremote.ui.screens.home.HomeRoute
 import dev.minios.ocremote.ui.screens.sessions.SessionListRoute
+import dev.minios.ocremote.ui.screens.sessions.SessionListViewModel
 import dev.minios.ocremote.ui.screens.server.ServerModelFilterRoute
 import dev.minios.ocremote.ui.screens.server.ServerProvidersRoute
 import dev.minios.ocremote.ui.screens.server.ServerSettingsRoute
@@ -409,6 +410,10 @@ fun NavGraph(
             ChatScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onMessageSent = {
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle?.set(SessionListViewModel.KEY_SCROLL_TO_TOP, true)
                 },
                 onNavigateToSession = { newSessionId ->
                     val route = ChatNav.createRoute(

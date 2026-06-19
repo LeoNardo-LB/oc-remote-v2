@@ -123,10 +123,6 @@ fun SessionListScreen(
     var deleteSessionTitle by remember { mutableStateOf("") }
     var showOpenProject by remember { mutableStateOf(false) }
     var showBaseDirDialog by remember { mutableStateOf(false) }
-    // Set true before navigating into a session; consumed on return to scroll the
-    // list back to top. rememberSaveable distinguishes "return from session" from
-    // a Pager tab switch or recomposition.
-    var pendingScrollToTop by rememberSaveable { mutableStateOf(false) }
 
     val pagerState = rememberPagerState(pageCount = { 2 })
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
@@ -353,13 +349,12 @@ fun SessionListScreen(
                         }
                     }
 
-                    // Scroll to top only when returning from a session. The guard
-                    // avoids resets on Pager tab switches; rememberLazyListState
-                    // would otherwise restore the pre-navigation offset.
+                    // Scroll to top only when returning from a session where the user
+                    // sent a message (flag written by ChatScreen via SavedStateHandle).
+                    // rememberLazyListState would otherwise restore the old offset.
                     LaunchedEffect(Unit) {
-                        if (pendingScrollToTop) {
+                        if (viewModel.consumeScrollToTopOnReturn()) {
                             listState.scrollToItem(0)
-                            pendingScrollToTop = false
                         }
                     }
 
@@ -379,7 +374,6 @@ fun SessionListScreen(
                                             scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
                                         },
                                         onNewSession = { directory ->
-                                            pendingScrollToTop = true
                                             onNavigateToNewChat(directory)
                                         },
                                     )
@@ -395,7 +389,6 @@ fun SessionListScreen(
                                         item = node.session,
                                         showDirectory = isRecentMode,
                                         onClick = {
-                                            pendingScrollToTop = true
                                             onNavigateToChat(node.id, false)
                                         },
                                         onRename = {
@@ -468,7 +461,6 @@ fun SessionListScreen(
             initialDirectory = uiState.prefillDirectory,
             onSelect = { directory ->
                 showOpenProject = false
-                pendingScrollToTop = true
                 onNavigateToNewChat(directory)
             },
             onDismiss = { showOpenProject = false }

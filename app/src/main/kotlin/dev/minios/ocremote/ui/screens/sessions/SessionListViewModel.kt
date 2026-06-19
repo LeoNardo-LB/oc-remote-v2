@@ -82,6 +82,9 @@ class SessionListViewModel @Inject constructor(
     companion object {
         /** Virtual path representing the Windows drive-picker root. */
         const val WINDOWS_DRIVES_ROOT = ":///drives"
+        /** SavedStateHandle key written by ChatScreen when the user sends a message;
+         * consumed by this ViewModel on return to scroll the list back to top. */
+        const val KEY_SCROLL_TO_TOP = "session_list_scroll_to_top"
     }
 
     val serverUrl: String = URLDecoder.decode(
@@ -233,6 +236,14 @@ class SessionListViewModel @Inject constructor(
 
     init {
         loadSessions()
+    }
+
+    /** True if the previous ChatScreen visit sent a message, so the list should
+     * scroll back to top. Consumes (clears) the flag set via [KEY_SCROLL_TO_TOP]. */
+    fun consumeScrollToTopOnReturn(): Boolean {
+        val should = savedStateHandle.get<Boolean>(KEY_SCROLL_TO_TOP) ?: false
+        if (should) savedStateHandle[KEY_SCROLL_TO_TOP] = false
+        return should
     }
 
     fun loadSessions() {
