@@ -193,7 +193,7 @@ class ServerRepositoryImpl @Inject constructor(
         Unit
     }
 
-    // ── Private Helpers ──
+    // ── Repository Helpers ──
 
     override suspend fun resolveConnection(serverId: String): ServerConnection {
         val config = dataRepo.getServer(serverId)

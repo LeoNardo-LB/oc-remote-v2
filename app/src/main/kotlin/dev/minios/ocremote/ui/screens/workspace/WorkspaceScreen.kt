@@ -30,7 +30,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.minios.ocremote.R
 import dev.minios.ocremote.ui.screens.workspace.git.GitChangesPanel
 import dev.minios.ocremote.ui.screens.workspace.tree.FileTreePanel
-import dev.minios.ocremote.ui.theme.SpacingTokens
 
 @Composable
 fun WorkspaceRoute(

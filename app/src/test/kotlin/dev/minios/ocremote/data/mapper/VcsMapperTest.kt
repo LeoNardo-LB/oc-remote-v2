@@ -8,7 +8,6 @@ import dev.minios.ocremote.domain.model.VcsChange
 import dev.minios.ocremote.domain.model.VcsFileDiff
 import dev.minios.ocremote.domain.model.VcsStatus
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class VcsMapperTest {

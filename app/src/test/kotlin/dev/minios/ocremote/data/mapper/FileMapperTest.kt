@@ -7,7 +7,6 @@ import dev.minios.ocremote.domain.model.FileContent
 import dev.minios.ocremote.domain.model.FileNode
 import dev.minios.ocremote.domain.model.FileType
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class FileMapperTest {

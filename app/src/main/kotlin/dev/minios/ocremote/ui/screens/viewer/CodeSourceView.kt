@@ -49,7 +49,10 @@ fun CodeSourceView(
     val annotated = remember(content, highlights) {
         buildAnnotatedStringFromHighlights(content, highlights)
     }
-    val lineCount = remember(content) { content.count { it == '\n' } + 1 }
+    val lineCount = remember(content) {
+        if (content.isEmpty()) 0
+        else content.count { it == '\n' } + if (content.endsWith('\n')) 0 else 1
+    }
 
     val hScroll = rememberScrollState()
     val vScroll = rememberScrollState()
