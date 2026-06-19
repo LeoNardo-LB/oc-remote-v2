@@ -4821,7 +4821,7 @@ GET /config/providers → providers[].models[].limit.context
 - 按角色累加字符数：
   - **user**: text/file/agent part 的字符数
   - **assistant**: text + reasoning part 的字符数
-  - **tool**: tool part 的 `input*16 + (output|raw|error)` 长度
+  - **tool**: tool part 的 `Object.keys(input).length * 16 + (output|raw|error)` 长度
   - **system**: systemPrompt 长度
 - 若估算总和 ≤ input：剩余归 "other"
 - 若 > input：按 `input/estimated` 比例缩放
