@@ -2,25 +2,27 @@ package dev.minios.ocremote.ui.screens.viewer
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.minios.ocremote.ui.theme.CodeTypography
@@ -53,27 +55,79 @@ fun CodeSourceView(
         if (content.isEmpty()) 0
         else content.count { it == '\n' } + if (content.endsWith('\n')) 0 else 1
     }
-
+    val lineOffsets = remember(content) {
+        buildList {
+            add(0)
+            content.forEachIndexed { i, c -> if (c == '\n') add(i + 1) }
+        }.toIntArray()
+    }
+    val maxChars = remember(content) {
+        var max = 0
+        var current = 0
+        for (c in content) {
+            if (c == '\n') {
+                if (current > max) max = current
+                current = 0
+            } else {
+                current++
+            }
+        }
+        if (current > max) max = current
+        max
+    }
+    val gutterColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val gutterWidth = remember(lineCount) {
+        val digits = maxOf(1, lineCount).toString().length
+        (digits * 10 + SpacingTokens.SM).dp
+    }
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    val maxRowWidth = remember(maxChars, gutterWidth, density) {
+        val charWidthPx = textMeasurer.measure("M", CodeTypography).size.width
+        val maxCodeWidthPx = charWidthPx * maxChars
+        with(density) {
+            gutterWidth + maxCodeWidthPx.toDp() + SpacingTokens.SM.dp + SpacingTokens.LG.dp
+        }
+    }
     val hScroll = rememberScrollState()
-    val vScroll = rememberScrollState()
 
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .horizontalScroll(hScroll)
-            .verticalScroll(vScroll)
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = SpacingTokens.SM.dp)
     ) {
-        LineNumberGutter(lineCount = lineCount, style = CodeTypography)
-        Text(
-            text = annotated,
-            style = CodeTypography,
-            modifier = Modifier.padding(
-                start = SpacingTokens.SM.dp,
-                end = SpacingTokens.LG.dp,
-                top = SpacingTokens.SM.dp,
-                bottom = SpacingTokens.SM.dp
-            )
-        )
+        items(
+            count = lineCount,
+            key = { it }
+        ) { index ->
+            val start = lineOffsets[index]
+            val endExclusive = if (index + 1 < lineOffsets.size)
+                lineOffsets[index + 1] - 1
+            else
+                content.length
+            val lineAnnotated = annotated.subSequence(start, endExclusive)
+
+            Row(
+                modifier = Modifier
+                    .defaultMinSize(minWidth = maxRowWidth)
+                    .horizontalScroll(hScroll)
+            ) {
+                Text(
+                    text = "${index + 1}",
+                    style = CodeTypography,
+                    color = gutterColor,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(gutterWidth)
+                )
+                Text(
+                    text = lineAnnotated,
+                    style = CodeTypography,
+                    modifier = Modifier.padding(
+                        start = SpacingTokens.SM.dp,
+                        end = SpacingTokens.LG.dp
+                    )
+                )
+            }
+        }
     }
 }
 
@@ -111,30 +165,6 @@ private fun buildAnnotatedStringFromHighlights(
     }
 }
 
-@Composable
-private fun LineNumberGutter(
-    lineCount: Int,
-    style: TextStyle,
-    modifier: Modifier = Modifier
-) {
-    val gutterColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val gutterWidth = remember(lineCount) {
-        val digits = maxOf(1, lineCount).toString().length
-        (digits * 10 + SpacingTokens.SM).dp
-    }
-    Column(modifier = modifier.width(gutterWidth)) {
-        repeat(lineCount) { i ->
-            Text(
-                text = "${i + 1}",
-                style = style,
-                color = gutterColor,
-                textAlign = TextAlign.End,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
-
 private fun rememberLanguage(filePath: String): SyntaxLanguage {
     val ext = filePath.substringAfterLast('.', "").lowercase()
     return when (ext) {
@@ -158,4 +188,3 @@ private fun rememberLanguage(filePath: String): SyntaxLanguage {
         else -> SyntaxLanguage.DEFAULT
     }
 }
-
