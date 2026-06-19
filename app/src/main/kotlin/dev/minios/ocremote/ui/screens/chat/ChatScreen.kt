@@ -210,7 +210,6 @@ import dev.minios.ocremote.ui.screens.chat.markdown.normalizeHtmlForEmbeddedPrev
 import dev.minios.ocremote.ui.screens.chat.tools.ToolCallCard
 import dev.minios.ocremote.ui.screens.chat.tools.cards.BashToolCard
 import dev.minios.ocremote.ui.screens.chat.tools.cards.EditToolCard
-import dev.minios.ocremote.ui.screens.chat.tools.cards.PatchCard
 import dev.minios.ocremote.ui.screens.chat.tools.cards.ReadToolCard
 import dev.minios.ocremote.ui.screens.chat.tools.cards.SearchToolCard
 import dev.minios.ocremote.ui.screens.chat.tools.cards.TaskToolCard

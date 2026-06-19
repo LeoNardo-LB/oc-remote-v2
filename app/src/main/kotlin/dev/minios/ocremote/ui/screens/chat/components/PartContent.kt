@@ -26,7 +26,7 @@ import dev.minios.ocremote.domain.model.Part
 import androidx.compose.foundation.text.selection.SelectionContainer
 import dev.minios.ocremote.ui.screens.chat.markdown.MarkdownContent
 import dev.minios.ocremote.ui.screens.chat.tools.ToolCallCard
-import dev.minios.ocremote.ui.screens.chat.tools.cards.PatchCard
+
 import dev.minios.ocremote.ui.screens.chat.tools.cards.TodoListCard
 import dev.minios.ocremote.ui.screens.chat.util.LocalCollapseTools
 import dev.minios.ocremote.ui.screens.chat.util.LocalToolCardResolver
@@ -126,14 +126,7 @@ internal fun PartContent(
             // Token/cost info is aggregated at the bottom of the assistant message
         }
         is Part.Patch -> {
-            val autoExpand = LocalCollapseTools.current
-            val toolExpandedStates = LocalToolExpandedStates.current
-            val onToggleToolExpanded = LocalOnToggleToolExpanded.current
-            PatchCard(
-                patch = part,
-                isExpanded = toolExpandedStates[part.id] ?: autoExpand,
-                onToggleExpand = { onToggleToolExpanded(part.id, autoExpand) }
-            )
+            // Patch summary card removed per user request — patch details are in tool cards
         }
         is Part.File -> {
             FileCard(file = part)
