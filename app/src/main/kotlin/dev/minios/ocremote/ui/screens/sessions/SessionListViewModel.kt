@@ -76,7 +76,8 @@ class SessionListViewModel @Inject constructor(
     private val manageSessionUseCase: ManageSessionUseCase,
     private val deleteSessionUseCase: DeleteSessionUseCase,
     private val draftRepository: DraftRepository,
-    private val mcpRepository: McpRepository
+    private val mcpRepository: McpRepository,
+    private val scrollSignal: SessionScrollSignal
 ) : ViewModel() {
 
     companion object {
@@ -241,9 +242,7 @@ class SessionListViewModel @Inject constructor(
     /** True if the previous ChatScreen visit sent a message, so the list should
      * scroll back to top. Consumes (clears) the flag set via [KEY_SCROLL_TO_TOP]. */
     fun consumeScrollToTopOnReturn(): Boolean {
-        val should = savedStateHandle.get<Boolean>(KEY_SCROLL_TO_TOP) ?: false
-        if (should) savedStateHandle[KEY_SCROLL_TO_TOP] = false
-        return should
+        return scrollSignal.consumeScrollToTop()
     }
 
     fun loadSessions() {

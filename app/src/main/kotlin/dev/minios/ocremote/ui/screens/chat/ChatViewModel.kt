@@ -218,6 +218,7 @@ data class ChatMessage(
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
+    private val scrollSignal: dev.minios.ocremote.ui.screens.sessions.SessionScrollSignal,
     private val sendMessageUseCase: SendMessageUseCase,
     private val manageSessionUseCase: ManageSessionUseCase,
     private val managePermissionUseCase: ManagePermissionUseCase,
@@ -1689,6 +1690,7 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun sendParts(parts: List<PromptPart>) {
+        scrollSignal.requestScrollToTop()
         val pendingId = "pending-${java.util.UUID.randomUUID()}"
         _pendingMessageIds.update { it + pendingId }
         viewModelScope.launch {

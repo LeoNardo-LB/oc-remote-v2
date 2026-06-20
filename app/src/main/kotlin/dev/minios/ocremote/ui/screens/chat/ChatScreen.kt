@@ -258,7 +258,6 @@ private const val TAG_SCROLL = "ChatScroll"
 @Composable
 fun ChatScreen(
     onNavigateBack: () -> Unit,
-    onMessageSent: () -> Unit = {},
     onNavigateToSession: (sessionId: String) -> Unit = {},
     onNavigateToChildSession: (String) -> Unit = {},
     onOpenInWebView: () -> Unit = {},
@@ -776,7 +775,6 @@ fun ChatScreen(
                                     )
                                 }
                                 viewModel.sendMessage(allParts, attachmentParts)
-                                onMessageSent()
                                 inputText = TextFieldValue("")
                                 attachmentHandler.clearAttachments()
                                 forceScrollTick++
