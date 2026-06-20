@@ -19,7 +19,7 @@
 - Task 3: [AnnotationPromptBuilder（结构化文本生成）](#task-3)
 - Task 4: [SubmitAnnotationsUseCase](#task-4)
 - Task 5: [FileViewerUiState + ViewModel 标注状态](#task-5)
-- Task 6: [AnnotationTextToolbar（自定义选区菜单）](#task-6)
+- Task 6: [AnnotationContextMenu（官方 appendTextContextMenuComponents）](#task-6)
 - Task 7: [AnnotationInputSheet + AnnotationDetailDialog](#task-7)
 - Task 8: [CodeSourceView 标注高亮渲染](#task-8)
 - Task 9: [FileViewerScreen 提交集成 + 导航](#task-9)
@@ -45,6 +45,7 @@
 
 ### Phase 3 新增约束
 
+- **⚠️ 禁止全量重写 FileViewerViewModel / CodeSourceView**：所有 Task 必须**增量 Edit**（仅追加新字段/参数/方法），不得删除或覆盖 Phase 1/2 已有代码。Task 5 的 ViewModel 修改必须保留 Phase 2 的 `toolSnapshotCache` 参数和 `loadToolSnapshot/loadToolSnapshotDiff/toggleRenderMode` 方法。Task 8 的 CodeSourceView 修改必须保留 Phase 2 的 `scrollState` 参数。
 - **标注仅限 SOURCE 模式**：DIFF 模式（纯只读）、md 渲染预览（只读）不支持标注
 - **标注不持久化**：提交后 ViewModel 销毁即释放；旋转屏幕时标注丢失（Phase 4 可加 `rememberSaveable`）
 - **选区重叠允许**：多个标注选区可重叠，高亮 alpha 累加封顶 0.6
@@ -1141,8 +1142,8 @@ package dev.minios.ocremote.ui.screens.viewer
 import androidx.compose.foundation.text.contextmenu.builder.item
 import androidx.compose.foundation.text.contextmenu.modifier.appendTextContextMenuComponents
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
@@ -1160,21 +1161,23 @@ import androidx.compose.ui.text.AnnotatedString
  */
 fun Modifier.annotationContextMenu(
     onAnnotate: (selectedText: String) -> Unit,
-): Modifier = this.appendTextContextMenuComponents {
-    item(
-        key = AnnotationMenuKey,
-        label = "标注修改",
-    ) {
-        // Clipboard capture: system already has selection.
-        // Trigger copy programmatically via TextContextMenuSession's built-in copy,
-        // then read clipboard to get the selected text.
-        val clipboard = currentClipboardText
-        val selectedText = clipboard?.text.orEmpty()
-        val cleaned = stripGutterNumbers(selectedText)
-        if (cleaned.isNotBlank()) {
-            onAnnotate(cleaned)
+): Modifier = composed {
+    val clipboard = LocalClipboardManager.current
+
+    this.appendTextContextMenuComponents {
+        item(
+            key = AnnotationMenuKey,
+            label = "标注修改",
+        ) {
+            // Clipboard capture: Android system copies selection to clipboard
+            // when context menu is shown. Read it here.
+            val selectedText = clipboard.getText()?.text.orEmpty()
+            val cleaned = stripGutterNumbers(selectedText)
+            if (cleaned.isNotBlank()) {
+                onAnnotate(cleaned)
+            }
+            close()
         }
-        close()
     }
 }
 
@@ -1191,9 +1194,7 @@ internal fun stripGutterNumbers(text: String): String {
 }
 ```
 
-> **⚠️ clipboard 读取**：`appendTextContextMenuComponents` 的 `item` callback 在 `TextContextMenuSession` receiver scope 内执行。系统在显示 context menu 时已将选中文本放入系统剪贴板（Android 选区行为）。我们通过 `LocalClipboardManager.current.getText()` 读取。
->
-> 在实际实现中，如果 clipboard 没有自动获取选中文本，需要先调用 `performCopy`（通过系统菜单的复制回调）再读取。实现者需验证此行为，必要时添加 `onCopyRequested` 调用链。
+> **⚠️ clipboard 读取**：`Modifier.composed { }` 内通过 `LocalClipboardManager.current` 获取 Compose 剪贴板管理器。Android 系统在显示 context menu 时选中文本已在系统选区缓冲区中，但**不一定自动写入 clipboard**。实现者需验证：如果 `clipboard.getText()` 返回 null，需先通过 context menu 的 `onCopyRequested` 触发系统复制动作，再读取。`composed` 确保在 Composable scope 内访问 `LocalClipboardManager`。
 
 - [ ] **Step 2: 编译验证**
 

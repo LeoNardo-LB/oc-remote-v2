@@ -47,6 +47,7 @@
 
 ### Phase 2 新增约束
 
+- **⚠️ 禁止全量重写 FileViewerViewModel / CodeSourceView**：所有 Task 必须**增量 Edit**（仅追加新字段/参数/方法），不得删除或覆盖 Phase 1 已有代码。Task 9 的 ViewModel 修改必须保留 Phase 1 的 `getFileContent/getFileDiff` 构造参数。终态构造函数为 `(savedStateHandle, getFileContent, getFileDiff, toolSnapshotCache)` 4 参数。
 - **搜索 UI 不独立成屏**：用 overlay 替换 WorkspaceTopBar（`AnimatedVisibility`），退出搜索回到原面板
 - **搜索 debounce 300ms**：避免每个字符触发 API 请求
 - **空搜索查询不发请求**：显示提示"输入关键字搜索"，不调 `findFiles`

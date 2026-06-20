@@ -39,6 +39,7 @@
 
 ### Phase 4 新增约束
 
+- **⚠️ 禁止全量重写 FileViewerViewModel / CodeSourceView**：所有 Task 必须**增量 Edit**。Task 1 的 ViewModel 分页修改必须保留 Phase 2 的 `toolSnapshotCache` + `toggleRenderMode` 和 Phase 3 的 `submitAnnotationsUseCase` + `annotationManager`。Task 2 的 CodeSourceView 修改必须保留 Phase 3 的 `annotations/onAnnotate/onTapAnnotation` 参数。终态构造函数应为 `(savedStateHandle, getFileContent, getFileDiff, toolSnapshotCache, submitAnnotationsUseCase)` 5 参数。
 - **分页 pageSize=200 行**：滚动到当前可见行数最后 50 行（visibleLineCount - 50）时触发 loadMore
 - **保留 Phase 1 软截断兜底**：>100000 行的极端大文件仍先截断到 100000，再分页（防 OOM）
 - **rememberSaveable 不持久化到磁盘**：进程死亡后丢失，仅配置变更（旋转屏幕）保留——这是 Compose `rememberSaveable` 的标准语义
