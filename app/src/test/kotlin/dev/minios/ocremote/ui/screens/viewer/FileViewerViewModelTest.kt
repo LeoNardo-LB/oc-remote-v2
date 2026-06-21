@@ -36,6 +36,8 @@ class FileViewerViewModelTest {
     private val filePath = "src/main/kotlin/dev/minios/ocremote/MainActivity.kt"
     private val encodedDirectory = URLEncoder.encode(directory, "UTF-8")
     private val encodedFilePath = URLEncoder.encode(filePath, "UTF-8")
+    private val mdFilePath = "docs/README.md"
+    private val encodedMdFilePath = URLEncoder.encode(mdFilePath, "UTF-8")
 
     private fun savedStateHandle(
         id: String = serverId,
@@ -71,6 +73,12 @@ class FileViewerViewModelTest {
         path = filePath,
         type = ContentType.TEXT,
         content = sampleKotlinSource
+    )
+
+    private val sampleMarkdownContent = FileContent(
+        path = mdFilePath,
+        type = ContentType.TEXT,
+        content = "# OC Remote\n\nUnofficial OpenCode Android client.\n\n## Features\n\n- File viewer\n- Markdown preview\n"
     )
 
     private val samplePatch = """
@@ -291,6 +299,94 @@ class FileViewerViewModelTest {
         vm.prevHunk()
         assert(vm.uiState.value.currentHunkIndex == 0) {
             "currentHunkIndex should clamp at 0, was ${vm.uiState.value.currentHunkIndex}"
+        }
+    }
+
+    // ===== Phase 2: Markdown toggle tests =====
+
+    // 10. init with md file sets isMarkdown true
+    @Test
+    fun `init with md file sets isMarkdown true and keeps SOURCE renderMode`() = runTest {
+        coEvery { getFileContent(any(), any(), any()) } returns Result.success(sampleMarkdownContent)
+
+        val vm = FileViewerViewModel(
+            savedStateHandle(path = encodedMdFilePath),
+            getFileContent, getFileDiff
+        )
+
+        assert(vm.uiState.value.isMarkdown) { "isMarkdown should be true for .md" }
+        assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) { "renderMode should default to SOURCE" }
+    }
+
+    // 11. init with kt file sets isMarkdown false
+    @Test
+    fun `init with kt file sets isMarkdown false`() = runTest {
+        coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
+
+        val vm = FileViewerViewModel(savedStateHandle(), getFileContent, getFileDiff)
+
+        assert(!vm.uiState.value.isMarkdown) { "isMarkdown should be false for .kt" }
+    }
+
+    // 12. toggleRenderMode switches SOURCE to RENDER_PREVIEW
+    @Test
+    fun `toggleRenderMode switches SOURCE to RENDER_PREVIEW for markdown files`() = runTest {
+        coEvery { getFileContent(any(), any(), any()) } returns Result.success(sampleMarkdownContent)
+
+        val vm = FileViewerViewModel(
+            savedStateHandle(path = encodedMdFilePath),
+            getFileContent, getFileDiff
+        )
+        vm.toggleRenderMode()
+
+        assert(vm.uiState.value.renderMode == FileViewerRenderMode.RENDER_PREVIEW) {
+            "renderMode should be RENDER_PREVIEW after toggle"
+        }
+    }
+
+    // 13. toggleRenderMode no-op for non-markdown
+    @Test
+    fun `toggleRenderMode is no-op for non-markdown files`() = runTest {
+        coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
+
+        val vm = FileViewerViewModel(savedStateHandle(), getFileContent, getFileDiff)
+        vm.toggleRenderMode()
+
+        assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) {
+            "renderMode should stay SOURCE for non-md"
+        }
+    }
+
+    // 14. toggleRenderMode no-op in DIFF mode
+    @Test
+    fun `toggleRenderMode is no-op in DIFF mode`() = runTest {
+        coEvery { getFileDiff(serverId, directory, VcsDiffMode.GIT) } returns Result.success(sampleDiffs)
+
+        val vm = FileViewerViewModel(
+            savedStateHandle(path = encodedMdFilePath, source = FileViewerNav.Source.GIT_DIFF),
+            getFileContent, getFileDiff
+        )
+        vm.toggleRenderMode()
+
+        assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) {
+            "renderMode should stay SOURCE in DIFF mode"
+        }
+    }
+
+    // 15. toggleRenderMode toggles back to SOURCE
+    @Test
+    fun `toggleRenderMode back from RENDER_PREVIEW to SOURCE`() = runTest {
+        coEvery { getFileContent(any(), any(), any()) } returns Result.success(sampleMarkdownContent)
+
+        val vm = FileViewerViewModel(
+            savedStateHandle(path = encodedMdFilePath),
+            getFileContent, getFileDiff
+        )
+        vm.toggleRenderMode()  // → RENDER_PREVIEW
+        vm.toggleRenderMode()  // → SOURCE
+
+        assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) {
+            "renderMode should be SOURCE after second toggle"
         }
     }
 }

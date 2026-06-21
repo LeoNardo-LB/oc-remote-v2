@@ -51,7 +51,16 @@ class FileViewerViewModel @Inject constructor(
                         val lines = c.content.split('\n')
                         val truncated = lines.size > 5000
                         val visible = if (truncated) lines.take(5000).joinToString("\n") else c.content
-                        _uiState.update { it.copy(isLoading = false, content = visible, isEmpty = visible.isBlank(), isTruncated = truncated) }
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                content = visible,
+                                isEmpty = visible.isBlank(),
+                                isTruncated = truncated,
+                                isMarkdown = isMarkdownFile(filePath),
+                                renderMode = FileViewerRenderMode.SOURCE
+                            )
+                        }
                     }
                 }
                 .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = R.string.workspace_error_load_failed) } }
@@ -73,4 +82,22 @@ class FileViewerViewModel @Inject constructor(
 
     fun nextHunk() { _uiState.update { it.copy(currentHunkIndex = (it.currentHunkIndex + 1).coerceAtMost(it.hunks.size - 1)) } }
     fun prevHunk() { _uiState.update { it.copy(currentHunkIndex = (it.currentHunkIndex - 1).coerceAtLeast(0)) } }
+
+    // ============ Phase 2: Markdown render toggle ============
+
+    fun toggleRenderMode() {
+        val current = _uiState.value
+        if (!current.isMarkdown || current.mode == FileViewerMode.DIFF) return
+        _uiState.update {
+            it.copy(
+                renderMode = if (it.renderMode == FileViewerRenderMode.SOURCE) FileViewerRenderMode.RENDER_PREVIEW
+                else FileViewerRenderMode.SOURCE
+            )
+        }
+    }
+
+    private fun isMarkdownFile(filePath: String): Boolean {
+        val ext = filePath.substringAfterLast('.', "").lowercase()
+        return ext == "md" || ext == "markdown" || ext == "mdx"
+    }
 }

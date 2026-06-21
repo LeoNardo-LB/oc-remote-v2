@@ -4,6 +4,8 @@ import dev.minios.ocremote.domain.model.VcsFileDiff
 
 enum class FileViewerMode { SOURCE, DIFF }
 
+enum class FileViewerRenderMode { SOURCE, RENDER_PREVIEW }
+
 enum class DiffHunkType { ADDED, REMOVED, MODIFIED }
 
 data class DiffHunk(
@@ -25,5 +27,8 @@ data class FileViewerUiState(
     val isTruncated: Boolean = false,
     val diff: VcsFileDiff? = null,
     val hunks: List<DiffHunk> = emptyList(),
-    val currentHunkIndex: Int = 0
+    val currentHunkIndex: Int = 0,
+    // Phase 2: Markdown render toggle
+    val renderMode: FileViewerRenderMode = FileViewerRenderMode.SOURCE,
+    val isMarkdown: Boolean = false
 )
