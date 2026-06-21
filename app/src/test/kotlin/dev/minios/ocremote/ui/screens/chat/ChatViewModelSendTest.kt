@@ -1,5 +1,6 @@
 package dev.minios.ocremote.ui.screens.chat
 
+import dev.minios.ocremote.domain.repository.ToolSnapshotCache
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import dev.minios.ocremote.data.repository.ServerTerminalRegistry
@@ -56,6 +57,7 @@ class ChatViewModelSendTest {
     private val sessionStatusManager: SessionStatusManager = mockk(relaxed = true)
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
+    private val toolSnapshotCache = ToolSnapshotCache()
 
     @After
     fun tearDown() {
@@ -159,7 +161,8 @@ class ChatViewModelSendTest {
             sessionStatusManager = sessionStatusManager,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
-            appNotificationManager = appNotificationManager
+            appNotificationManager = appNotificationManager,
+            toolSnapshotCache = toolSnapshotCache
         )
     }
 
