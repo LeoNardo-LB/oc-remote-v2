@@ -30,5 +30,10 @@ data class FileViewerUiState(
     val currentHunkIndex: Int = 0,
     // Phase 2: Markdown render toggle
     val renderMode: FileViewerRenderMode = FileViewerRenderMode.SOURCE,
-    val isMarkdown: Boolean = false
+    val isMarkdown: Boolean = false,
+    // Phase 2 Task 9: Tool snapshot
+    val isToolSnapshot: Boolean = false,
+    val toolSnapshotBefore: String? = null,
+    val toolSnapshotAfter: String? = null,
+    val toolSnapshotContent: String? = null
 )
