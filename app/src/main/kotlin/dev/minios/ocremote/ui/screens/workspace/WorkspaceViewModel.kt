@@ -6,12 +6,15 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.minios.ocremote.R
 import dev.minios.ocremote.domain.model.FileNode
+import dev.minios.ocremote.domain.model.VcsChange
 import dev.minios.ocremote.domain.model.isDirectory
+import dev.minios.ocremote.domain.usecase.FindFilesUseCase
 import dev.minios.ocremote.domain.usecase.GetVcsStatusUseCase
 import dev.minios.ocremote.domain.usecase.ListDirectoryUseCase
 import dev.minios.ocremote.ui.navigation.routes.ServerRouteParams
 import dev.minios.ocremote.ui.navigation.routes.WorkspaceNav
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -27,7 +30,8 @@ import javax.inject.Inject
 class WorkspaceViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val listDirectory: ListDirectoryUseCase,
-    private val getVcsStatus: GetVcsStatusUseCase
+    private val getVcsStatus: GetVcsStatusUseCase,
+    private val findFiles: FindFilesUseCase
 ) : ViewModel() {
 
     private val serverId = savedStateHandle.get<String>(ServerRouteParams.PARAM_SERVER_ID).orEmpty()
@@ -40,6 +44,7 @@ class WorkspaceViewModel @Inject constructor(
 
     private val dirCache = mutableMapOf<String, List<FileNode>>()
     private val loadJobs = mutableMapOf<String, Job>()
+    private var searchJob: Job? = null
 
     private val _dirLoadEvents = MutableSharedFlow<DirectoryLoadResult>()
     val dirLoadEvents: SharedFlow<DirectoryLoadResult> = _dirLoadEvents.asSharedFlow()
@@ -124,6 +129,63 @@ class WorkspaceViewModel @Inject constructor(
 
     fun toggleShowIgnored() {
         _uiState.update { it.copy(showIgnored = !it.showIgnored) }
+    }
+
+    // ============ Phase 2: Search ============
+
+    fun enterSearch() {
+        _uiState.update {
+            it.copy(isSearchMode = true, searchQuery = "", fileSearchResults = emptyList(), hasSearched = false, searchError = null)
+        }
+    }
+
+    fun exitSearch() {
+        searchJob?.cancel()
+        _uiState.update {
+            it.copy(
+                isSearchMode = false,
+                searchQuery = "",
+                fileSearchResults = emptyList(),
+                hasSearched = false,
+                searchLoading = false,
+                searchError = null
+            )
+        }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        searchFiles(query)
+    }
+
+    fun searchFiles(query: String) {
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            _uiState.update {
+                it.copy(fileSearchResults = emptyList(), hasSearched = false, searchLoading = false, searchError = null)
+            }
+            return
+        }
+        _uiState.update { it.copy(searchLoading = true, searchError = null) }
+        searchJob = viewModelScope.launch {
+            delay(300)
+            findFiles(serverId, directory, query.trim())
+                .onSuccess { results ->
+                    _uiState.update { it.copy(fileSearchResults = results, searchLoading = false, hasSearched = true) }
+                }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(searchLoading = false, searchError = R.string.workspace_error_load_failed, hasSearched = true)
+                    }
+                }
+        }
+    }
+
+    /** Client-side filter for git changes (no network call). */
+    fun filterGitChanges(query: String): List<VcsChange> {
+        val changes = _uiState.value.gitChanges
+        if (query.isBlank()) return changes
+        return changes.filter { it.file.contains(query, ignoreCase = true) }
     }
 
     private fun List<FileNode>.toTreeNodes() =
