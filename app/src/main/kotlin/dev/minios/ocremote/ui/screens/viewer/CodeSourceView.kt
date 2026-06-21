@@ -1,5 +1,6 @@
 package dev.minios.ocremote.ui.screens.viewer
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.PaddingValues
@@ -106,6 +107,9 @@ fun CodeSourceView(
         }
         map
     }
+    val annotationByIndex = remember(annotations) {
+        annotations.associateBy { it.index }
+    }
     val maxChars = remember(content) {
         var max = 0
         var current = 0
@@ -175,10 +179,19 @@ fun CodeSourceView(
                     baseLine
                 }
 
+                val tapModifier: Modifier = onTapAnnotation?.let { callback ->
+                    lineAnnotations[index]?.firstOrNull()?.third?.let { displayIdx ->
+                        annotationByIndex[displayIdx - 1]
+                    }?.let { ann ->
+                        Modifier.clickable { callback(ann) }
+                    }
+                } ?: Modifier
+
                 Row(
                     modifier = Modifier
                         .defaultMinSize(minWidth = maxRowWidth)
                         .horizontalScroll(hScroll)
+                        .then(tapModifier)
                 ) {
                     Text(
                         text = "${index + 1}",

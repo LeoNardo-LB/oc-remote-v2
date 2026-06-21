@@ -1,6 +1,4 @@
-package dev.minios.ocremote.ui.screens.viewer
-
-import dev.minios.ocremote.domain.model.Annotation
+package dev.minios.ocremote.domain.model
 
 /**
  * Builds structured prompt text for submitting annotations (spec §7.5).

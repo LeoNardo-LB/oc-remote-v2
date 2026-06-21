@@ -72,7 +72,6 @@ fun FileViewerScreen(
     onCopyAllContent: () -> Unit,
     onToggleRenderMode: () -> Unit,
     // Phase 3: Annotation callbacks
-    onAnnotateSelection: (selectedText: String) -> Unit,
     onAddAnnotation: (selectedText: String, note: String) -> Unit,
     onDeleteAnnotation: (id: String) -> Unit,
     onUpdateAnnotation: (id: String, note: String) -> Unit,

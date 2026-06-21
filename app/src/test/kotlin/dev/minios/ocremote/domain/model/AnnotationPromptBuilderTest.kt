@@ -1,6 +1,5 @@
-package dev.minios.ocremote.ui.screens.viewer
+package dev.minios.ocremote.domain.model
 
-import dev.minios.ocremote.domain.model.Annotation
 import org.junit.Assert.assertTrue
 import org.junit.Test
 

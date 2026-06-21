@@ -5,9 +5,11 @@ import androidx.compose.foundation.text.contextmenu.modifier.appendTextContextMe
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.stringResource
+import dev.minios.ocremote.R
 
 /**
- * Adds "标注修改" item to the system text context menu via official
+ * Adds "Annotate" item to the system text context menu via official
  * [Modifier.appendTextContextMenuComponents] API.
  *
  * When clicked: captures selected text via clipboard, strips line-number
@@ -21,11 +23,12 @@ fun Modifier.annotationContextMenu(
     onAnnotate: (selectedText: String) -> Unit,
 ): Modifier = composed {
     val clipboard = LocalClipboardManager.current
+    val menuLabel = stringResource(R.string.annotation_context_annotate)
 
     this.appendTextContextMenuComponents {
         item(
             key = AnnotationMenuKey,
-            label = "标注修改",
+            label = menuLabel,
         ) {
             // Clipboard capture: Android system copies selection to clipboard
             // when context menu is shown. Read it here.

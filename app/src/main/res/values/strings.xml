@@ -763,4 +763,5 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="annotation_submit_send">Send</string>
     <string name="annotation_submitted_toast">Annotations submitted to session</string>
     <string name="annotation_submit_failed">Failed to submit annotations</string>
+    <string name="annotation_context_annotate">Annotate</string>
 </resources>

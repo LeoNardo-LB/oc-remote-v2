@@ -3,7 +3,7 @@ package dev.minios.ocremote.domain.usecase
 import dev.minios.ocremote.domain.model.Annotation
 import dev.minios.ocremote.domain.model.PromptPart
 import dev.minios.ocremote.domain.repository.ChatRepository
-import dev.minios.ocremote.ui.screens.viewer.AnnotationPromptBuilder
+import dev.minios.ocremote.domain.model.AnnotationPromptBuilder
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
