@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.minios.ocremote.domain.model.Annotation
+import dev.minios.ocremote.ui.theme.AlphaTokens
 import dev.minios.ocremote.ui.theme.CodeTypography
 import dev.minios.ocremote.ui.theme.SpacingTokens
 import dev.snipme.highlights.Highlights
@@ -41,6 +44,9 @@ private const val ALPHA_MASK = 0xFF000000.toInt()
 fun CodeSourceView(
     content: String,
     filePath: String,
+    annotations: List<Annotation> = emptyList(),
+    onAnnotate: ((selectedText: String) -> Unit)? = null,
+    onTapAnnotation: ((Annotation) -> Unit)? = null,
     modifier: Modifier = Modifier,
     lazyListState: LazyListState = rememberLazyListState()
 ) {
@@ -63,6 +69,26 @@ fun CodeSourceView(
             add(0)
             content.forEachIndexed { i, c -> if (c == '\n') add(i + 1) }
         }.toIntArray()
+    }
+    val highlightColor = MaterialTheme.colorScheme.primary
+    val lineAnnotations = remember(annotations, content, lineCount) {
+        val map = mutableMapOf<Int, MutableList<Triple<Int, Int, Int>>>()
+        annotations.forEach { ann ->
+            val annStartLine = ann.startLine - 1
+            val annEndLine = ann.endLine - 1
+            for (lineIdx in annStartLine..annEndLine) {
+                if (lineIdx < 0 || lineIdx >= lineCount) continue
+                val lineStart = lineOffsets[lineIdx]
+                val lineEnd = if (lineIdx + 1 < lineOffsets.size) lineOffsets[lineIdx + 1] - 1 else content.length
+                val relStart = (ann.startChar - lineStart).coerceAtLeast(0)
+                val relEnd = (ann.endChar - lineStart).coerceAtMost(lineEnd - lineStart)
+                if (relStart < relEnd) {
+                    map.getOrPut(lineIdx) { mutableListOf() }
+                      .add(Triple(relStart, relEnd, ann.index + 1))
+                }
+            }
+        }
+        map
     }
     val maxChars = remember(content) {
         var max = 0
@@ -93,45 +119,61 @@ fun CodeSourceView(
         }
     }
     val hScroll = rememberScrollState()
+    val annotationEnabled = onAnnotate != null
 
-    LazyColumn(
-        state = lazyListState,
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = SpacingTokens.SM.dp)
-    ) {
-        items(
-            count = lineCount,
-            key = { it }
-        ) { index ->
-            val start = lineOffsets[index]
-            val endExclusive = if (index + 1 < lineOffsets.size)
-                lineOffsets[index + 1] - 1
-            else
-                content.length
-            val lineAnnotated = annotated.subSequence(start, endExclusive)
+    val lazyContent: @Composable (Modifier) -> Unit = { m ->
+        LazyColumn(
+            state = lazyListState,
+            modifier = m.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = SpacingTokens.SM.dp)
+        ) {
+            items(
+                count = lineCount,
+                key = { it }
+            ) { index ->
+                val start = lineOffsets[index]
+                val endExclusive = if (index + 1 < lineOffsets.size)
+                    lineOffsets[index + 1] - 1
+                else
+                    content.length
+                val baseLine = annotated.subSequence(start, endExclusive)
+                val lineAnnotated = if (lineAnnotations.containsKey(index)) {
+                    buildAnnotatedLineWithAnnotations(baseLine, lineAnnotations[index]!!, highlightColor)
+                } else {
+                    baseLine
+                }
 
-            Row(
-                modifier = Modifier
-                    .defaultMinSize(minWidth = maxRowWidth)
-                    .horizontalScroll(hScroll)
-            ) {
-                Text(
-                    text = "${index + 1}",
-                    style = CodeTypography,
-                    color = gutterColor,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.width(gutterWidth)
-                )
-                Text(
-                    text = lineAnnotated,
-                    style = CodeTypography,
-                    modifier = Modifier.padding(
-                        start = SpacingTokens.SM.dp,
-                        end = SpacingTokens.LG.dp
+                Row(
+                    modifier = Modifier
+                        .defaultMinSize(minWidth = maxRowWidth)
+                        .horizontalScroll(hScroll)
+                ) {
+                    Text(
+                        text = "${index + 1}",
+                        style = CodeTypography,
+                        color = gutterColor,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.width(gutterWidth)
                     )
-                )
+                    Text(
+                        text = lineAnnotated,
+                        style = CodeTypography,
+                        modifier = Modifier.padding(
+                            start = SpacingTokens.SM.dp,
+                            end = SpacingTokens.LG.dp
+                        )
+                    )
+                }
             }
         }
+    }
+
+    if (annotationEnabled && onAnnotate != null) {
+        SelectionContainer {
+            lazyContent(modifier.annotationContextMenu(onAnnotate))
+        }
+    } else {
+        lazyContent(modifier)
     }
 }
 
@@ -190,5 +232,23 @@ private fun rememberLanguage(filePath: String): SyntaxLanguage {
         "coffee" -> SyntaxLanguage.COFFEESCRIPT
         "sh", "bash", "zsh", "fish" -> SyntaxLanguage.SHELL
         else -> SyntaxLanguage.DEFAULT
+    }
+}
+
+/**
+ * Build a per-line AnnotatedString with annotation highlights overlaid on the base syntax-highlighted line.
+ */
+private fun buildAnnotatedLineWithAnnotations(
+    baseLine: AnnotatedString,
+    annotations: List<Triple<Int, Int, Int>>,
+    baseColor: Color
+): AnnotatedString = buildAnnotatedString {
+    append(baseLine)
+    annotations.forEach { (relStart, relEnd, _) ->
+        addStyle(
+            SpanStyle(background = baseColor.copy(alpha = AlphaTokens.SELECTED)),
+            relStart.coerceIn(0, length),
+            relEnd.coerceIn(0, length)
+        )
     }
 }
