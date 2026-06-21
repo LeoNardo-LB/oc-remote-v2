@@ -744,4 +744,14 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
 
     <!-- Tool card grouping -->
     <string name="tool_card_group_count">%1$d edits in this turn</string>
+
+    <!-- Phase 3: Annotation -->
+    <string name="annotation_input_title">Add annotation</string>
+    <string name="annotation_input_hint">Modification note</string>
+    <string name="annotation_input_confirm">Confirm</string>
+    <string name="annotation_detail_title">Annotation #%1$d</string>
+    <string name="annotation_detail_selected">Selected code</string>
+    <string name="annotation_detail_save">Save</string>
+    <string name="annotation_detail_edit">Edit</string>
+    <string name="annotation_detail_delete">Delete</string>
 </resources>
