@@ -203,10 +203,16 @@ fun CodeSourceView(
                     Text(
                         text = lineAnnotated,
                         style = CodeTypography,
-                        modifier = Modifier.padding(
-                            start = SpacingTokens.SM.dp,
-                            end = SpacingTokens.LG.dp
-                        )
+                        modifier = Modifier
+                            .padding(
+                                start = SpacingTokens.SM.dp,
+                                end = SpacingTokens.LG.dp
+                            )
+                            .then(
+                                if (annotationEnabled && onAnnotate != null)
+                                    Modifier.annotationContextMenu(onAnnotate)
+                                else Modifier
+                            )
                     )
                 }
             }
@@ -228,7 +234,7 @@ fun CodeSourceView(
 
     if (annotationEnabled && onAnnotate != null) {
         SelectionContainer {
-            lazyContent(modifier.annotationContextMenu(onAnnotate))
+            lazyContent(modifier)
         }
     } else {
         lazyContent(modifier)
