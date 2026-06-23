@@ -325,6 +325,7 @@ fun ChatScreen(
     val messageCount = messageState.messages.size
     LaunchedEffect(messageCount) {
         if (messageCount > 0 && autoScrollEnabled && !listState.isScrollInProgress) {
+            android.util.Log.d("ScrollDiag", "CALL_scrollToItem0 reason=msgCount off=${listState.firstVisibleItemScrollOffset}")
             listState.scrollToItem(0)
         }
     }
@@ -332,6 +333,7 @@ fun ChatScreen(
     // Force-scroll to bottom on explicit user actions (send, command, compact, etc.)
     LaunchedEffect(forceScrollTick) {
         if (forceScrollTick > 0) {
+            android.util.Log.d("ScrollDiag", "CALL_snapToBottom reason=forceTick off=${listState.firstVisibleItemScrollOffset}")
             listState.snapToBottom()
         }
     }
@@ -343,6 +345,7 @@ fun ChatScreen(
         if (pendingCount > 0) {
             // Wait until the list has items to scroll to.
             snapshotFlow { messageState.messages.isNotEmpty() }.first { it }
+            android.util.Log.d("ScrollDiag", "CALL_snapToBottom reason=pending($pendingCount) off=${listState.firstVisibleItemScrollOffset}")
             listState.snapToBottom()
         }
     }
@@ -360,6 +363,7 @@ fun ChatScreen(
                 val savedIdx = viewModel.savedLazyIndex
                 val totalItems = listState.layoutInfo.totalItemsCount
                 val targetIdx = savedIdx.coerceIn(0, (totalItems - 1).coerceAtLeast(0))
+                android.util.Log.d("ScrollDiag", "CALL_scrollToItem reason=restore idx=$targetIdx off=${viewModel.savedScrollOffset}")
                 listState.scrollToItem(targetIdx, viewModel.savedScrollOffset)
             }
         } else {

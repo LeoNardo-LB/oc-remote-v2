@@ -35,6 +35,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -120,11 +121,12 @@ fun ChatMessageList(
     val compensateState = remember { CompensateState() }
     val bannerCompensateState = remember { CompensateState() }
 
-    // Reset height tracking when streaming message changes (new message arrives),
-    // but DO NOT reset shouldCompensate — it must persist across message changes
-    // so that delta compensation stays active during multi-message replies.
+    // Per-message height tracking — ALL assistant messages get compensation,
+    // not just the last streaming one. This prevents drift when non-streaming
+    // messages (e.g. tool call cards, reasoning blocks) resize after content loads.
+    val heightMap = remember { HashMap<String, Int>() }
+
     LaunchedEffect(streamingMsgId) {
-        compensateState.lastHeight = 0
         bannerCompensateState.lastHeight = 0
     }
 
@@ -134,6 +136,17 @@ fun ChatMessageList(
     LaunchedEffect(listState.isScrollInProgress) {
         if (listState.isScrollInProgress) {
             compensateState.shouldCompensate = true
+        }
+    }
+
+    // DIAG: track all offset changes
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+        }.collect { (idx, off) ->
+            if (compensateState.shouldCompensate) {
+                android.util.Log.d("ScrollDiag", "OFF idx=$idx off=$off")
+            }
         }
     }
 
@@ -296,8 +309,7 @@ fun ChatMessageList(
                         key = { _, item -> item.second.message.id },
                         contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
                     ) { _, (rawIndex, msg) ->
-                        val isStreamingMsg = msg.message.id == streamingMsgId
-                        val itemModifier = if (isStreamingMsg) {
+                        val itemModifier = if (msg.isAssistant) {
                             Modifier
                                 .fillMaxWidth()
                                 .layout { measurable, constraints ->
@@ -306,10 +318,9 @@ fun ChatMessageList(
                                     )
                                     val realHeight = placeable.height
 
-                                    // Compensate SSE height growth in all states (static/drag/fling).
-                                    // Uses reflection to bypass requestScrollToItem's scroll{} mutex
-                                    // cancellation — sets pending position directly without killing fling.
-                                    val delta = realHeight - compensateState.lastHeight
+                                    val msgId = msg.message.id
+                                    val prevHeight = heightMap[msgId]
+                                    val delta = if (prevHeight != null) realHeight - prevHeight else 0
                                     if (compensateState.shouldCompensate && delta > 0) {
                                         LazyListReflection.requestScrollToItemNoCancel(
                                             listState,
@@ -317,7 +328,7 @@ fun ChatMessageList(
                                             listState.firstVisibleItemScrollOffset + delta
                                         )
                                     }
-                                    compensateState.lastHeight = realHeight
+                                    heightMap[msgId] = realHeight
 
                                     layout(placeable.width, realHeight) {
                                         placeable.placeRelative(0, 0)
