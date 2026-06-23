@@ -324,8 +324,14 @@ fun ChatScreen(
     // not actively scrolling (prevents race with user gestures).
     val messageCount = messageState.messages.size
     LaunchedEffect(messageCount) {
-        if (messageCount > 0 && autoScrollEnabled && !listState.isScrollInProgress) {
-            android.util.Log.d("ScrollDiag", "CALL_scrollToItem0 reason=msgCount off=${listState.firstVisibleItemScrollOffset}")
+        // Only auto-scroll when truly at the bottom (offset == 0).
+        // Using autoScrollEnabled is unreliable: it gets re-enabled when
+        // isAtBottom is true (offset < 100), but the user may have scrolled
+        // up slightly. This caused viewport drift in multi-message replies
+        // where messageCount changes (new tool call/result messages arrive).
+        val trulyAtBottom = listState.firstVisibleItemIndex == 0 &&
+            listState.firstVisibleItemScrollOffset == 0
+        if (messageCount > 0 && trulyAtBottom && !listState.isScrollInProgress) {
             listState.scrollToItem(0)
         }
     }
@@ -333,7 +339,6 @@ fun ChatScreen(
     // Force-scroll to bottom on explicit user actions (send, command, compact, etc.)
     LaunchedEffect(forceScrollTick) {
         if (forceScrollTick > 0) {
-            android.util.Log.d("ScrollDiag", "CALL_snapToBottom reason=forceTick off=${listState.firstVisibleItemScrollOffset}")
             listState.snapToBottom()
         }
     }
@@ -345,7 +350,6 @@ fun ChatScreen(
         if (pendingCount > 0) {
             // Wait until the list has items to scroll to.
             snapshotFlow { messageState.messages.isNotEmpty() }.first { it }
-            android.util.Log.d("ScrollDiag", "CALL_snapToBottom reason=pending($pendingCount) off=${listState.firstVisibleItemScrollOffset}")
             listState.snapToBottom()
         }
     }
@@ -363,7 +367,6 @@ fun ChatScreen(
                 val savedIdx = viewModel.savedLazyIndex
                 val totalItems = listState.layoutInfo.totalItemsCount
                 val targetIdx = savedIdx.coerceIn(0, (totalItems - 1).coerceAtLeast(0))
-                android.util.Log.d("ScrollDiag", "CALL_scrollToItem reason=restore idx=$targetIdx off=${viewModel.savedScrollOffset}")
                 listState.scrollToItem(targetIdx, viewModel.savedScrollOffset)
             }
         } else {

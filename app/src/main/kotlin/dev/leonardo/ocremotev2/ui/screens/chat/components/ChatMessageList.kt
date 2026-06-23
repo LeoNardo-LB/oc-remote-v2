@@ -35,7 +35,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -136,17 +135,6 @@ fun ChatMessageList(
     LaunchedEffect(listState.isScrollInProgress) {
         if (listState.isScrollInProgress) {
             compensateState.shouldCompensate = true
-        }
-    }
-
-    // DIAG: track all offset changes
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
-        }.collect { (idx, off) ->
-            if (compensateState.shouldCompensate) {
-                android.util.Log.d("ScrollDiag", "OFF idx=$idx off=$off")
-            }
         }
     }
 
