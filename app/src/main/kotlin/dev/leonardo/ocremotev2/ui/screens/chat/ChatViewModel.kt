@@ -407,7 +407,8 @@ class ChatViewModel @Inject constructor(
     val terminalVersion: StateFlow<Long> = terminalWorkspace.activeVersion
     val terminalConnected: StateFlow<Boolean> = terminalWorkspace.activeConnected
     val terminalFontSizeSp: StateFlow<Float> = terminalWorkspace.activeFontSizeSp
-    val terminalEmulator: TerminalEmulator get() = terminalWorkspace.activeEmulator()
+    val terminalEmulator: org.connectbot.terminal.TerminalEmulator get() = terminalWorkspace.activeEmulator()
+    val terminalCursorKeysAppMode: Boolean get() = terminalWorkspace.activeAdapter().cursorKeysApplicationMode.value
 
     // ============ Draft Persistence ============
     /** Draft text for the input field — survives navigation / app restart. */

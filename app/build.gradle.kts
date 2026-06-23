@@ -144,6 +144,9 @@ dependencies {
     implementation("io.ktor:ktor-client-logging:$ktorVersion")
     implementation("io.ktor:ktor-client-auth:$ktorVersion")
 
+    // ConnectBot Terminal — libvterm-backed terminal emulator (replaces hand-rolled ANSI parser)
+    implementation("org.connectbot:termlib:0.1.0")
+
     // Kotlinx Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 

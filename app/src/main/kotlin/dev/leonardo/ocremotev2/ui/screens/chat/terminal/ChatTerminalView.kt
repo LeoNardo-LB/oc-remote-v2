@@ -107,7 +107,6 @@ fun ChatTerminalView(
     onNavigateBack: () -> Unit,
     snackbarHostState: androidx.compose.material3.SnackbarHostState,
 ) {
-    val terminalVersion by viewModel.terminalVersion.collectAsStateWithLifecycle()
     val terminalConnected by viewModel.terminalConnected.collectAsStateWithLifecycle()
     val terminalTabs by viewModel.terminalTabs.collectAsStateWithLifecycle()
     val activeTerminalTabId by viewModel.activeTerminalTabId.collectAsStateWithLifecycle()
@@ -283,7 +282,7 @@ fun ChatTerminalView(
         }
 
         val processed = if (terminalVirtualFnDown) {
-            val fnResult = applyTermuxFnBindings(chunk, viewModel.terminalEmulator.cursorKeysApplicationMode)
+            val fnResult = applyTermuxFnBindings(chunk, viewModel.terminalCursorKeysAppMode)
             if (fnResult.showVolumeUi) {
                 val audio = context.getSystemService(AudioManager::class.java)
                 audio?.adjustSuggestedStreamVolume(
@@ -535,7 +534,6 @@ fun ChatTerminalView(
         Box(modifier = Modifier.fillMaxSize()) {
             SessionTerminalInline(
                 emulator = viewModel.terminalEmulator,
-                terminalVersion = terminalVersion,
                 connected = terminalConnected,
                 focusRequester = terminalFocusRequester,
                 onSendInput = ::sendTerminalChunk,
@@ -586,7 +584,7 @@ fun ChatTerminalView(
                 connected = terminalConnected,
                 ctrlLatched = terminalCtrlLatched,
                 altLatched = terminalAltLatched,
-                cursorApp = viewModel.terminalEmulator.cursorKeysApplicationMode,
+                cursorApp = viewModel.terminalCursorKeysAppMode,
                 onToggleDrawer = { coroutineScope.launch { terminalDrawerState.apply { if (isOpen) close() else open() } } },
                 onToggleCtrl = { terminalCtrlLatched = !terminalCtrlLatched },
                 onToggleAlt = { terminalAltLatched = !terminalAltLatched },

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -104,6 +105,18 @@ fun CodeWebView(
                 settings.loadWithOverviewMode = true
                 settings.useWideViewPort = false
                 addJavascriptInterface(bridge, "AndroidBridge")
+
+                // Wait for HTML to finish loading before calling setCode —
+                // loadDataWithBaseURL is async; calling evaluateJavascript
+                // before onPageFinished silently fails (function not defined).
+                webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        view?.evaluateJavascript(
+                            "setCode(`$escapedContent`, '$language'); setTheme($isDark);",
+                            null
+                        )
+                    }
+                }
 
                 // Load HTML template from assets
                 val html = ctx.assets.open("code_viewer.html").bufferedReader().use { it.readText() }

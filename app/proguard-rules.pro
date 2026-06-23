@@ -41,3 +41,7 @@
 # (bypass requestScrollToItem's scroll{} mutex cancellation)
 -keep class androidx.compose.foundation.lazy.LazyListState { *; }
 -keep class androidx.compose.foundation.lazy.LazyListScrollPosition { *; }
+
+# ConnectBot termlib — keep public API and native method signatures.
+-keep public class org.connectbot.terminal.** { public *; }
+-keepclasseswithmembernames class * { native <methods>; }

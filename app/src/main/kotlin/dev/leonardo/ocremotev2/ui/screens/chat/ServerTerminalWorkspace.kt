@@ -4,6 +4,7 @@ import android.util.Log
 import dev.leonardo.ocremotev2.BuildConfig
 import dev.leonardo.ocremotev2.data.api.OpenCodeApi
 import dev.leonardo.ocremotev2.data.dto.common.PtySocket
+import dev.leonardo.ocremotev2.data.terminal.PtyToTermlibAdapter
 import dev.leonardo.ocremotev2.domain.model.ServerConnection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,11 +13,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import org.connectbot.terminal.TerminalEmulatorFactory
 import java.util.UUID
 
 private const val WORKSPACE_TAG = "ServerTerminalWorkspace"
 private val RECONNECT_BACKOFF_MS = longArrayOf(1_000L, 2_000L, 5_000L, 10_000L, 30_000L)
 private const val DEFAULT_TERMINAL_FONT_SIZE_SP = 13f
+private const val DEFAULT_ROWS = 24
+private const val DEFAULT_COLS = 80
 
 data class TerminalTabUi(
     val id: String,
@@ -28,10 +32,10 @@ internal class ServerTerminalWorkspace(
     private val api: OpenCodeApi,
     private val conn: ServerConnection,
 ) {
-    private data class RuntimeTab(
+    private class RuntimeTab(
         val id: String,
         var title: String,
-        val emulator: TerminalEmulator = TerminalEmulator(),
+        val adapter: PtyToTermlibAdapter,
         var fontSizeSp: Float = DEFAULT_TERMINAL_FONT_SIZE_SP,
         var directory: String? = null,
         var ptyId: String? = null,
@@ -63,15 +67,34 @@ internal class ServerTerminalWorkspace(
     private val _activeFontSizeSp = MutableStateFlow(DEFAULT_TERMINAL_FONT_SIZE_SP)
     val activeFontSizeSp: StateFlow<Float> = _activeFontSizeSp
 
-    val fallbackEmulator = TerminalEmulator()
+    private val fallbackAdapter: PtyToTermlibAdapter = run {
+        val emu = TerminalEmulatorFactory.create(
+            initialRows = DEFAULT_ROWS,
+            initialCols = DEFAULT_COLS,
+            onKeyboardInput = { /* no-op for fallback */ },
+        )
+        PtyToTermlibAdapter(
+            emulator = emu,
+            scope = scope,
+            writeInput = emu::writeInput,
+            onResize = { rows, cols -> emu.resize(rows, cols) },
+            onClearScreen = { emu.clearScreen() },
+        )
+    }
 
-    fun activeEmulator(): TerminalEmulator {
-        val id = _activeTabId.value
-        if (id == null) return fallbackEmulator
-        synchronized(lock) {
-            return tabs.firstOrNull { it.id == id }?.emulator ?: fallbackEmulator
+    /**
+     * Returns the active tab's adapter, or the fallback when no tab is active.
+     */
+    fun activeAdapter(): PtyToTermlibAdapter {
+        val id = _activeTabId.value ?: return fallbackAdapter
+        return synchronized(lock) {
+            tabs.firstOrNull { it.id == id }?.adapter ?: fallbackAdapter
         }
     }
+
+    /** Convenience accessor for code that only needs the termlib emulator. */
+    fun activeEmulator(): org.connectbot.terminal.TerminalEmulator =
+        activeAdapter().emulator!!
 
     fun ensureActiveTab(cwd: String?, directory: String?, onResult: (Boolean) -> Unit = {}) {
         val hasActive = synchronized(lock) { activeTabLocked() != null }
@@ -85,9 +108,27 @@ internal class ServerTerminalWorkspace(
     fun createTab(cwd: String?, directory: String?, onResult: (Boolean) -> Unit = {}) {
         val tab = synchronized(lock) {
             val index = tabs.size + 1
+            val tabId = UUID.randomUUID().toString()
+            // Adapter creation: the onKeyboardInput callback needs the adapter,
+            // but the adapter needs the emulator. Resolve via a holder var.
+            var adapterRef: PtyToTermlibAdapter? = null
+            val emulator = TerminalEmulatorFactory.create(
+                initialRows = DEFAULT_ROWS,
+                initialCols = DEFAULT_COLS,
+                onKeyboardInput = { bytes -> adapterRef?.dispatchKeyboardOutput(bytes) },
+            )
+            val adapter = PtyToTermlibAdapter(
+                emulator = emulator,
+                scope = scope,
+                writeInput = emulator::writeInput,
+                onResize = { rows, cols -> emulator.resize(rows, cols) },
+                onClearScreen = { emulator.clearScreen() },
+            )
+            adapterRef = adapter
             RuntimeTab(
-                id = UUID.randomUUID().toString(),
+                id = tabId,
                 title = "Tab $index",
+                adapter = adapter,
                 fontSizeSp = defaultFontSizeSp,
                 directory = directory,
             ).also {
@@ -150,6 +191,7 @@ internal class ServerTerminalWorkspace(
             tab
         }
 
+        removed.adapter.release()
         removed.readerJob?.cancel()
         removed.reconnectJob?.cancel()
         scope.launch {
@@ -178,9 +220,9 @@ internal class ServerTerminalWorkspace(
 
     fun clearActiveBuffer() {
         val tab = synchronized(lock) { activeTabLocked() } ?: return
-        tab.emulator.reset()
+        tab.adapter.clear()
         if (_activeTabId.value == tab.id) {
-            _activeVersion.value = tab.emulator.version
+            _activeVersion.value = tab.adapter.version.value
         }
     }
 
@@ -214,9 +256,10 @@ internal class ServerTerminalWorkspace(
 
         if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "resizeActive: cols=$cols rows=$rows ptyId=${tab.ptyId} lastSize=${tab.lastSize} connected=${tab.connected} tabDir=${tab.directory}")
 
-        tab.emulator.resize(cols, rows)
+        // termlib's resize takes (rows, cols) — opposite order from the old API.
+        tab.adapter.resize(rows = rows, cols = cols)
         if (_activeTabId.value == tab.id) {
-            _activeVersion.value = tab.emulator.version
+            _activeVersion.value = tab.adapter.version.value
         }
 
         val ptyId = tab.ptyId ?: run {
@@ -279,6 +322,7 @@ internal class ServerTerminalWorkspace(
             copy
         }
         all.forEach { tab ->
+            tab.adapter.release()
             tab.readerJob?.cancel()
             tab.reconnectJob?.cancel()
             scope.launch {
@@ -307,17 +351,25 @@ internal class ServerTerminalWorkspace(
         tab.reconnectJob?.cancel()
         tab.reconnectJob = null
         tab.readerJob?.cancel()
+
+        // The adapter owns the read loop and writeInput dispatch.
+        // We collect version updates and forward them to _activeVersion.
         tab.readerJob = scope.launch {
-            try {
-                socket.readLoop { chunk ->
-                    tab.emulator.process(chunk)
+            val versionJob = scope.launch {
+                tab.adapter.version.collect { v ->
                     if (_activeTabId.value == tab.id) {
-                        _activeVersion.value = tab.emulator.version
+                        _activeVersion.value = v
                     }
                 }
+            }
+            try {
+                tab.adapter.bind(socket)
+                // Suspend until the adapter's reader completes (socket closed).
+                tab.adapter.awaitReader()
             } catch (e: Exception) {
                 Log.w(WORKSPACE_TAG, "Tab stream closed: ${tab.id}", e)
             } finally {
+                versionJob.cancel()
                 onSocketClosed(tab.id, socket)
             }
         }
@@ -348,6 +400,7 @@ internal class ServerTerminalWorkspace(
             tab.socket = null
             tab.connected = false
             tab.readerJob = null
+            tab.adapter.bind(null)
             publishTabsLocked()
             shouldReconnect = tab.ptyId != null && tab.reconnectJob?.isActive != true
             if (shouldReconnect) {
@@ -424,7 +477,7 @@ internal class ServerTerminalWorkspace(
             return
         }
         _activeConnected.value = active.connected
-        _activeVersion.value = active.emulator.version
+        _activeVersion.value = active.adapter.version.value
         _activeFontSizeSp.value = active.fontSizeSp
     }
 }

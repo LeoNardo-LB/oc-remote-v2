@@ -21,18 +21,18 @@ data class OutputFormat(
     val schema: String? = null
 )
 
-class PtySocket(
+open class PtySocket(
     private val session: ClientWebSocketSession
 ) {
-    suspend fun send(input: String) {
+    open suspend fun send(input: String) {
         session.send(input)
     }
 
-    suspend fun close() {
+    open suspend fun close() {
         session.close(CloseReason(CloseReason.Codes.NORMAL, "closed"))
     }
 
-    suspend fun readLoop(onText: suspend (String) -> Unit) {
+    open suspend fun readLoop(onText: suspend (String) -> Unit) {
         for (frame in session.incoming) {
             when (frame) {
                 is Frame.Text -> onText(frame.readText())

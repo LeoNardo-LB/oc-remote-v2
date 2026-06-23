@@ -118,7 +118,7 @@ fun ChatMessageList(
     }
 
     val compensateState = remember(streamingMsgId) { CompensateState() }
-    val toolCompensateState = remember(streamingMsgId) { CompensateState() }
+    val bannerCompensateState = remember(streamingMsgId) { CompensateState() }
 
     // Track whether user has scrolled away from bottom.
     // When shouldCompensate=true, SSE height growth is counteracted via
@@ -179,113 +179,106 @@ fun ChatMessageList(
                     // Visual order (top→bottom): oldest msgs → newest msgs → revert → pending.
                     // Declaration order is bottom-up: pending (bottom) → messages (top).
 
-                    // Revert banner
-                    if (sessionMeta.revert != null) {
-                        item(key = "revert_banner") {
-                            RevertBanner(onRedo = {
-                                viewModel.redoMessage { ok ->
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
+                    // === Unified streaming banners ===
+                    // All conditional banners merged into a single item to:
+                    // ① Prevent item insertion/removal from causing index jumps
+                    // ② Apply unified delta compensation for ALL height changes
+                    // ③ Compensate both growth (delta > 0) and shrinkage (delta < 0)
+                    item(key = "streaming_banners") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .layout { measurable, constraints ->
+                                    val placeable = measurable.measure(
+                                        constraints.copy(maxHeight = Constraints.Infinity)
+                                    )
+                                    val realHeight = placeable.height
+                                    val delta = realHeight - bannerCompensateState.lastHeight
+                                    // Skip compensation when streaming message is visible —
+                                    // it has its own layout modifier that handles delta.
+                                    val streamVisible = listState.layoutInfo.visibleItemsInfo.any {
+                                        it.key == streamingMsgId
+                                    }
+                                    if (compensateState.shouldCompensate && delta != 0 && !streamVisible) {
+                                        LazyListReflection.requestScrollToItemNoCancel(
+                                            listState,
+                                            listState.firstVisibleItemIndex,
+                                            listState.firstVisibleItemScrollOffset + delta
                                         )
                                     }
+                                    bannerCompensateState.lastHeight = realHeight
+                                    layout(placeable.width, realHeight) {
+                                        placeable.placeRelative(0, 0)
+                                    }
                                 }
-                                onForceScrollToBottom()
-                            })
-                        }
-                    }
-
-                    // Compaction banner
-                    if (currentCompaction != null && currentCompaction.isActive) {
-                        item(key = "compaction_banner") {
-                            CompactionBanner(state = currentCompaction)
-                        }
-                    }
-
-                    // Retry banner — shown when session is in Retry status
-                    val retryStatus = sessionMeta.sessionStatus
-                    if (retryStatus is SessionStatus.Retry) {
-                        item(key = "retry_banner") {
-                            RetryBanner(retryStatus)
-                        }
-                    }
-
-                    // Tool progress cards (with drift compensation)
-                    if (activeTools.isNotEmpty()) {
-                        item(key = "tool_progress") {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .layout { measurable, constraints ->
-                                        val placeable = measurable.measure(
-                                            constraints.copy(maxHeight = Constraints.Infinity)
-                                        )
-                                        val realHeight = placeable.height
-                                        val delta = realHeight - toolCompensateState.lastHeight
-                                        if (compensateState.shouldCompensate && delta > 0) {
-                                            LazyListReflection.requestScrollToItemNoCancel(
-                                                listState,
-                                                listState.firstVisibleItemIndex,
-                                                listState.firstVisibleItemScrollOffset + delta
+                        ) {
+                            // Revert banner
+                            if (sessionMeta.revert != null) {
+                                RevertBanner(onRedo = {
+                                    viewModel.redoMessage { ok ->
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
                                             )
                                         }
-                                        toolCompensateState.lastHeight = realHeight
-                                        layout(placeable.width, realHeight) {
-                                            placeable.placeRelative(0, 0)
-                                        }
                                     }
-                            ) {
-                                activeTools.forEach { toolInfo ->
-                                    ToolProgressCard(toolInfo = toolInfo)
-                                }
+                                    onForceScrollToBottom()
+                                })
                             }
-                        }
-                    } else {
-                        // Reset when no active tools
-                        toolCompensateState.lastHeight = 0
-                    }
 
-                    // Step progress indicator
-                    if (currentStep != null) {
-                        item(key = "step_progress") {
-                            StepProgressIndicator(stepInfo = currentStep)
-                        }
-                    }
+                            // Compaction banner
+                            if (currentCompaction != null && currentCompaction.isActive) {
+                                CompactionBanner(state = currentCompaction)
+                            }
 
-                    // Pending questions — show one at a time (oldest first)
-                    interaction.pendingQuestions.firstOrNull()?.let { question ->
-                        item(key = "question_${question.id}") {
-                            QuestionCard(
-                                question = question,
-                                positionLabel = if (interaction.pendingQuestions.size > 1) "1/${interaction.pendingQuestions.size}" else null,
-                                onSubmit = { answers ->
-                                    viewModel.replyToQuestion(question.id, answers)
-                                    onForceScrollToBottom()
-                                },
-                                onReject = {
-                                    viewModel.rejectQuestion(question.id)
-                                    onForceScrollToBottom()
-                                }
-                            )
-                        }
-                    }
+                            // Retry banner
+                            val retryStatus = sessionMeta.sessionStatus
+                            if (retryStatus is SessionStatus.Retry) {
+                                RetryBanner(retryStatus)
+                            }
 
-                    // Pending permissions — show one at a time (oldest first)
-                    interaction.pendingPermissions.firstOrNull()?.let { permission ->
-                        item(key = "perm_${permission.id}") {
-                            PermissionCard(
-                                permission = permission,
-                                positionLabel = if (interaction.pendingPermissions.size > 1) "1/${interaction.pendingPermissions.size}" else null,
-                                onOnce = {
-                                    viewModel.replyToPermission(permission.id, "once")
-                                    onForceScrollToBottom()
-                                },
-                                onAlways = { showAlwaysDialog = permission },
-                                onReject = {
-                                    viewModel.replyToPermission(permission.id, "reject")
-                                    onForceScrollToBottom()
-                                }
-                            )
+                            // Tool progress cards
+                            activeTools.forEach { toolInfo ->
+                                ToolProgressCard(toolInfo = toolInfo)
+                            }
+
+                            // Step progress indicator
+                            if (currentStep != null) {
+                                StepProgressIndicator(stepInfo = currentStep)
+                            }
+
+                            // Pending questions — show one at a time (oldest first)
+                            interaction.pendingQuestions.firstOrNull()?.let { question ->
+                                QuestionCard(
+                                    question = question,
+                                    positionLabel = if (interaction.pendingQuestions.size > 1) "1/${interaction.pendingQuestions.size}" else null,
+                                    onSubmit = { answers ->
+                                        viewModel.replyToQuestion(question.id, answers)
+                                        onForceScrollToBottom()
+                                    },
+                                    onReject = {
+                                        viewModel.rejectQuestion(question.id)
+                                        onForceScrollToBottom()
+                                    }
+                                )
+                            }
+
+                            // Pending permissions — show one at a time (oldest first)
+                            interaction.pendingPermissions.firstOrNull()?.let { permission ->
+                                PermissionCard(
+                                    permission = permission,
+                                    positionLabel = if (interaction.pendingPermissions.size > 1) "1/${interaction.pendingPermissions.size}" else null,
+                                    onOnce = {
+                                        viewModel.replyToPermission(permission.id, "once")
+                                        onForceScrollToBottom()
+                                    },
+                                    onAlways = { showAlwaysDialog = permission },
+                                    onReject = {
+                                        viewModel.replyToPermission(permission.id, "reject")
+                                        onForceScrollToBottom()
+                                    }
+                                )
+                            }
                         }
                     }
 

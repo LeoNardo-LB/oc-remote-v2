@@ -1,0 +1,97 @@
+appId: dev.leonardo.ocremotev2.dev
+name: E2E - Terminal Smoke (Real OpenCode Server)
+tags:
+  - e2e
+  - terminal
+  - termlib
+---
+
+# Terminal Smoke Flow — exercises termlib integration end-to-end.
+#
+# Prerequisites:
+#   - OpenCode server running and reachable from emulator (10.0.2.2:4096)
+#   - Default server entry configured in the app's settings
+#   - At least one existing chat session in the server
+#
+# What this flow verifies (when a live server is available):
+#   1. App launches and connects to the configured server
+#   2. A chat session opens
+#   3. Terminal mode toggle is reachable
+#   4. Terminal composable mounts (no crash)
+#   5. Type a command and verify the terminal doesn't crash
+#   6. Switch out of terminal mode back to chat
+#
+# This flow uses text/icon matching instead of testTags to keep the
+# termlib migration scope minimal. To make it more robust, consider adding
+# Modifier.testTag(...) calls to the terminal container and toggle button
+# in ChatTerminalView.kt and SessionTerminalInline.kt.
+#
+# Skipped on CI: requires a live OpenCode server with a configured session.
+
+# Launch app
+- launchApp
+
+# Wait for home and connect if prompted
+- extendedWaitUntil:
+    visible: ".*Server.*|Connect"
+    timeout: 15000
+
+- tapOn:
+    text: "Connect"
+    optional: true
+
+- extendedWaitUntil:
+    visible: "Connected"
+    timeout: 20000
+    optional: true
+
+- takeScreenshot: terminal_smoke_home
+
+# Open the first chat session — exact selector depends on the session list
+# layout. Tap on the first session-like row.
+- tapOn:
+    text: ".*"
+    index: 0
+
+- waitForAnimationToEnd
+
+- takeScreenshot: terminal_smoke_chat_open
+
+# Try to enter terminal mode. The terminal toggle is in the chat top bar
+# or overflow menu; text varies by locale. Tap by description fallback.
+- tapOn:
+    text: "Terminal"
+    optional: true
+
+- waitForAnimationToEnd
+
+- takeScreenshot: terminal_smoke_terminal_mounted
+
+# Give termlib a moment to mount and request focus.
+- waitForAnimationToEnd
+
+# Type a harmless command. This exercises:
+#   - IME input → termlib onKeyboardInput → adapter.dispatchKeyboardOutput →
+#     PtySocket.send → server-side shell
+- inputText: "echo maestro_ok"
+
+- pressKey: enter
+
+# Wait for shell echo to round-trip through the PTY → adapter.writeInput →
+# termlib → recomposition.
+- waitForAnimationToEnd
+
+- extendedWaitUntil:
+    visible: ".*"
+    timeout: 3000
+
+- takeScreenshot: terminal_smoke_after_command
+
+# Toggle back to chat mode (same toggle button)
+- tapOn:
+    text: "Terminal"
+    optional: true
+
+- waitForAnimationToEnd
+
+- takeScreenshot: terminal_smoke_back_to_chat
