@@ -1,14 +1,17 @@
 package dev.leonardo.ocremotev2.ui.screens.viewer
 
 import android.annotation.SuppressLint
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -49,16 +52,31 @@ private fun extToLanguage(filePath: String): String {
     }
 }
 
-/** Bridge for JavaScript → Kotlin communication. */
-private class CodeViewerBridge(
-    val onAnnotate: (String) -> Unit,
-    val onCopy: (String) -> Unit,
-) {
-    @JavascriptInterface
-    fun onAnnotate(text: String) { onAnnotate.invoke(text) }
+/**
+ * Stable bridge for JavaScript → Kotlin communication.
+ *
+ * Uses a mutable holder so the bridge object itself never changes
+ * (WebView holds a reference to it). Callbacks are posted to the
+ * main thread because @JavascriptInterface methods run on a binder
+ * thread — Compose state updates from non-main threads fail silently.
+ */
+private class CodeViewerBridge {
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    var annotateCallback: ((String) -> Unit)? = null
+    var copyCallback: ((String) -> Unit)? = null
 
     @JavascriptInterface
-    fun onCopy(text: String) { onCopy.invoke(text) }
+    fun onAnnotate(text: String) {
+        Log.d(TAG, "onAnnotate called: '${text.take(50)}...'")
+        mainHandler.post { annotateCallback?.invoke(text) }
+    }
+
+    @JavascriptInterface
+    fun onCopy(text: String) {
+        Log.d(TAG, "onCopy called: '${text.take(50)}...'")
+        mainHandler.post { copyCallback?.invoke(text) }
+    }
 }
 
 /**
@@ -88,15 +106,14 @@ fun CodeWebView(
         content.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
     }
 
-    val bridge = remember(onAnnotate, onCopy) {
-        CodeViewerBridge(
-            onAnnotate = { text -> onAnnotate?.invoke(text) },
-            onCopy = { text -> onCopy?.invoke(text) },
-        )
-    }
+    // Stable bridge — created once, never recreated on recomposition.
+    // Callbacks are updated in place so the WebView's reference stays valid.
+    val bridge = remember { CodeViewerBridge() }
+    bridge.annotateCallback = onAnnotate
+    bridge.copyCallback = onCopy
 
     AndroidView(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier,
         factory = { ctx ->
             WebView(ctx).apply {
                 settings.javaScriptEnabled = true
@@ -106,11 +123,9 @@ fun CodeWebView(
                 settings.useWideViewPort = false
                 addJavascriptInterface(bridge, "AndroidBridge")
 
-                // Wait for HTML to finish loading before calling setCode —
-                // loadDataWithBaseURL is async; calling evaluateJavascript
-                // before onPageFinished silently fails (function not defined).
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
+                        Log.d(TAG, "onPageFinished, setting code (${escapedContent.length} chars, lang=$language)")
                         view?.evaluateJavascript(
                             "setCode(`$escapedContent`, '$language'); setTheme($isDark);",
                             null
@@ -118,7 +133,6 @@ fun CodeWebView(
                     }
                 }
 
-                // Load HTML template from assets
                 val html = ctx.assets.open("code_viewer.html").bufferedReader().use { it.readText() }
                     .replace("__ANNOTATE_LABEL__", annotateLabel)
                     .replace("__COPY_LABEL__", copyLabel)
@@ -126,7 +140,6 @@ fun CodeWebView(
             }
         },
         update = { webView ->
-            // Set code content + language + theme whenever content changes
             webView.post {
                 webView.evaluateJavascript(
                     "setCode(`$escapedContent`, '$language'); setTheme($isDark);",
