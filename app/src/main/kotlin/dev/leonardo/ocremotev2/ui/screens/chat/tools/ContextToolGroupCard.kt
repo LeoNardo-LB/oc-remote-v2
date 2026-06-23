@@ -1,23 +1,19 @@
 package dev.leonardo.ocremotev2.ui.screens.chat.tools
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FindInPage
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,14 +22,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocremotev2.R
 import dev.leonardo.ocremotev2.domain.model.Part
 import dev.leonardo.ocremotev2.domain.model.ToolState
-import dev.leonardo.ocremotev2.ui.components.AmoledCard
+import dev.leonardo.ocremotev2.ui.screens.chat.tools.cards.ToolCardScaffold
 import dev.leonardo.ocremotev2.ui.screens.chat.util.isAmoledTheme
+import dev.leonardo.ocremotev2.ui.theme.AlphaTokens
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -50,102 +49,76 @@ fun ContextToolGroupCard(
     val summary = remember(parts) { contextToolSummary(parts) }
     val isAmoled = isAmoledTheme()
 
-    AmoledCard(
-        isAmoledDark = isAmoled,
-        modifier = modifier.fillMaxWidth(),
-        normalContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+    val statusText = stringResource(
+        if (pending) R.string.context_exploring else R.string.context_explored
+    )
+    val title = buildString {
+        append(statusText)
+        if (summary.read > 0) {
+            append(" · ")
+            append(stringResource(R.string.context_read_count, summary.read))
+        }
+        if (summary.search > 0) {
+            append(" · ")
+            append(stringResource(R.string.context_search_count, summary.search))
+        }
+    }
+
+    ToolCardScaffold(
+        icon = if (pending) Icons.Filled.Search else Icons.Filled.CheckCircle,
+        iconTint = if (pending) MaterialTheme.colorScheme.primary
+                   else MaterialTheme.colorScheme.onSurfaceVariant,
+        title = title,
+        copyText = title,
+        isExpanded = expanded,
+        isRunning = pending,
+        hasContent = true,
+        isAmoled = isAmoled,
+        onToggleExpand = { expanded = !expanded },
+        modifier = modifier,
     ) {
-        // Header
-        ListItem(
-            headlineContent = {
-                Text(
-                    text = stringResource(
-                        if (pending) R.string.context_exploring
-                        else R.string.context_explored
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            },
-            supportingContent = {
-                val summaryText = buildSummaryText(summary.read, summary.search)
-                if (summaryText.isNotEmpty()) {
-                    Text(
-                        text = summaryText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Column {
+            parts.forEachIndexed { idx, part ->
+                if (idx > 0) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(
+                            alpha = AlphaTokens.FAINT
+                        )
                     )
                 }
-            },
-            leadingContent = {
-                Icon(
-                    imageVector = if (pending) Icons.Filled.Search
-                                  else Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = if (pending) MaterialTheme.colorScheme.primary
-                           else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
-            trailingContent = {
-                Icon(
-                    imageVector = if (expanded) Icons.Filled.ExpandLess
-                                  else Icons.Filled.ExpandMore,
-                    contentDescription = null,
-                )
-            },
-            modifier = Modifier.clickable { expanded = !expanded },
-        )
-
-        // Expanded children
-        AnimatedVisibility(
-            visible = expanded,
-            enter = expandVertically(),
-            exit = shrinkVertically(),
-        ) {
-            Column {
-                parts.forEachIndexed { idx, part ->
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                    ListItem(
-                        headlineContent = {
-                            Text(
-                                text = toolLabel(part.tool),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        },
-                        supportingContent = {
-                            val subtitle = toolSubtitle(part)
-                            if (subtitle.isNotEmpty()) {
-                                Text(
-                                    text = subtitle,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        },
-                        leadingContent = {
-                            Icon(
-                                imageVector = toolIcon(part.tool),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
-                        modifier = Modifier.clickable { handleToolClick(part, onOpenFile) },
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { handleToolClick(part, onOpenFile) }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = toolIcon(part.tool),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Text(
+                        text = toolLabel(part.tool),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    val subtitle = toolSubtitle(part)
+                    if (subtitle.isNotEmpty()) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun buildSummaryText(readCount: Int, searchCount: Int): String {
-    val parts = mutableListOf<String>()
-    if (readCount > 0) {
-        parts.add(stringResource(R.string.context_read_count, readCount))
-    }
-    if (searchCount > 0) {
-        parts.add(stringResource(R.string.context_search_count, searchCount))
-    }
-    return parts.joinToString(" · ")
 }
 
 private fun handleToolClick(part: Part.Tool, onOpenFile: (String) -> Unit) {
