@@ -119,12 +119,15 @@
 
         function applyAnnotations(json) {
             var anns;
-            try { anns = JSON.parse(json); } catch(e) { return; }
+            try { anns = JSON.parse(json); } catch(e) { console.log('[Annotate] parse error: ' + e.message); return; }
+            console.log('[Annotate] parsed anns: ' + JSON.stringify(anns));
             if (!anns || anns.length === 0) return;
             var codeEl = document.getElementById('code');
             anns.forEach(function(ann) {
                 var text = ann.text || ann.selectedText || '';
-                _highlightText(codeEl, text, ann.note || '', ann.index || 0, ann.id || '');
+                // Use index as identifier — more reliable than UUID string transfer
+                var idStr = String(ann.index != null ? ann.index : 0);
+                _highlightText(codeEl, text, ann.note || '', ann.index || 0, idStr);
             });
         }
 

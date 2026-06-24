@@ -19,9 +19,9 @@ data class Annotation(
     val note: String,         // User's modification note
     val createdAt: Long       // Epoch millis
 ) {
-    /** Unified position label: "startLine:startCol-endLine:endCol" */
+    /** Unified position label: "[startLine:startCol-endLine:endCol]" */
     val positionLabel: String
-        get() = "$startLine:$startCol-$endLine:$endCol"
+        get() = "[$startLine:$startCol-$endLine:$endCol]"
 }
 
 /** 1-based line and column position. */

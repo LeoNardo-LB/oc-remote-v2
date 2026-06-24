@@ -256,8 +256,9 @@ fun CodeWebView(
         },
         update = { webView ->
             webView.post {
+                // Use setCodePreserveScroll if available (newer HTML), fall back to setCode
                 webView.evaluateJavascript(
-                    "setCodePreserveScroll(`$escapedContent`, '$language'); setTheme($isDark);",
+                    "if(typeof setCodePreserveScroll==='function'){setCodePreserveScroll(`$escapedContent`, '$language');}else{setCode(`$escapedContent`, '$language');} setTheme($isDark);",
                     null
                 )
                 if (safeAnnotationsJson.isNotBlank() && safeAnnotationsJson != "[]") {

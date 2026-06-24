@@ -166,9 +166,10 @@ fun FileViewerScreen(
                         onAnnotate = { text, start, end -> pendingAnnotation = Triple(text, start, end) },
                         annotationsJson = annotationsJson,
                         onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
-                        onAnnotationClick = { id ->
-                            DebugLogger.log("FileViewer", "onAnnotationClick: id='$id', annotations=${uiState.annotations.map { it.id }}")
-                            detailAnnotation = uiState.annotations.find { it.id == id }
+                        onAnnotationClick = { idStr ->
+                            val idx = idStr.toIntOrNull()
+                            DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
+                            detailAnnotation = uiState.annotations.find { it.index == idx }
                         },
                     )
                 }
@@ -179,9 +180,10 @@ fun FileViewerScreen(
                     onAnnotate = { text, start, end -> pendingAnnotation = Triple(text, start, end) },
                     annotationsJson = annotationsJson,
                     onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
-                    onAnnotationClick = { id ->
-                        DebugLogger.log("FileViewer", "onAnnotationClick: id='$id', annotations=${uiState.annotations.map { it.id }}")
-                        detailAnnotation = uiState.annotations.find { it.id == id }
+                    onAnnotationClick = { idStr ->
+                        val idx = idStr.toIntOrNull()
+                        DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
+                        detailAnnotation = uiState.annotations.find { it.index == idx }
                     },
                     modifier = Modifier.fillMaxSize()
                 )
