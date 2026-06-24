@@ -43,5 +43,7 @@ data class FileViewerUiState(
     val toolSnapshotAfter: String? = null,
     val toolSnapshotContent: String? = null,
     // Phase 3: Annotation state
-    val annotations: List<Annotation> = emptyList()
+    val annotations: List<Annotation> = emptyList(),
+    // Scroll to this line on initial load (-1 = no scroll, for Edit tool jump)
+    val initialScrollLine: Int = -1
 )

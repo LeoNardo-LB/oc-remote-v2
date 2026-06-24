@@ -20,6 +20,7 @@ data class AppSettings(
     val compactMessages: Boolean = false,
     val collapseTools: Boolean = false,
     val expandReasoning: Boolean = false,
+    val showTurnDividers: Boolean = true,
 
     // --- Notifications ---
     val notificationsEnabled: Boolean = true,

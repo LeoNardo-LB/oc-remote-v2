@@ -185,6 +185,7 @@ fun FileViewerScreen(
                         DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
                         detailAnnotation = uiState.annotations.find { it.index == idx }
                     },
+                    initialScrollLine = uiState.initialScrollLine,
                     modifier = Modifier.fillMaxSize()
                 )
             }

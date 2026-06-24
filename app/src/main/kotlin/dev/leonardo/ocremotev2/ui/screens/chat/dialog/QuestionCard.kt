@@ -1,4 +1,4 @@
-﻿package dev.leonardo.ocremotev2.ui.screens.chat.dialog
+package dev.leonardo.ocremotev2.ui.screens.chat.dialog
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -63,6 +63,7 @@ import dev.leonardo.ocremotev2.ui.components.DialogButtons
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocremotev2.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocremotev2.ui.screens.chat.util.performHaptic
+import dev.leonardo.ocremotev2.ui.screens.chat.components.QuestionPagerView
 import dev.leonardo.ocremotev2.ui.theme.ShapeTokens
 import dev.leonardo.ocremotev2.ui.theme.AlphaTokens
 import dev.leonardo.ocremotev2.ui.theme.SpacingTokens
@@ -76,7 +77,9 @@ internal fun QuestionCard(
     question: SseEvent.QuestionAsked,
     onSubmit: (answers: List<List<String>>) -> Unit,
     onReject: () -> Unit,
-    positionLabel: String? = null
+    positionLabel: String? = null,
+    initiallySubmitted: Boolean = false,
+    initialAnswers: List<List<String>> = emptyList()
 ) {
     val isAmoled = isAmoledTheme()
     val isSingle = question.questions.size == 1 && question.questions[0].multiple != true
@@ -85,14 +88,21 @@ internal fun QuestionCard(
     val hapticOn = LocalHapticFeedbackEnabled.current
 
     // Prevent multiple submissions — state is scoped per question via remember(key)
-    var submitted by remember(question.id) { mutableStateOf(false) }
-    // Collapsed by default — tap header to expand options
-    var expanded by remember(question.id) { mutableStateOf(false) }
+    var submitted by remember(question.id) { mutableStateOf(initiallySubmitted) }
+    // Collapsed by default — tap header to expand options.
+    // For history (initiallySubmitted), start expanded so user sees answers immediately.
+    var expanded by remember(question.id) { mutableStateOf(true) }  // always expanded — no collapse
 
     // Track answers per question
     val answersPerQuestion = remember {
         mutableStateListOf<List<String>>().apply {
-            repeat(question.questions.size) { add(emptyList()) }
+            if (initiallySubmitted && initialAnswers.isNotEmpty()) {
+                repeat(question.questions.size) { idx ->
+                    add(if (idx < initialAnswers.size) initialAnswers[idx] else emptyList())
+                }
+            } else {
+                repeat(question.questions.size) { add(emptyList()) }
+            }
         }
     }
 
@@ -173,290 +183,51 @@ internal fun QuestionCard(
             }
 
             // Question sections
-            question.questions.forEachIndexed { index, q ->
-                if (q.header.isNotBlank()) {
-                    Text(
-                        text = q.header,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = contentColor
-                    )
-                }
-                Text(
-                    text = q.question,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = contentColor.copy(alpha = AlphaTokens.HIGH)
-                )
-
-                Spacer(Modifier.height(2.dp))
-
-                if (q.multiple) {
-                    // ── Multi-select: checkboxes ──
-                    val selectedLabels = remember { mutableStateListOf<String>() }
-
-                    q.options.forEach { option ->
-                        val checked = option.label in selectedLabels
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(ShapeTokens.small)
-                                .background(
-                                    if (checked) accentColor.copy(alpha = AlphaTokens.SELECTED)
-                                    else Color.Transparent
-                                )
-                                .toggleable(
-                                    value = checked,
-                                    enabled = !submitted,
-                                    role = Role.Checkbox,
-                                    onValueChange = {
-                                        if (it) selectedLabels.add(option.label) else selectedLabels.remove(option.label)
-                                        if (index < answersPerQuestion.size) {
-                                            answersPerQuestion[index] = selectedLabels.toList()
-                                        }
-                                    }
-                                )
-                                .padding(horizontal = SpacingTokens.SM.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
-                        ) {
-                            Checkbox(
-                                checked = checked,
-                                onCheckedChange = null,
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = accentColor,
-                                    uncheckedColor = contentColor.copy(alpha = AlphaTokens.MUTED)
-                                )
-                            )
-                            Column {
-                                Text(
-                                    text = option.label,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = contentColor
-                                )
-                                if (option.description.isNotBlank()) {
-                                    Text(
-                                        text = option.description,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    // ── Single-select: tappable option rows ──
-                    q.options.forEach { option ->
-                        val isSelected = index < answersPerQuestion.size && option.label in answersPerQuestion[index]
-                        Surface(
-                            onClick = {
-                                if (!submitted) {
-                                    performHaptic(hapticView, hapticOn)
-                                    if (isSingle) {
-                                        submitted = true
-                                        onSubmit(listOf(listOf(option.label)))
-                                    } else {
-                                        if (index < answersPerQuestion.size) {
-                                            answersPerQuestion[index] = listOf(option.label)
-                                        }
-                                    }
-                                }
-                            },
-                                enabled = !submitted,
-                                shape = ShapeTokens.small,
-                                color = if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
-                                border = if (!isSelected && isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MUTED)) else null,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
-                                    contentDescription = stringResource(R.string.a11y_icon_select_provider),
-                                    modifier = Modifier.size(16.dp),
-                                    tint = if (isSelected) accentColor else accentColor.copy(alpha = AlphaTokens.MEDIUM)
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = option.label,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = if (isSelected) accentColor else contentColor
-                                    )
-                                    if (option.description.isNotBlank()) {
-                                        Text(
-                                            text = option.description,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // "Type your own answer" — inline text field
-                if (q.custom != false) {
-                    val currentAnswers = if (index < answersPerQuestion.size) answersPerQuestion[index] else emptyList()
-                    val customAnswer = currentAnswers.firstOrNull { ans -> q.options.none { it.label == ans } }
-                    
-                    if (customAnswer != null) {
-                        // Show selected custom answer
-                         Surface(
-                            shape = ShapeTokens.small,
-                            color = accentColor.copy(alpha = AlphaTokens.SELECTED),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.RadioButtonChecked,
-                                    contentDescription = stringResource(R.string.a11y_icon_submit_answer),
-                                    modifier = Modifier.size(16.dp),
-                                    tint = accentColor
-                                )
-                                Text(
-                                    text = customAnswer,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = accentColor,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                IconButton(
-                                    onClick = {
-                                        if (!submitted && index < answersPerQuestion.size) {
-                                            answersPerQuestion[index] = emptyList()
-                                        }
-                                    },
-                                    enabled = !submitted,
-                                    modifier = Modifier.size(20.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = stringResource(R.string.chat_clear),
-                                        modifier = Modifier.size(16.dp),
-                                        tint = accentColor.copy(alpha = AlphaTokens.MEDIUM)
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        var isEditingCustom by remember { mutableStateOf(false) }
-                        var customText by remember { mutableStateOf("") }
-
-                        if (!isEditingCustom) {
-                            Surface(
-                                onClick = {
-                                    isEditingCustom = true
-                                },
-                                enabled = !submitted,
-                                shape = ShapeTokens.small,
-                                color = Color.Transparent,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.SM.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Edit,
-                    contentDescription = stringResource(R.string.a11y_icon_custom_answer),
-                                        modifier = Modifier.size(14.dp),
-                                        tint = accentColor.copy(alpha = AlphaTokens.MEDIUM)
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.question_custom_answer),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = accentColor.copy(alpha = AlphaTokens.MEDIUM)
-                                    )
-                                }
-                            }
+            QuestionPagerView(
+                questions = question.questions,
+                selectedAnswers = answersPerQuestion.map { it.toSet() },
+                readOnly = submitted,
+                onOptionClick = { pageIndex, label ->
+                    if (!submitted) {
+                        performHaptic(hapticView, hapticOn)
+                        if (isSingle) {
+                            submitted = true
+                            onSubmit(listOf(listOf(label)))
                         } else {
-                            OutlinedTextField(
-                                value = customText,
-                                onValueChange = { customText = it },
-                                enabled = !submitted,
-                                placeholder = {
-                                    Text(
-                                        stringResource(R.string.chat_type_answer),
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                shape = ShapeTokens.small,
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                                trailingIcon = {
-                                    Row {
-                                        IconButton(
-                                            onClick = {
-                                                val trimmed = customText.trim()
-                                                if (trimmed.isNotBlank()) {
-                                                    performHaptic(hapticView, hapticOn)
-                                                    if (isSingle) {
-                                                        submitted = true
-                                                        onSubmit(listOf(listOf(trimmed)))
-                                                    } else {
-                                                        if (index < answersPerQuestion.size) {
-                                                            answersPerQuestion[index] = listOf(trimmed)
-                                                        }
-                                                        isEditingCustom = false
-                                                        customText = "" 
-                                                    }
-                                                }
-                                            },
-                                            enabled = customText.isNotBlank() && !submitted
-                                        ) {
-                                            Icon(
-                                                Icons.AutoMirrored.Filled.Send,
-                                                contentDescription = stringResource(R.string.question_submit),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                        IconButton(onClick = { isEditingCustom = false; customText = "" }) {
-                                            Icon(
-                                                Icons.Default.Close,
-                                                contentDescription = stringResource(R.string.question_cancel),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            )
+                            val current = answersPerQuestion.getOrNull(pageIndex)?.toMutableList() ?: mutableListOf()
+                            if (label in current) current.remove(label) else current.add(label)
+                            if (pageIndex < answersPerQuestion.size) answersPerQuestion[pageIndex] = current
                         }
                     }
                 }
-            }
+            )
 
-                // Bottom actions — single row: dismiss (left) + submit (right)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(
-                        onClick = { if (!submitted) { performHaptic(hapticView, hapticOn); submitted = true; onReject() } },
-                        enabled = !submitted
+                // Bottom actions — hidden in history mode (initiallySubmitted)
+                if (!initiallySubmitted) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(stringResource(R.string.chat_dismiss))
-                    }
-                    if (!isSingle) {
-                        Button(
-                            onClick = {
-                                if (!submitted && answersPerQuestion.any { it.isNotEmpty() }) {
-                                    performHaptic(hapticView, hapticOn)
-                                    submitted = true
-                                    onSubmit(answersPerQuestion.map { it.toList() })
-                                }
-                            },
-                            enabled = !submitted && answersPerQuestion.any { it.isNotEmpty() }
+                        TextButton(
+                            onClick = { if (!submitted) { performHaptic(hapticView, hapticOn); submitted = true; onReject() } },
+                            enabled = !submitted
                         ) {
-                            Text(stringResource(R.string.question_submit))
+                            Text(stringResource(R.string.chat_dismiss))
+                        }
+                        if (!isSingle) {
+                            Button(
+                                onClick = {
+                                    if (!submitted && answersPerQuestion.any { it.isNotEmpty() }) {
+                                        performHaptic(hapticView, hapticOn)
+                                        submitted = true
+                                        onSubmit(answersPerQuestion.map { it.toList() })
+                                    }
+                                },
+                                enabled = !submitted && answersPerQuestion.any { it.isNotEmpty() }
+                            ) {
+                                Text(stringResource(R.string.question_submit))
+                            }
                         }
                     }
                 }

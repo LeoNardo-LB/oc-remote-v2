@@ -396,6 +396,8 @@
     <string name="settings_auto_expand_tools_desc">Expand tool cards by default instead of collapsing</string>
     <string name="settings_expand_reasoning">Auto-expand reasoning</string>
     <string name="settings_expand_reasoning_desc">Show thinking process by default; tap header to toggle</string>
+    <string name="settings_turn_dividers">Turn dividers</string>
+    <string name="settings_turn_dividers_desc">Show dividers between messages in the same turn</string>
     <string name="settings_haptic_feedback">Haptic feedback</string>
     <string name="settings_haptic_feedback_desc">Vibrate on send and revert actions</string>
     <string name="settings_reconnect_mode">Reconnect mode</string>

@@ -81,6 +81,15 @@
             // Reserved for future use
         }
 
+        /** Scroll to a specific line (1-based). Used for Edit tool jump. */
+        function scrollToLine(line) {
+            if (line <= 0) return;
+            // Estimate: 13px font * 1.5 line-height ≈ 20px per line
+            setTimeout(function() {
+                window.scrollTo(0, line * 20);
+            }, 100);
+        }
+
         function getSelectionInfo() {
             var sel = window.getSelection();
             var text = sel.toString();

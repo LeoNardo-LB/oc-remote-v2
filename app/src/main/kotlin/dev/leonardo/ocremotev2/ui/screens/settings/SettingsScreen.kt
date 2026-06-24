@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.FormatSize
@@ -96,6 +97,7 @@ fun SettingsScreen(
     val compactMessages by viewModel.compactMessages.collectAsStateWithLifecycle()
     val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
     val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
+    val showTurnDividers by viewModel.showTurnDividers.collectAsStateWithLifecycle()
     val hapticFeedback by viewModel.hapticFeedback.collectAsStateWithLifecycle()
     val reconnectMode by viewModel.reconnectMode.collectAsStateWithLifecycle()
     val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
@@ -311,6 +313,23 @@ fun SettingsScreen(
                     )
                 },
                 modifier = Modifier.clickable { viewModel.setExpandReasoning(!expandReasoning) }.padding(ListItemTokens.ContentPaddingMedium)
+            )
+
+            // Show turn dividers
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_turn_dividers)) },
+                supportingContent = { Text(stringResource(R.string.settings_turn_dividers_desc)) },
+                leadingContent = {
+                    Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
+                },
+                trailingContent = {
+                    Switch(
+                        checked = showTurnDividers,
+                        onCheckedChange = { viewModel.setShowTurnDividers(it) },
+                        colors = switchColors
+                    )
+                },
+                modifier = Modifier.clickable { viewModel.setShowTurnDividers(!showTurnDividers) }.padding(ListItemTokens.ContentPaddingMedium)
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))

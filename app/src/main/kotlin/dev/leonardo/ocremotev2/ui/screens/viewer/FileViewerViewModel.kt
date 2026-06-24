@@ -320,6 +320,13 @@ class FileViewerViewModel @Inject constructor(
         val initialVisible = minOf(totalLines, INITIAL_PAGE_SIZE)
         val visible = takeFirstLines(content, initialVisible)
         annotationManager = AnnotationManager(content)
+        // For Edit tools: find the modified region in full file to scroll there
+        val editSnippet = last.after ?: last.content ?: last.before ?: ""
+        val scrollLine = if (editSnippet.isNotBlank()) {
+            val firstLine = editSnippet.lines().firstOrNull { it.isNotBlank() } ?: ""
+            val offset = if (firstLine.length > 3) content.indexOf(firstLine) else -1
+            if (offset >= 0) content.substring(0, offset).count { it == '\n' } else -1
+        } else -1
         _uiState.update {
             it.copy(
                 isLoading = false,
@@ -335,6 +342,7 @@ class FileViewerViewModel @Inject constructor(
                 totalLineCount = totalLines,
                 visibleLineCount = initialVisible,
                 isFullyLoaded = initialVisible >= totalLines,
+                initialScrollLine = scrollLine.coerceAtLeast(0),
                 annotations = annotationManager?.getAll() ?: emptyList()
             )
         }

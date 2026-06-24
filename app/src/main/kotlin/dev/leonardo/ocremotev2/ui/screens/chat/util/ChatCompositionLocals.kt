@@ -21,6 +21,9 @@ val LocalCollapseTools = compositionLocalOf { false }
 /** Whether reasoning blocks are expanded by default. */
 val LocalExpandReasoning = compositionLocalOf { false }
 
+/** Whether to show dividers between messages in the same turn. */
+val LocalShowTurnDividers = compositionLocalOf { true }
+
 /** Whether haptic feedback is enabled. */
 val LocalHapticFeedbackEnabled = compositionLocalOf { true }
 

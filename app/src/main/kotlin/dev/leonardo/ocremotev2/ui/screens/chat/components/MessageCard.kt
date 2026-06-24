@@ -416,10 +416,13 @@ private fun MessageCardAssistant(
                         }
                     }
                     if (msgIndex < turnMsgs.lastIndex && msgParts.isNotEmpty()) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = if (compact) 3.dp else 6.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                        )
+                        val showDividers = dev.leonardo.ocremotev2.ui.screens.chat.util.LocalShowTurnDividers.current
+                        if (showDividers) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = if (compact) 3.dp else 6.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                        }
                     }
                 }
 

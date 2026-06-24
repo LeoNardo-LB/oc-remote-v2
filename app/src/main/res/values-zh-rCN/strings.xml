@@ -279,6 +279,8 @@
     <string name="settings_auto_expand_tools_desc">默认展开工具卡片而非收起</string>
     <string name="settings_expand_reasoning">自动展开推理内容</string>
     <string name="settings_expand_reasoning_desc">默认展开思考过程；关闭后点击标题手动展开</string>
+    <string name="settings_turn_dividers">回合分割线</string>
+    <string name="settings_turn_dividers_desc">在同一回合的消息之间显示分割线</string>
     <string name="settings_haptic_feedback">触觉反馈</string>
     <string name="settings_haptic_feedback_desc">发送和还原操作时震动</string>
     <string name="settings_reconnect_mode">重连模式</string>

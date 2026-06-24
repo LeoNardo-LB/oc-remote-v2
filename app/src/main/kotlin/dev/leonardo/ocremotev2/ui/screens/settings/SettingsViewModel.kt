@@ -126,6 +126,12 @@ class SettingsViewModel @Inject constructor(
         updateSetting { it.copy(expandReasoning = enabled) }
     }
 
+    val showTurnDividers = settings.map { it.showTurnDividers }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun setShowTurnDividers(enabled: Boolean) {
+        updateSetting { it.copy(showTurnDividers = enabled) }
+    }
+
     fun setHapticFeedback(enabled: Boolean) {
         updateSetting { it.copy(hapticFeedback = enabled) }
     }

@@ -524,6 +524,9 @@ class ChatViewModel @Inject constructor(
     val expandReasoning = settingsRepository.getSettingsFlow().map { it.expandReasoning }.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), false
     )
+    val showTurnDividers = settingsRepository.getSettingsFlow().map { it.showTurnDividers }.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), true
+    )
     val hapticFeedback = settingsRepository.getSettingsFlow().map { it.hapticFeedback }.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), true
     )

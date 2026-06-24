@@ -14,7 +14,10 @@ import android.webkit.WebViewClient
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
@@ -166,7 +169,8 @@ private class AnnotateWebView(
                 callback.onDestroyActionMode(mode)
             }
         }
-        return super.startActionMode(wrapped, type)
+        // Force FLOATING type — menu appears near selection, not at top bar
+        return super.startActionMode(wrapped, ActionMode.TYPE_FLOATING)
     }
 }
 
@@ -180,6 +184,7 @@ fun CodeWebView(
     annotationsJson: String = "",
     onLoadMore: (() -> Unit)? = null,
     onAnnotationClick: ((id: String) -> Unit)? = null,
+    initialScrollLine: Int = -1,
 ) {
     val annotateLabel = stringResource(R.string.annotation_context_annotate)
     val surfaceColor = MaterialTheme.colorScheme.surface
@@ -199,6 +204,10 @@ fun CodeWebView(
     bridge.annotationClickCallback = onAnnotationClick
 
     var webViewRef: AnnotateWebView? = null
+    // Track last-applied values to avoid unnecessary DOM rebuilds during scroll
+    var lastEscaped by remember { mutableStateOf("") }
+    var lastIsDark by remember { mutableStateOf(!isDark) }
+    var lastJson by remember { mutableStateOf("") }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -241,6 +250,9 @@ fun CodeWebView(
                             "setCode(`$escapedContent`, '$language'); setTheme($isDark);",
                             null
                         )
+                        if (initialScrollLine > 0) {
+                            view?.evaluateJavascript("scrollToLine($initialScrollLine);", null)
+                        }
                         if (safeAnnotationsJson.isNotBlank() && safeAnnotationsJson != "[]") {
                             view?.evaluateJavascript("applyAnnotations('$safeAnnotationsJson');", null)
                         }
@@ -256,13 +268,24 @@ fun CodeWebView(
         },
         update = { webView ->
             webView.post {
-                // Use setCodePreserveScroll if available (newer HTML), fall back to setCode
-                webView.evaluateJavascript(
-                    "if(typeof setCodePreserveScroll==='function'){setCodePreserveScroll(`$escapedContent`, '$language');}else{setCode(`$escapedContent`, '$language');} setTheme($isDark);",
-                    null
-                )
-                if (safeAnnotationsJson.isNotBlank() && safeAnnotationsJson != "[]") {
-                    webView.evaluateJavascript("applyAnnotations('$safeAnnotationsJson');", null)
+                // Only update WebView when content actually changes — avoids
+                // rebuilding DOM during scroll (caused scroll jump/flicker)
+                if (escapedContent != lastEscaped) {
+                    lastEscaped = escapedContent
+                    webView.evaluateJavascript(
+                        "if(typeof setCodePreserveScroll==='function'){setCodePreserveScroll(`$escapedContent`, '$language');}else{setCode(`$escapedContent`, '$language');}",
+                        null
+                    )
+                }
+                if (isDark != lastIsDark) {
+                    lastIsDark = isDark
+                    webView.evaluateJavascript("setTheme($isDark);", null)
+                }
+                if (safeAnnotationsJson != lastJson) {
+                    lastJson = safeAnnotationsJson
+                    if (safeAnnotationsJson.isNotBlank() && safeAnnotationsJson != "[]") {
+                        webView.evaluateJavascript("applyAnnotations('$safeAnnotationsJson');", null)
+                    }
                 }
             }
         }

@@ -37,6 +37,7 @@ class SettingsDataStore @Inject constructor(
         private val COMPACT_MESSAGES_KEY = booleanPreferencesKey("compact_messages")
         private val COLLAPSE_TOOLS_KEY = booleanPreferencesKey("collapse_tools")
         private val EXPAND_REASONING_KEY = booleanPreferencesKey("expand_reasoning")
+        private val SHOW_TURN_DIVIDERS_KEY = booleanPreferencesKey("show_turn_dividers")
         private val HAPTIC_FEEDBACK_KEY = booleanPreferencesKey("haptic_feedback")
         private val RECONNECT_MODE_KEY = stringPreferencesKey("reconnect_mode")
         private val KEEP_SCREEN_ON_KEY = booleanPreferencesKey("keep_screen_on")
@@ -235,6 +236,19 @@ class SettingsDataStore @Inject constructor(
     suspend fun setExpandReasoning(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[EXPAND_REASONING_KEY] = enabled
+        }
+    }
+
+    /**
+     * Whether to show dividers between messages in the same turn. Default: true.
+     */
+    val showTurnDividers: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[SHOW_TURN_DIVIDERS_KEY] ?: true
+    }
+
+    suspend fun setShowTurnDividers(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[SHOW_TURN_DIVIDERS_KEY] = enabled
         }
     }
 
@@ -541,6 +555,7 @@ class SettingsDataStore @Inject constructor(
             compactMessages = prefs[COMPACT_MESSAGES_KEY] ?: false,
             collapseTools = prefs[COLLAPSE_TOOLS_KEY] ?: false,
             expandReasoning = prefs[EXPAND_REASONING_KEY] ?: false,
+            showTurnDividers = prefs[SHOW_TURN_DIVIDERS_KEY] ?: true,
             notificationsEnabled = prefs[NOTIFICATIONS_KEY] ?: true,
             silentNotifications = prefs[SILENT_NOTIFICATIONS_KEY] ?: false,
             hapticFeedback = prefs[HAPTIC_FEEDBACK_KEY] ?: true,

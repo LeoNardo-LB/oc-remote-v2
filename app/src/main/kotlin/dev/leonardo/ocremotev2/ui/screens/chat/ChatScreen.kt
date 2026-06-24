@@ -192,6 +192,7 @@ import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalCodeWordWrap
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalCompactMessages
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalCollapseTools
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalExpandReasoning
+import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalShowTurnDividers
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalImageSaveRequest
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalToolExpandedStates
@@ -1175,6 +1176,7 @@ private fun ChatSettingsProvider(
     val compactMessages by viewModel.compactMessages.collectAsStateWithLifecycle()
     val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
     val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
+    val showTurnDividers by viewModel.showTurnDividers.collectAsStateWithLifecycle()
 
     CompositionLocalProvider(
         LocalChatFontSize provides chatFontSize,
@@ -1182,6 +1184,7 @@ private fun ChatSettingsProvider(
         LocalCompactMessages provides compactMessages,
         LocalCollapseTools provides collapseTools,
         LocalExpandReasoning provides expandReasoning,
+        LocalShowTurnDividers provides showTurnDividers,
     ) {
         content()
     }

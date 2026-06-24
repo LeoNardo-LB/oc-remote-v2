@@ -35,6 +35,7 @@ class SettingsRepositoryImpl @Inject constructor(
         dataRepo.setCompactMessages(settings.compactMessages)
         dataRepo.setCollapseTools(settings.collapseTools)
         dataRepo.setExpandReasoning(settings.expandReasoning)
+        dataRepo.setShowTurnDividers(settings.showTurnDividers)
         dataRepo.setNotificationsEnabled(settings.notificationsEnabled)
         dataRepo.setSilentNotifications(settings.silentNotifications)
         dataRepo.setHapticFeedback(settings.hapticFeedback)

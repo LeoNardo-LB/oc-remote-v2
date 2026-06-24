@@ -16,8 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.CircularProgressIndicator
@@ -139,30 +138,18 @@ fun FileTreeItem(
             .padding(vertical = SpacingTokens.SM.dp, horizontal = SpacingTokens.MD.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (isDirectory) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Icon(
-                    imageVector = if (isExpanded) Icons.Filled.KeyboardArrowDown
-                                  else Icons.Filled.KeyboardArrowRight,
-                    contentDescription = stringResource(
-                        if (isExpanded) R.string.a11y_icon_collapse_directory
-                        else R.string.a11y_icon_expand_directory
-                    ),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(Modifier.width(SpacingTokens.XS.dp))
-        }
-
+        // Folder/file icon — folders use FolderOpen/Folder to show expand state.
+        // Loading state dims the icon slightly (no separate spinner).
         Icon(
-            imageVector = if (isDirectory) Icons.Filled.Folder else Icons.Filled.Description,
+            imageVector = when {
+                isDirectory && isExpanded -> Icons.Filled.FolderOpen
+                isDirectory -> Icons.Filled.Folder
+                else -> Icons.Filled.Description
+            },
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                alpha = if (isLoading) 0.4f else 1f
+            )
         )
         Spacer(Modifier.width(SpacingTokens.SM.dp))
         Text(
