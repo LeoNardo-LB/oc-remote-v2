@@ -1,16 +1,19 @@
 ﻿package dev.leonardo.ocremotev2.domain.model
 
 /**
- * Builds structured prompt text for submitting annotations (spec §7.5).
+ * Builds structured prompt text for submitting annotations.
  *
  * Format:
- *   修改意见：<overallNote or "无">
+ *   对于 <filePath> 文件，用户提出了如下备注：
  *
- *   文件名: <absolutePath>
- *   1. <line>:<col> - <line>:<col> <note>
+ *   总体备注：
+ *   <overallNote>
+ *
+ *   具体备注：注格式为[<行号开始:行内字号>,<行号结束:行内字号>] <具体备注内容>，下面是用户的具体备注：
+ *   1. [x1:y1,x2:y2] <note>
  *   2. ...
  *
- * Numbering follows creation order ([Annotation.index]), not file position.
+ *   请按照用户备注与指示来做出回答、修改内容或执行任务！
  */
 object AnnotationPromptBuilder {
 
@@ -26,13 +29,16 @@ object AnnotationPromptBuilder {
         val noteText = overallNote.ifBlank { "无" }
 
         val sb = StringBuilder()
-        sb.append("修改意见：").append(noteText).append("\n\n")
-        sb.append("文件名: ").append(resolvedPath).append("\n")
+        sb.append("对于 $resolvedPath 文件，用户提出了如下备注：\n\n")
+        sb.append("总体备注：\n")
+        sb.append(noteText).append("\n\n")
+        sb.append("具体备注：注格式为[<行号开始:行内字号>,<行号结束:行内字号>] <具体备注内容>，下面是用户的具体备注：\n")
         annotations.sortedBy { it.index }.forEach { ann ->
             sb.append("${ann.index + 1}. ")
-              .append("${ann.startLine}:${ann.startCol} - ${ann.endLine}:${ann.endCol} ")
+              .append("[${ann.startLine}:${ann.startCol},${ann.endLine}:${ann.endCol}] ")
               .append(ann.note).append("\n")
         }
+        sb.append("\n请按照用户备注与指示来做出回答、修改内容或执行任务！")
         return sb.toString().trimEnd()
     }
 
