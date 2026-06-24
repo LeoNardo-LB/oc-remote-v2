@@ -2,13 +2,9 @@ package dev.leonardo.ocremotev2.ui.screens.viewer
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.view.ActionMode
-import android.view.Menu
-import android.view.MenuItem
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -19,7 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.leonardo.ocremotev2.R
@@ -42,76 +37,19 @@ private fun extToLanguage(filePath: String): String {
     }
 }
 
-private class CodeWebViewWithAnnotate(
-    context: Context,
-    private val annotateLabel: String,
-    private val onAnnotate: (text: String, startOffset: Int, endOffset: Int) -> Unit,
-) : WebView(context) {
+/**
+ * Bridge for JS → Kotlin. Called from JavaScript via window.AndroidBridge.onSelection(text, start).
+ */
+private class SelectionBridge {
+    private val mainHandler = Handler(Looper.getMainLooper())
+    var callback: ((text: String, start: Int, end: Int) -> Unit)? = null
 
-    private val handler = Handler(Looper.getMainLooper())
-
-    override fun startActionMode(callback: ActionMode.Callback, type: Int): ActionMode {
-        val wrappedCallback = AnnotateActionCallback(
-            original = callback,
-            annotateLabel = annotateLabel,
-            onItemClick = { mode ->
-                // Capture selection BEFORE mode.finish() clears it
-                evaluateJavascript("getSelectionInfo()") { result ->
-                    try {
-                        val arr = JSONArray(result ?: "[\"\", -1]")
-                        val text = arr.optString(0, "")
-                        val start = arr.optInt(1, -1)
-                        if (text.isNotBlank() && start >= 0) {
-                            val end = start + text.length
-                            Log.d(TAG, "Annotate OK: '${text.take(50)}...' [$start-$end]")
-                            handler.post {
-                                onAnnotate(text, start, end)
-                                mode.finish()
-                            }
-                        } else {
-                            Log.w(TAG, "Annotate skip: text='${text.take(30)}' start=$start")
-                            handler.post { mode.finish() }
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Annotate parse failed: ${result?.take(80)}", e)
-                        handler.post { mode.finish() }
-                    }
-                }
-            }
-        )
-        return super.startActionMode(wrappedCallback, type)
+    @JavascriptInterface
+    fun onSelection(text: String, start: Int) {
+        val end = start + text.length
+        Log.d(TAG, "Bridge.onSelection: '${text.take(40)}' [$start-$end]")
+        mainHandler.post { callback?.invoke(text, start, end) }
     }
-
-    override fun startActionMode(callback: ActionMode.Callback): ActionMode =
-        startActionMode(callback, ActionMode.TYPE_PRIMARY)
-}
-
-private class AnnotateActionCallback(
-    private val original: ActionMode.Callback,
-    private val annotateLabel: String,
-    private val onItemClick: (ActionMode) -> Unit,
-) : ActionMode.Callback {
-
-    private val annotateItemId = 0x1001
-
-    override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
-        val result = original.onCreateActionMode(mode, menu)
-        menu.add(0, annotateItemId, 100, annotateLabel)
-        return result
-    }
-
-    override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean =
-        original.onPrepareActionMode(mode, menu)
-
-    override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
-        if (item.itemId == annotateItemId) {
-            onItemClick(mode)  // Don't finish here — let callback do it after JS returns
-            return true
-        }
-        return original.onActionItemClicked(mode, item)
-    }
-
-    override fun onDestroyActionMode(mode: ActionMode) = original.onDestroyActionMode(mode)
 }
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -132,8 +70,8 @@ fun CodeWebView(
         content.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
     }
 
-    val annotateRef = remember { mutableStateOf<((text: String, start: Int, end: Int) -> Unit)?>(null) }
-    annotateRef.value = onAnnotate
+    val bridge = remember { SelectionBridge() }
+    bridge.callback = onAnnotate
 
     var webViewRef: WebView? = null
 
@@ -154,24 +92,24 @@ fun CodeWebView(
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
-            CodeWebViewWithAnnotate(
-                context = ctx,
-                annotateLabel = annotateLabel,
-                onAnnotate = { text, start, end -> annotateRef.value?.invoke(text, start, end) }
-            ).apply {
+            WebView(ctx).apply {
                 settings.javaScriptEnabled = true
                 settings.userAgentString = "OCRemoteCodeViewer"
                 settings.allowFileAccess = true
                 settings.loadWithOverviewMode = true
                 settings.useWideViewPort = false
                 setBackgroundColor(bgColorArgb)
+                addJavascriptInterface(bridge, "AndroidBridge")
 
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         view?.evaluateJavascript(
-                            "setCode(`$escapedContent`, '$language'); setTheme($isDark);",
+                            "setCode(`$escapedContent`, '$language'); setTheme($isDark); setLabels('$annotateLabel');",
                             null
                         )
+                        if (annotationsJson.isNotBlank() && annotationsJson != "[]") {
+                            view?.evaluateJavascript("applyAnnotations('$annotationsJson');", null)
+                        }
                     }
                 }
 
@@ -185,15 +123,11 @@ fun CodeWebView(
         update = { webView ->
             webView.post {
                 webView.evaluateJavascript(
-                    "setCode(`$escapedContent`, '$language'); setTheme($isDark);",
+                    "setCode(`$escapedContent`, '$language'); setTheme($isDark); setLabels('$annotateLabel');",
                     null
                 )
-                // Apply annotation highlights after code is set
                 if (annotationsJson.isNotBlank() && annotationsJson != "[]") {
-                    webView.evaluateJavascript(
-                        "applyAnnotations('$annotationsJson')",
-                        null
-                    )
+                    webView.evaluateJavascript("applyAnnotations('$annotationsJson');", null)
                 }
             }
         }
