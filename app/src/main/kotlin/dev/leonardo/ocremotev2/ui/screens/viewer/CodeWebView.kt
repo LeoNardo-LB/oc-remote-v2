@@ -103,13 +103,8 @@ private class AnnotateActionCallback(
 
     override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
         val result = original.onCreateActionMode(mode, menu)
-        // Add our custom item after the system items
+        // Add our custom item — click handled in onActionItemClicked below
         menu.add(0, annotateItemId, 100, annotateLabel)
-            .setOnMenuItemClickListener {
-                onAnnotateClicked()
-                mode.finish()
-                true
-            }
         return result
     }
 
@@ -118,6 +113,12 @@ private class AnnotateActionCallback(
     }
 
     override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+        // Intercept our Annotate item BEFORE the system callback
+        if (item.itemId == annotateItemId) {
+            onAnnotateClicked()
+            mode.finish()
+            return true
+        }
         return original.onActionItemClicked(mode, item)
     }
 
