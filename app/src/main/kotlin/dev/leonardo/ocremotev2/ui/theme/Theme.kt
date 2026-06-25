@@ -11,6 +11,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
@@ -21,6 +22,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.view.WindowCompat
+import dev.hossain.highlight.engine.HighlightTheme
+import dev.hossain.highlight.ui.HighlightThemeProvider
 
 val LocalAmoledMode = staticCompositionLocalOf { false }
 
@@ -138,8 +141,17 @@ fun OpenCodeTheme(
             typography = Typography,
             shapes = if (amoledDark) AmoledShapes else AppShapes
         ) {
+            val context = LocalContext.current
+            val lightTheme = remember { HighlightTheme.fromAsset(context, "highlightjs/github-light.css", "github-light") }
+            val darkTheme = remember { HighlightTheme.fromAsset(context, "highlightjs/github-dark.css", "github-dark") }
+
             Box(Modifier.semantics { testTagsAsResourceId = true }) {
-                content()
+                HighlightThemeProvider(
+                    lightHighlightTheme = lightTheme,
+                    darkHighlightTheme = darkTheme,
+                ) {
+                    content()
+                }
             }
         }
     }
