@@ -134,11 +134,7 @@ fun ChatMessageList(
     LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
         if (listState.isScrollInProgress) {
             compensateState.shouldCompensate = true
-        } else if (listState.firstVisibleItemIndex == 0 &&
-            listState.firstVisibleItemScrollOffset == 0) {
-            // Only reset when truly at bottom (offset == 0), not just "near bottom" (< 100).
-            // Using isAtBottom (< 100) causes premature reset during LazyColumn's
-            // natural offset adjustment, killing compensation mid-stream.
+        } else if (isAtBottom) {
             compensateState.shouldCompensate = false
         }
     }
