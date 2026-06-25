@@ -302,18 +302,13 @@ fun ChatScreen(
     // to bottom on return even when the user was browsing earlier messages.
     var autoScrollEnabled by rememberSaveable { mutableStateOf(true) }
 
-    // CRITICAL: Force-disable auto-scroll BEFORE any LaunchedEffect runs.
-    // This synchronously prevents messageCount effect from racing to bottom
-    // when returning from FileViewer with a pending scroll restore.
+    // When returning from FileViewer, synchronously disable auto-scroll
+    // BEFORE any LaunchedEffect runs to prevent msgCount from racing to bottom.
     if (viewModel.pendingScrollRestore) {
-        android.util.Log.e("ScrollDebug", "SYNC: pending=true → disable autoScroll")
         autoScrollEnabled = false
     }
 
-    var isRestoringScroll by remember { mutableStateOf(viewModel.pendingScrollRestore) }
-
     // Force scroll trigger — incremented by user actions to force-scroll to bottom
-    // regardless of autoScrollEnabled. Each tick forces a snapToBottom().
     var forceScrollTick by remember { mutableIntStateOf(0) }
 
     // True when the very bottom of the list is visible (50px tolerance)
@@ -324,31 +319,20 @@ fun ChatScreen(
         }
     }
 
-    // Disable auto-scroll when user scrolls up; re-enable only when user
-    // ACTIVELY scrolls to bottom (not when msgCount effect pulls them there)
+    // ORIGINAL logic (unchanged): disable auto-scroll when scrolling up,
+    // re-enable at bottom. This works correctly for normal chat.
     LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
-        if (isRestoringScroll) return@LaunchedEffect
         if (listState.isScrollInProgress) {
-            if (isAtBottom) {
-                // User is actively scrolling AND at bottom → follow new content
-                autoScrollEnabled = true
-            } else {
-                // User scrolled away from bottom → stop following
-                autoScrollEnabled = false
-            }
+            autoScrollEnabled = false
+        } else if (isAtBottom) {
+            autoScrollEnabled = true
         }
-        // When scroll stops (!isScrollInProgress), do NOT check isAtBottom —
-        // msgCount effect may have pulled list to bottom, which is NOT user intent.
     }
 
     // reverseLayout=true: item 0 = newest at bottom.
-    // Scroll to bottom when new messages arrive AND user is at bottom AND
-    // not actively scrolling (prevents race with user gestures).
     val messageCount = messageState.messages.size
     LaunchedEffect(messageCount) {
-        android.util.Log.e("ScrollDebug", "msgCount effect: count=$messageCount auto=$autoScrollEnabled restoring=$isRestoringScroll scrolling=${listState.isScrollInProgress}")
-        if (messageCount > 0 && autoScrollEnabled && !listState.isScrollInProgress && !isRestoringScroll) {
-            android.util.Log.e("ScrollDebug", "msgCount effect → scrollToItem(0) BOTTOM")
+        if (messageCount > 0 && autoScrollEnabled && !listState.isScrollInProgress) {
             listState.scrollToItem(0)
         }
     }
@@ -364,40 +348,27 @@ fun ChatScreen(
     // so the user immediately sees the newly rendered card.
     val pendingCount = interaction.pendingQuestions.size + interaction.pendingPermissions.size
     LaunchedEffect(pendingCount) {
-        if (pendingCount > 0 && !isRestoringScroll) {
-            // Wait until the list has items to scroll to.
+        if (pendingCount > 0) {
             snapshotFlow { messageState.messages.isNotEmpty() }.first { it }
             listState.snapToBottom()
         }
     }
 
     // Restore scroll position when returning from FileViewer / sub-session navigation.
-    // Keyed on scrollRestoreVersion which is bumped by saveScrollPosition() (on navigate-away)
-    // and by bumpScrollRestoreIfPending() (on ON_RESUME return).
     LaunchedEffect(viewModel.scrollRestoreVersion) {
         val version = viewModel.scrollRestoreVersion
-        android.util.Log.e("ScrollDebug", "restore effect: v=$version pending=${viewModel.pendingScrollRestore} savedIdx=${viewModel.savedLazyIndex} savedOff=${viewModel.savedScrollOffset}")
         if (version > 0) {
-            isRestoringScroll = true
             autoScrollEnabled = false
-            // Wait until messages are loaded...
             snapshotFlow { messageState.messages.isNotEmpty() }.first { it }
-            // ...and the LazyColumn has measured them (totalItemsCount > 0). Reading
-            // totalItemsCount before layout completes returns 0, which would coerce
-            // targetIdx to 0 (= bottom in reverseLayout) and defeat the restore.
             snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > 0 }
             val savedIdx = viewModel.savedLazyIndex
             val totalItems = listState.layoutInfo.totalItemsCount
             val targetIdx = savedIdx.coerceIn(0, (totalItems - 1).coerceAtLeast(0))
-            android.util.Log.e("ScrollDebug", "restore → scrollToItem($targetIdx, ${viewModel.savedScrollOffset}) totalItems=$totalItems savedIdx=$savedIdx")
             listState.scrollToItem(targetIdx, viewModel.savedScrollOffset)
-            isRestoringScroll = false
             autoScrollEnabled = (targetIdx == 0)
-            viewModel.clearPendingScrollRestore()  // allow autoScroll to resume normally
+            viewModel.clearPendingScrollRestore()
         } else {
-            // Initial load: scroll to bottom (item 0)
-            snapshotFlow { messageState.messages.isNotEmpty() }
-                .first { it }
+            snapshotFlow { messageState.messages.isNotEmpty() }.first { it }
             listState.scrollToItem(0)
             autoScrollEnabled = true
         }
@@ -416,10 +387,10 @@ fun ChatScreen(
     // Save scroll position before opening a file in the viewer so the chat
     // restores to the same position when the user returns.
     val onOpenFileWithSave: (String) -> Unit = { filePath ->
-        val idx = listState.firstVisibleItemIndex
-        val off = listState.firstVisibleItemScrollOffset
-        android.util.Log.e("ScrollDebug", "saveScrollPosition: idx=$idx offset=$off filePath=$filePath")
-        viewModel.saveScrollPosition(idx, off)
+        viewModel.saveScrollPosition(
+            listState.firstVisibleItemIndex,
+            listState.firstVisibleItemScrollOffset
+        )
         onOpenFile(filePath)
     }
 
@@ -535,7 +506,6 @@ fun ChatScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && viewModel.sessionId.isNotBlank()) {
-                android.util.Log.e("ScrollDebug", "ON_RESUME: pending=${viewModel.pendingScrollRestore} version=${viewModel.scrollRestoreVersion}")
                 viewModel.refreshIfNeeded()
                 viewModel.bumpScrollRestoreIfPending()
             }
