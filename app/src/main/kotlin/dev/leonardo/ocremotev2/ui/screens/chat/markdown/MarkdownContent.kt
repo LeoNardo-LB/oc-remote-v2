@@ -83,10 +83,13 @@ internal fun normalizeHtmlForEmbeddedPreview(html: String): String {
  * false-positives that broke rendering.
  */
 internal fun normalizeMarkdown(raw: String, isUser: Boolean): String {
-    if (!isUser) return raw
+    // Normalize Windows line endings (\r\n → \n). opencode server on Windows
+    // returns \r\n in Markdown text, which can break GFM table parsing
+    // (the \r may be treated as cell content instead of line ending).
+    var result = raw.replace("\r\n", "\n").replace("\r", "\n")
+    if (!isUser) return result
     // User messages: single \n doesn't break in Markdown (soft break).
-    // Convert standalone \n to \n\n for paragraph breaks.
-    return raw.replace(Regex("(?<!\n)\n(?!\n)"), "\n\n")
+    return result.replace(Regex("(?<!\n)\n(?!\n)"), "\n\n")
 }
 
 @Composable

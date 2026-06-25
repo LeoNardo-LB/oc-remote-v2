@@ -73,6 +73,7 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
                     val part = messageParts[idx]
                     val newPart = when (part) {
                         is Part.Text -> {
+                            android.util.Log.e("DeltaDebug", "delta='${entry.delta.take(80)}' hasNL=${entry.delta.contains("\n")} fullLen=${entry.delta.length}")
                             if (part.text.endsWith(entry.delta)) part  // dedup
                             else part.copy(text = part.text + entry.delta)
                         }
