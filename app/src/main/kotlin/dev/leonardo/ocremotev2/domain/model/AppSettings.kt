@@ -14,6 +14,8 @@ data class AppSettings(
 
     // --- Chat ---
     val chatFontSize: String = "medium",
+    /** "normal" or "compact". Migrated from chatFontSize + compactMessages. */
+    val chatDensity: String = "normal",
     val initialMessageCount: Int = 30,
     val codeWordWrap: Boolean = false,
     val confirmBeforeSend: Boolean = false,

@@ -431,6 +431,9 @@ class ChatViewModel @Inject constructor(
     val chatFontSize = settingsRepository.getSettingsFlow().map { it.chatFontSize }.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), "medium"
     )
+    val chatDensity = settingsRepository.getSettingsFlow().map { it.chatDensity }.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), "normal"
+    )
     val codeWordWrap = settingsRepository.getSettingsFlow().map { it.codeWordWrap }.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), false
     )

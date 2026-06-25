@@ -372,6 +372,9 @@
     <string name="settings_font_size_small">Small</string>
     <string name="settings_font_size_medium">Medium</string>
     <string name="settings_font_size_large">Large</string>
+    <string name="settings_chat_font">Chat font</string>
+    <string name="settings_chat_font_normal">Normal</string>
+    <string name="settings_chat_font_compact">Compact</string>
     <string name="settings_notifications_desc">Notify when agent completes a task</string>
 
     <string name="settings_initial_messages">Initial messages to load</string>

@@ -1155,21 +1155,19 @@ private fun ChatSettingsProvider(
     viewModel: ChatViewModel,
     content: @Composable () -> Unit,
 ) {
-    val chatFontSize by viewModel.chatFontSize.collectAsStateWithLifecycle()
+    val chatDensity by viewModel.chatDensity.collectAsStateWithLifecycle()
     val codeWordWrap by viewModel.codeWordWrap.collectAsStateWithLifecycle()
-    val compactMessages by viewModel.compactMessages.collectAsStateWithLifecycle()
     val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
     val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
     val showTurnDividers by viewModel.showTurnDividers.collectAsStateWithLifecycle()
 
-    val chatDensity = when {
-        compactMessages -> ChatDensity.Compact
-        chatFontSize == "small" -> ChatDensity.Compact
+    val density = when (chatDensity) {
+        "compact" -> ChatDensity.Compact
         else -> ChatDensity.Normal
     }
 
     CompositionLocalProvider(
-        LocalChatDensity provides chatDensity,
+        LocalChatDensity provides density,
         LocalCollapseTools provides collapseTools,
         LocalExpandReasoning provides expandReasoning,
         LocalShowTurnDividers provides showTurnDividers,

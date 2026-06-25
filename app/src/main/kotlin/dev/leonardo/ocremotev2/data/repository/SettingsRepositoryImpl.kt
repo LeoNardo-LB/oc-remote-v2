@@ -29,6 +29,7 @@ class SettingsRepositoryImpl @Inject constructor(
         dataRepo.setDynamicColor(settings.dynamicColor)
         dataRepo.setAmoledDark(settings.amoledDark)
         dataRepo.setChatFontSize(settings.chatFontSize)
+        dataRepo.setChatDensity(settings.chatDensity)
         dataRepo.setInitialMessageCount(settings.initialMessageCount)
         dataRepo.setCodeWordWrap(settings.codeWordWrap)
         dataRepo.setConfirmBeforeSend(settings.confirmBeforeSend)

@@ -35,6 +35,7 @@ class SettingsViewModel @Inject constructor(
     val appTheme = settings.map { it.appTheme }.stateIn(viewModelScope, SharingStarted.Eagerly, "system")
     val dynamicColor = settings.map { it.dynamicColor }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val chatFontSize = settings.map { it.chatFontSize }.stateIn(viewModelScope, SharingStarted.Eagerly, "medium")
+    val chatDensity = settings.map { it.chatDensity }.stateIn(viewModelScope, SharingStarted.Eagerly, "normal")
     val notificationsEnabled = settings.map { it.notificationsEnabled }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val initialMessageCount = settings.map { it.initialMessageCount }.stateIn(viewModelScope, SharingStarted.Eagerly, 50)
     val codeWordWrap = settings.map { it.codeWordWrap }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -92,6 +93,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setChatFontSize(size: String) {
         updateSetting { it.copy(chatFontSize = size) }
+    }
+
+    fun setChatDensity(value: String) {
+        updateSetting { it.copy(chatDensity = value) }
     }
 
     fun setNotificationsEnabled(enabled: Boolean) {

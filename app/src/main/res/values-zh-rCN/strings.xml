@@ -256,6 +256,9 @@
     <string name="settings_font_size_small">小</string>
     <string name="settings_font_size_medium">中</string>
     <string name="settings_font_size_large">大</string>
+    <string name="settings_chat_font">对话字体</string>
+    <string name="settings_chat_font_normal">正常</string>
+    <string name="settings_chat_font_compact">小</string>
     <string name="settings_notifications_desc">代理完成任务时通知</string>
     <string name="settings_initial_messages">加载的初始消息数</string>
     <string name="settings_code_word_wrap">代码块自动换行</string>

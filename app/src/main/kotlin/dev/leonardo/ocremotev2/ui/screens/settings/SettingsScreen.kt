@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -31,8 +32,8 @@ import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.filled.ViewCompact
 import androidx.compose.material.icons.filled.WrapText
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -40,9 +41,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -55,7 +58,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocremotev2.R
-import dev.leonardo.ocremotev2.ui.screens.settings.components.FontSizePickerDialog
 import dev.leonardo.ocremotev2.ui.screens.settings.components.ImageCompressionMaxSideDialog
 import dev.leonardo.ocremotev2.ui.screens.settings.components.ImageCompressionQualityDialog
 import dev.leonardo.ocremotev2.ui.screens.settings.components.LanguagePickerDialog
@@ -66,7 +68,6 @@ import dev.leonardo.ocremotev2.ui.screens.settings.components.ReconnectModePicke
 import dev.leonardo.ocremotev2.ui.screens.settings.components.SectionHeader
 import dev.leonardo.ocremotev2.ui.screens.settings.components.TerminalFontSizeDialog
 import dev.leonardo.ocremotev2.ui.screens.settings.components.ThemePickerDialog
-import dev.leonardo.ocremotev2.ui.screens.settings.components.getFontSizeDisplayName
 import dev.leonardo.ocremotev2.ui.screens.settings.components.getImageMaxSideDisplayName
 import dev.leonardo.ocremotev2.ui.screens.settings.components.getLanguageDisplayName
 import dev.leonardo.ocremotev2.ui.screens.settings.components.getReconnectModeDisplayName
@@ -87,14 +88,13 @@ fun SettingsScreen(
     val currentLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val currentTheme by viewModel.appTheme.collectAsStateWithLifecycle()
     val dynamicColor by viewModel.dynamicColor.collectAsStateWithLifecycle()
-    val chatFontSize by viewModel.chatFontSize.collectAsStateWithLifecycle()
+    val chatDensity by viewModel.chatDensity.collectAsStateWithLifecycle()
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
 
     val initialMessageCount by viewModel.initialMessageCount.collectAsStateWithLifecycle()
     val codeWordWrap by viewModel.codeWordWrap.collectAsStateWithLifecycle()
     val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsStateWithLifecycle()
     val amoledDark by viewModel.amoledDark.collectAsStateWithLifecycle()
-    val compactMessages by viewModel.compactMessages.collectAsStateWithLifecycle()
     val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
     val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
     val showTurnDividers by viewModel.showTurnDividers.collectAsStateWithLifecycle()
@@ -120,7 +120,7 @@ fun SettingsScreen(
 
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
-    var showFontSizeDialog by remember { mutableStateOf(false) }
+    var showChatDensityPicker by remember { mutableStateOf(false) }
     var showMessageCountDialog by remember { mutableStateOf(false) }
     var showReconnectModeDialog by remember { mutableStateOf(false) }
     var showTerminalFontSizeDialog by remember { mutableStateOf(false) }
@@ -237,31 +237,19 @@ fun SettingsScreen(
             // ======== Chat Display ========
             SectionHeader(stringResource(R.string.settings_section_chat_display))
 
-            // Font size
+            // Chat font (density: normal / compact)
             ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_font_size)) },
-                supportingContent = { Text(getFontSizeDisplayName(chatFontSize)) },
-                leadingContent = {
-                    Icon(Icons.Default.FormatSize, contentDescription = stringResource(R.string.a11y_settings_font_size))
-                },
-                modifier = Modifier.clickable { showFontSizeDialog = true }.padding(ListItemTokens.ContentPaddingMedium)
-            )
-
-            // Compact messages
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_compact_messages)) },
-                supportingContent = { Text(stringResource(R.string.settings_compact_messages_desc)) },
-                leadingContent = {
-                    Icon(Icons.Default.ViewCompact, contentDescription = stringResource(R.string.a11y_settings_compact_messages))
-                },
-                trailingContent = {
-                    Switch(
-                        checked = compactMessages,
-                        onCheckedChange = { viewModel.setCompactMessages(it) },
-                        colors = switchColors
+                headlineContent = { Text(stringResource(R.string.settings_chat_font)) },
+                supportingContent = {
+                    Text(
+                        if (chatDensity == "compact") stringResource(R.string.settings_chat_font_compact)
+                        else stringResource(R.string.settings_chat_font_normal)
                     )
                 },
-                modifier = Modifier.clickable { viewModel.setCompactMessages(!compactMessages) }.padding(ListItemTokens.ContentPaddingMedium)
+                leadingContent = {
+                    Icon(Icons.Default.FormatSize, contentDescription = stringResource(R.string.settings_chat_font))
+                },
+                modifier = Modifier.clickable { showChatDensityPicker = true }.padding(ListItemTokens.ContentPaddingMedium)
             )
 
             // Code word wrap
@@ -549,14 +537,43 @@ fun SettingsScreen(
             )
         }
 
-        if (showFontSizeDialog) {
-            FontSizePickerDialog(
-                currentSize = chatFontSize,
-                onSizeSelected = { size ->
-                    viewModel.setChatFontSize(size)
-                    showFontSizeDialog = false
+        if (showChatDensityPicker) {
+            AlertDialog(
+                onDismissRequest = { showChatDensityPicker = false },
+                title = { Text(stringResource(R.string.settings_chat_font)) },
+                text = {
+                    Column {
+                        listOf(
+                            "normal" to R.string.settings_chat_font_normal,
+                            "compact" to R.string.settings_chat_font_compact
+                        ).forEach { (value, labelRes) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.setChatDensity(value)
+                                        showChatDensityPicker = false
+                                    }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = chatDensity == value,
+                                    onClick = null,
+                                )
+                                Text(
+                                    stringResource(labelRes),
+                                    modifier = Modifier.padding(start = 12.dp)
+                                )
+                            }
+                        }
+                    }
                 },
-                onDismiss = { showFontSizeDialog = false }
+                confirmButton = {
+                    TextButton(onClick = { showChatDensityPicker = false }) {
+                        Text(stringResource(R.string.close))
+                    }
+                },
             )
         }
 

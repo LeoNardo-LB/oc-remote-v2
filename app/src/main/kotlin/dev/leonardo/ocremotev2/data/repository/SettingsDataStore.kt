@@ -28,6 +28,7 @@ class SettingsDataStore @Inject constructor(
         private val THEME_KEY = stringPreferencesKey("app_theme")
         private val DYNAMIC_COLOR_KEY = booleanPreferencesKey("dynamic_color")
         private val FONT_SIZE_KEY = stringPreferencesKey("chat_font_size")
+        private val CHAT_DENSITY_KEY = stringPreferencesKey("chat_density")
         private val NOTIFICATIONS_KEY = booleanPreferencesKey("notifications_enabled")
 
         private val INITIAL_MESSAGE_COUNT_KEY = intPreferencesKey("initial_message_count")
@@ -63,6 +64,16 @@ class SettingsDataStore @Inject constructor(
         private const val LOCALE_PREFS_KEY = "app_language"
 
         private const val SERVER_MODEL_HIDDEN_PREFIX = "server_model_hidden_"
+
+        /**
+         * Derive chat density from legacy font size / compact flags.
+         * Mirrors the logic validated by [SettingsMigrationTest].
+         */
+        private fun migrateDensity(fontSize: String?, compact: Boolean?): String = when {
+            compact == true -> "compact"
+            fontSize == "small" -> "compact"
+            else -> "normal"
+        }
 
         /** Read stored language synchronously — safe to call before Hilt init. */
         fun getStoredLanguage(context: Context): String {
@@ -134,6 +145,31 @@ class SettingsDataStore @Inject constructor(
     suspend fun setChatFontSize(size: String) {
         dataStore.edit { preferences ->
             preferences[FONT_SIZE_KEY] = size
+        }
+    }
+
+    /**
+     * Chat density: "normal" or "compact". Default: "normal".
+     *
+     * Migration: when [CHAT_DENSITY_KEY] is unset, derives from legacy
+     * [chatFontSize] ("small" → compact) and [compactMessages] (true → compact).
+     * Once the user picks a value, the key is set and legacy fields are ignored.
+     */
+    val chatDensity: Flow<String> = dataStore.data.map { preferences ->
+        val stored = preferences[CHAT_DENSITY_KEY]
+        if (stored != null) {
+            stored
+        } else {
+            migrateDensity(
+                fontSize = preferences[FONT_SIZE_KEY],
+                compact = preferences[COMPACT_MESSAGES_KEY]
+            )
+        }
+    }
+
+    suspend fun setChatDensity(value: String) {
+        dataStore.edit { preferences ->
+            preferences[CHAT_DENSITY_KEY] = value
         }
     }
 
@@ -549,6 +585,10 @@ class SettingsDataStore @Inject constructor(
             dynamicColor = prefs[DYNAMIC_COLOR_KEY] ?: true,
             amoledDark = prefs[AMOLED_DARK_KEY] ?: false,
             chatFontSize = prefs[FONT_SIZE_KEY] ?: "medium",
+            chatDensity = prefs[CHAT_DENSITY_KEY] ?: migrateDensity(
+                fontSize = prefs[FONT_SIZE_KEY],
+                compact = prefs[COMPACT_MESSAGES_KEY]
+            ),
             initialMessageCount = prefs[INITIAL_MESSAGE_COUNT_KEY] ?: 30,
             codeWordWrap = prefs[CODE_WORD_WRAP_KEY] ?: false,
             confirmBeforeSend = prefs[CONFIRM_BEFORE_SEND_KEY] ?: false,

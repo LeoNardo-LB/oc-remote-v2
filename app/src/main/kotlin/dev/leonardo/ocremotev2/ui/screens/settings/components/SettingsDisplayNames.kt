@@ -16,16 +16,6 @@ internal fun getThemeDisplayName(theme: String): String {
 }
 
 @Composable
-internal fun getFontSizeDisplayName(size: String): String {
-    return when (size) {
-        "small" -> stringResource(R.string.settings_font_size_small)
-        "medium" -> stringResource(R.string.settings_font_size_medium)
-        "large" -> stringResource(R.string.settings_font_size_large)
-        else -> size
-    }
-}
-
-@Composable
 internal fun getLanguageDisplayName(code: String): String {
     val systemDefault = stringResource(R.string.settings_language_system)
 

@@ -27,6 +27,7 @@ class SettingsDataStoreTest {
         // Kotlin properties compile to getXxx() methods
         val expectedProperties = listOf(
             "getAppLanguage", "getAppTheme", "getDynamicColor", "getChatFontSize",
+            "getChatDensity",
             "getNotificationsEnabled", "getInitialMessageCount", "getCodeWordWrap",
             "getConfirmBeforeSend", "getAmoledDark", "getCompactMessages", "getCollapseTools",
             "getExpandReasoning", "getHapticFeedback", "getReconnectMode", "getKeepScreenOn",
@@ -64,6 +65,7 @@ class SettingsDataStoreTest {
 
         val expectedSetters = listOf(
             "setAppLanguage", "setAppTheme", "setDynamicColor", "setChatFontSize",
+            "setChatDensity",
             "setNotificationsEnabled", "setInitialMessageCount", "setCodeWordWrap",
             "setConfirmBeforeSend", "setAmoledDark", "setCompactMessages",
             "setCollapseTools", "setExpandReasoning", "setHapticFeedback",
