@@ -101,7 +101,11 @@ internal fun MarkdownContent(
     immediate: Boolean = false  // synchronous parsing — eliminates first-frame height jump
 ) {
     val normalizedMarkdown = remember(markdown, isUser) {
-        normalizeMarkdown(markdown, isUser)
+        val result = normalizeMarkdown(markdown, isUser)
+        if (result.contains("|---")) {
+            android.util.Log.e("TableDebug", "TABLE FOUND: full=${result.replace("\n", "\\n").replace("\r", "\\r").take(500)}")
+        }
+        result
     }
 
     val isAmoled = isAmoledTheme()
@@ -259,13 +263,36 @@ internal fun MarkdownContent(
         retainState = true,
         immediate = immediate
     )
-    Markdown(
-        markdownState = markdownState,
-        colors = colors,
-        typography = typography,
-        components = components,
-        dimens = dimens,
-        animations = markdownAnimations(animateTextSize = { this }),
+
+    // Step 4: typography + colors + padding + dimens (table cell control)
+    com.mikepenz.markdown.m3.Markdown(
+        content = normalizedMarkdown,
+        colors = com.mikepenz.markdown.m3.markdownColor(
+            text = textColor,
+            codeBackground = codeBlockBg,
+            inlineCodeBackground = inlineCodeBg,
+            dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+            tableBackground = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        typography = com.mikepenz.markdown.m3.markdownTypography(
+            paragraph = bodyStyle,
+            text = MaterialTheme.typography.bodySmall.copy(color = textColor),
+            code = CodeTypography.copy(color = codeBlockFg, fontSize = codeFontSize, lineHeight = codeLineHeight),
+            table = MaterialTheme.typography.bodySmall.copy(color = textColor)
+        ),
+        padding = com.mikepenz.markdown.model.markdownPadding(
+            block = 4.dp,
+            list = 2.dp,
+            listItemTop = 1.dp,
+            listItemBottom = 1.dp,
+            listIndent = 12.dp,
+            codeBlock = androidx.compose.foundation.layout.PaddingValues(8.dp),
+            blockQuote = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp)
+        ),
+        dimens = com.mikepenz.markdown.model.markdownDimens(
+            tableCellPadding = 4.dp,
+            tableCornerSize = 4.dp
+        ),
         imageTransformer = Coil3ImageTransformerImpl,
         modifier = Modifier.fillMaxWidth()
     )
