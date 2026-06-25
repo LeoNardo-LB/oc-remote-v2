@@ -142,13 +142,17 @@ fun OpenCodeTheme(
             shapes = if (amoledDark) AmoledShapes else AppShapes
         ) {
             val context = LocalContext.current
-            val lightTheme = remember { HighlightTheme.fromAsset(context, "highlightjs/github-light.css", "github-light") }
-            val darkTheme = remember { HighlightTheme.fromAsset(context, "highlightjs/github-dark.css", "github-dark") }
+            val lightHighlight = remember { HighlightTheme.fromAsset(context, "highlightjs/github-light.css", "github-light") }
+            val darkHighlight = remember { HighlightTheme.fromAsset(context, "highlightjs/github-dark.css", "github-dark") }
 
             Box(Modifier.semantics { testTagsAsResourceId = true }) {
+                // Pass the App's resolved darkTheme (from user theme preference) so code blocks
+                // follow the app theme, not the raw system setting. Without this, the provider
+                // falls back to isSystemInDarkTheme() and mismatches when the user picks light/dark.
                 HighlightThemeProvider(
-                    lightHighlightTheme = lightTheme,
-                    darkHighlightTheme = darkTheme,
+                    darkTheme = darkTheme,
+                    lightHighlightTheme = lightHighlight,
+                    darkHighlightTheme = darkHighlight,
                 ) {
                     content()
                 }
