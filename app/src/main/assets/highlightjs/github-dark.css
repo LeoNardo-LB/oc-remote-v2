@@ -8,13 +8,15 @@
   Outdated base version: https://github.com/primer/github-syntax-dark
   Current colors taken from GitHub's CSS
 
-  Modified: .hljs background set to transparent so the host container
-  controls the backdrop (OC Remote code blocks use theme surface colors).
+  Restored: official GitHub Dark background so compose-highlight renders a
+  theme-correct backdrop. Setting background to transparent/omitted makes the
+  library fall back to a default color (ignoring light/dark). Light/dark
+  switching is driven by HighlightThemeProvider(darkTheme = ...) in Theme.kt.
 */
 
 .hljs {
   color: #c9d1d9;
-  background: transparent;
+  background: #0d1117;
 }
 
 .hljs-doctag,
