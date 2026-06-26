@@ -116,22 +116,12 @@ fun ChatMessageList(
         }?.message?.id
     }
 
-    val compensateState = remember { CompensateState() }
-    val toolCompensateState = remember { CompensateState() }
-    val heightMap = remember { HashMap<String, Int>() }
-
-    // Reset height tracking only on session switch — NOT on streaming message change.
-    // Clearing heightMap when a message completes causes markdown async re-parse to
-    // produce massive delta (initial render ~257px vs final ~9500px), which triggers
-    // erroneous compensation and snaps viewport to bottom.
-    LaunchedEffect(viewModel.sessionId) {
-        heightMap.clear()
-        toolCompensateState.lastHeight = 0
-    }
+    // Key on streamingMsgId so state resets when streaming message changes (new message
+    // or completion). This is simpler and more correct than heightMap + session-scope clear.
+    val compensateState = remember(streamingMsgId) { CompensateState() }
+    val toolCompensateState = remember(streamingMsgId) { CompensateState() }
 
     // Track whether user has scrolled away from bottom.
-    // When shouldCompensate=true, SSE height growth is counteracted via
-    // requestScrollToItem inside the layout modifier — no height freeze.
     // Key is ONLY isScrollInProgress — NOT isAtBottom — so SSE layout changes
     // that briefly flip isAtBottom won't incorrectly toggle shouldCompensate.
     LaunchedEffect(listState.isScrollInProgress) {
@@ -232,18 +222,16 @@ fun ChatMessageList(
                                             constraints.copy(maxHeight = Constraints.Infinity)
                                         )
                                         val realHeight = placeable.height
-                                        val prevHeight = toolCompensateState.lastHeight
-                                        val stableHeight = if (prevHeight > 0 && realHeight < prevHeight) prevHeight else realHeight
-                                        val delta = stableHeight - prevHeight
-                                        if (compensateState.shouldCompensate && prevHeight > 0 && delta > 0 && delta <= 500) {
+                                        val delta = realHeight - toolCompensateState.lastHeight
+                                        if (compensateState.shouldCompensate && toolCompensateState.lastHeight > 0 && delta > 0) {
                                             LazyListReflection.requestScrollToItemNoCancel(
                                                 listState,
                                                 listState.firstVisibleItemIndex,
                                                 listState.firstVisibleItemScrollOffset + delta
                                             )
                                         }
-                                        toolCompensateState.lastHeight = stableHeight
-                                        layout(placeable.width, stableHeight) {
+                                        toolCompensateState.lastHeight = realHeight
+                                        layout(placeable.width, realHeight) {
                                             placeable.placeRelative(0, 0)
                                         }
                                     }
@@ -310,7 +298,8 @@ fun ChatMessageList(
                         key = { _, item -> item.second.message.id },
                         contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
                     ) { _, (rawIndex, msg) ->
-                        val itemModifier = if (msg.isAssistant) {
+                        val isStreamingMsg = msg.message.id == streamingMsgId
+                        val itemModifier = if (isStreamingMsg) {
                             Modifier
                                 .fillMaxWidth()
                                 .layout { measurable, constraints ->
@@ -318,22 +307,17 @@ fun ChatMessageList(
                                         constraints.copy(maxHeight = Constraints.Infinity)
                                     )
                                     val realHeight = placeable.height
-                                    val msgId = msg.message.id
-                                    val prevHeight = heightMap[msgId]
-                                    // Monostable height: only grow, never shrink during a render cycle.
-                                    // Prevents markdown async re-parse oscillation (e.g. 701↔760 flicker).
-                                    val stableHeight = if (prevHeight != null && realHeight < prevHeight) prevHeight else realHeight
-                                    val delta = if (prevHeight != null) stableHeight - prevHeight else 0
-                                    if (compensateState.shouldCompensate && prevHeight != null && delta > 0 && delta <= 500) {
+                                    val delta = realHeight - compensateState.lastHeight
+                                    if (compensateState.shouldCompensate && compensateState.lastHeight > 0 && delta > 0) {
                                         LazyListReflection.requestScrollToItemNoCancel(
                                             listState,
                                             listState.firstVisibleItemIndex,
                                             listState.firstVisibleItemScrollOffset + delta
                                         )
                                     }
-                                    heightMap[msgId] = stableHeight
+                                    compensateState.lastHeight = realHeight
 
-                                    layout(placeable.width, stableHeight) {
+                                    layout(placeable.width, realHeight) {
                                         placeable.placeRelative(0, 0)
                                     }
                                 }

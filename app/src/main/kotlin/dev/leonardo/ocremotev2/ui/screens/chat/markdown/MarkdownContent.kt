@@ -28,6 +28,7 @@ import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownAnimations
 import com.mikepenz.markdown.model.markdownPadding
+import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import dev.hossain.highlight.ui.CodeBlockStyle
 import dev.hossain.highlight.ui.SyntaxHighlightedCode
@@ -293,8 +294,13 @@ internal fun MarkdownContent(
         listIndent = 4.dp,
     )
 
-    Markdown(
+    val markdownState = rememberMarkdownState(
         content = normalizedMarkdown,
+        retainState = true,
+    )
+
+    Markdown(
+        markdownState = markdownState,
         colors = colors,
         typography = typography,
         components = components,
