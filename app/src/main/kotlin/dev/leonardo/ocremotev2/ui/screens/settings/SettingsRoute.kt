@@ -1,7 +1,7 @@
 ﻿package dev.leonardo.ocremotev2.ui.screens.settings
 
 import androidx.compose.runtime.Composable
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 @Composable
 fun SettingsRoute(

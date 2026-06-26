@@ -129,8 +129,9 @@ fun OpenCodeTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Use surface color for status bar (less jarring than primary)
-            window.statusBarColor = colorScheme.surface.toArgb()
+            // Edge-to-edge (enableEdgeToEdge in MainActivity) keeps the status bar transparent;
+            // content draws behind it. Only the icon appearance needs manual control here because
+            // the app supports a user-chosen theme that may differ from the system setting.
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }

@@ -47,10 +47,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -100,7 +99,7 @@ fun ChatMessageList(
     coroutineScope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
     context: Context,
-    clipboardManager: ClipboardManager,
+    clipboard: Clipboard,
     keyboardController: SoftwareKeyboardController?,
     viewModel: ChatViewModel,
     navigateToChildSession: (String) -> Unit,
@@ -444,10 +443,8 @@ fun ChatMessageList(
                                             .filterIsInstance<Part.Text>()
                                             .joinToString("\n") { it.text }
                                         if (text.isNotBlank()) {
-                                            clipboardManager.setText(
-                                                AnnotatedString(text)
-                                            )
                                             coroutineScope.launch {
+                                                clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("copy", text)))
                                                 snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
                                             }
                                         }

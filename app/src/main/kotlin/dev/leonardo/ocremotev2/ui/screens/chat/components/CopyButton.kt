@@ -1,15 +1,18 @@
 ﻿package dev.leonardo.ocremotev2.ui.screens.chat.components
 
+import android.content.ClipData
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import dev.leonardo.ocremotev2.ui.theme.AlphaTokens
+import kotlinx.coroutines.launch
 
 /**
  * A small copy button that copies [text] to clipboard.
@@ -21,9 +24,14 @@ fun CopyButton(
     modifier: Modifier = Modifier,
     contentDescription: String = "Copy"
 ) {
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val clipScope = rememberCoroutineScope()
     IconButton(
-        onClick = { clipboardManager.setText(AnnotatedString(text)) },
+        onClick = {
+            clipScope.launch {
+                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("copy", text)))
+            }
+        },
         modifier = modifier
     ) {
         Icon(

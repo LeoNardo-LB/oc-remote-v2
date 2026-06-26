@@ -94,7 +94,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.LocalView
@@ -130,7 +130,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.times
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -402,7 +402,7 @@ fun ChatScreen(
     val context = LocalContext.current
     val isAmoled = isAmoledTheme()
     val keyboardController = LocalSoftwareKeyboardController.current
-    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboard.current
     val view = LocalView.current
     val density = LocalDensity.current
     // isAtBottomBeforeIme removed — reverseLayout=true handles IME natively.
@@ -600,7 +600,7 @@ fun ChatScreen(
                             viewModel.shareSession { url ->
                                 coroutineScope.launch {
                                     if (url != null) {
-                                        clipboardManager.setText(AnnotatedString(url))
+                                        clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("url", url)))
                                         snackbarHostState.showSnackbar(context.getString(R.string.chat_share_url_copied))
                                     } else {
                                         snackbarHostState.showSnackbar(context.getString(R.string.chat_share_failed))
@@ -877,7 +877,7 @@ fun ChatScreen(
                                     viewModel.shareSession { url ->
                                         coroutineScope.launch {
                                             if (url != null) {
-                                                clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
+                                                clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("url", url)))
                                                 snackbarHostState.showSnackbar(context.getString(R.string.chat_share_url_copied))
                                             } else {
                                                 snackbarHostState.showSnackbar(context.getString(R.string.chat_share_failed))
@@ -1025,7 +1025,7 @@ fun ChatScreen(
                                 coroutineScope = coroutineScope,
                                 snackbarHostState = snackbarHostState,
                                 context = context,
-                                clipboardManager = clipboardManager,
+                                clipboard = clipboard,
                                 keyboardController = keyboardController,
                                 viewModel = viewModel,
                                 navigateToChildSession = navigateToChildSessionWithSave,
@@ -1050,7 +1050,7 @@ fun ChatScreen(
                                 coroutineScope = coroutineScope,
                                 snackbarHostState = snackbarHostState,
                                 context = context,
-                                clipboardManager = clipboardManager,
+                                clipboard = clipboard,
                                 keyboardController = keyboardController,
                                 viewModel = viewModel,
                                 navigateToChildSession = navigateToChildSessionWithSave,

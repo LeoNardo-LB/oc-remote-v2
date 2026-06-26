@@ -1,5 +1,6 @@
 ﻿package dev.leonardo.ocremotev2.ui.screens.server
 
+import android.content.ClipData
 import android.util.Log
 import android.widget.Toast
 import dev.leonardo.ocremotev2.BuildConfig
@@ -41,24 +42,25 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.leonardo.ocremotev2.R
 import dev.leonardo.ocremotev2.ui.components.DialogButtonRole
 import dev.leonardo.ocremotev2.ui.components.DialogButtons
@@ -69,6 +71,7 @@ import dev.leonardo.ocremotev2.ui.theme.AlphaTokens
 import dev.leonardo.ocremotev2.ui.theme.ButtonTokens
 import dev.leonardo.ocremotev2.ui.theme.LocalAmoledMode
 import dev.leonardo.ocremotev2.ui.theme.ShapeTokens
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +82,8 @@ fun ServerProvidersScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isAmoled = LocalAmoledMode.current
     val uriHandler = LocalUriHandler.current
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val clipScope = rememberCoroutineScope()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val popularProviders = listOf("opencode", "anthropic", "github-copilot", "openai", "google", "openrouter", "vercel")
@@ -303,7 +307,9 @@ fun ServerProvidersScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    clipboard.setText(AnnotatedString(deviceCode))
+                                    clipScope.launch {
+                                        clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("device_code", deviceCode)))
+                                    }
                                     Toast.makeText(
                                         context,
                                         context.getString(R.string.server_settings_oauth_code_copied),

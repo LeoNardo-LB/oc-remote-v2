@@ -25,7 +25,7 @@ import dev.leonardo.ocremotev2.ui.navigation.routes.*
 import kotlinx.coroutines.launch
 import dev.leonardo.ocremotev2.ui.screens.about.AboutScreen
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dev.leonardo.ocremotev2.ui.screens.chat.ChatScreen
 import dev.leonardo.ocremotev2.ui.screens.chat.ChatViewModel
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalOnViewTool

@@ -20,7 +20,7 @@ class AnnotationPromptBuilderTest {
         assertTrue(result.contains("## 总体备注"))
         assertTrue(result.contains("请按标注修改"))
         assertTrue(result.contains("## 具体备注"))
-        assertTrue(result.contains("1. [12:1,13:15] fix this"))
+        assertTrue(result.contains("1. [12:1-13:15] fix this"))
     }
 
     @Test
@@ -33,8 +33,8 @@ class AnnotationPromptBuilderTest {
     fun `multiple annotations numbered by creation order`() {
         val anns = listOf(makeAnn(0, 45, 1, 45, 10, "first"), makeAnn(1, 12, 1, 13, 15, "second"))
         val result = builder.build(anns, "无", "App.kt", "/proj")
-        assertTrue(result.contains("1. [45:1,45:10] first"))
-        assertTrue(result.contains("2. [12:1,13:15] second"))
+        assertTrue(result.contains("1. [45:1-45:10] first"))
+        assertTrue(result.contains("2. [12:1-13:15] second"))
     }
 
     @Test

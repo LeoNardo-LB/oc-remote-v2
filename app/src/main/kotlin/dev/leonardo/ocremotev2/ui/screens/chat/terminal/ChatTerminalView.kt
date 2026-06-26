@@ -1,5 +1,6 @@
 ﻿package dev.leonardo.ocremotev2.ui.screens.chat.terminal
 
+import android.content.ClipData
 import android.media.AudioManager
 import android.os.SystemClock
 import android.util.Log
@@ -71,7 +72,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -124,7 +126,7 @@ fun ChatTerminalView(
     val context = LocalContext.current
     val isAmoled = isAmoledTheme()
     val keyboardController = LocalSoftwareKeyboardController.current
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val view = LocalView.current
     val density = LocalDensity.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
@@ -203,14 +205,12 @@ fun ChatTerminalView(
     DisposableEffect(isTerminalMode) {
         val activity = context as? android.app.Activity
         if (isTerminalMode && activity != null) {
-            activity.window.statusBarColor = android.graphics.Color.BLACK
             androidx.core.view.WindowCompat.getInsetsController(
                 activity.window, activity.window.decorView
             ).isAppearanceLightStatusBars = false
         }
         onDispose {
             val act = context as? android.app.Activity ?: return@onDispose
-            act.window.statusBarColor = android.graphics.Color.TRANSPARENT
             androidx.core.view.WindowCompat.getInsetsController(
                 act.window, act.window.decorView
             ).isAppearanceLightStatusBars = !isDarkTheme
@@ -227,14 +227,16 @@ fun ChatTerminalView(
     // ── Clipboard paste helper ──────────────────────────────────────
     fun pasteClipboardToTerminal() {
         if (!terminalConnected) return
-        val clip = clipboardManager.getText()?.text ?: return
-        if (clip.isEmpty()) return
-        val cleaned = clip
-            .replace(Regex("[\u001B\u0080-\u009F]"), "")
-            .replace("\r\n", "\r")
-            .replace('\n', '\r')
-        if (cleaned.isNotEmpty()) {
-            viewModel.sendTerminalInput(cleaned)
+        coroutineScope.launch {
+            val clip = clipboard.getClipEntry()?.clipData?.getItemAt(0)?.text ?: return@launch
+            if (clip.isEmpty()) return@launch
+            val cleaned = clip.toString()
+                .replace(Regex("[\u001B\u0080-\u009F]"), "")
+                .replace("\r\n", "\r")
+                .replace('\n', '\r')
+            if (cleaned.isNotEmpty()) {
+                viewModel.sendTerminalInput(cleaned)
+            }
         }
     }
 

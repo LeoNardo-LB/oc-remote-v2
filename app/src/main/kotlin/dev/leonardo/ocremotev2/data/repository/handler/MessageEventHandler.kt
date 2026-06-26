@@ -116,7 +116,7 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
 
     private fun handleMessageUpdated(event: SseEvent.MessageUpdated) {
         val sessionId = event.info.sessionId
-        val role = when (event.info) { is Message.User -> "user"; is Message.Assistant -> "assistant"; else -> "unknown" }
+        val role = when (event.info) { is Message.User -> "user"; is Message.Assistant -> "assistant" }
         _messages.update { current ->
             val sessionMessages = current[sessionId]?.toMutableList() ?: mutableListOf()
             val idx = sessionMessages.indexOfFirst { it.id == event.info.id }
@@ -195,7 +195,7 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
     private fun handleMessagePartUpdated(event: SseEvent.MessagePartUpdated) {
         val messageId = event.part.messageId
         val partId = event.part.id
-        val thread = Thread.currentThread().id
+        val thread = Thread.currentThread().threadId()
         _parts.update { current ->
             val messageParts = current[messageId]?.toMutableList() ?: mutableListOf()
             val idx = messageParts.indexOfFirst { it.id == partId }
@@ -346,7 +346,7 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
     // ============ Batch Operations ============
 
     fun setMessages(sessionId: String, newMessages: List<MessageWithParts>) {
-        val thread = Thread.currentThread().id
+        val thread = Thread.currentThread().threadId()
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             val incomingById = newMessages.associateBy { it.info.id }
@@ -422,7 +422,7 @@ class MessageEventHandler @Inject constructor() : SseEventHandler {
      * the window between REST snapshot and new SSE connection establishment.
      */
     fun replaceMessages(sessionId: String, newMessages: List<MessageWithParts>) {
-        val thread = Thread.currentThread().id
+        val thread = Thread.currentThread().threadId()
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             val incomingById = newMessages.associateBy { it.info.id }

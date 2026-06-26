@@ -43,7 +43,7 @@ private const val STALENESS_THRESHOLD_MS = 15_000L
  */
 @Singleton
 class SessionStatusManager @Inject constructor(
-    @ApplicationScope private val appScope: CoroutineScope,
+    @param:ApplicationScope private val appScope: CoroutineScope,
     private val sessionRepositoryProvider: Provider<SessionRepository>
 ) {
     private val _fsmStates = MutableStateFlow<Map<String, SessionFSMState>>(emptyMap())

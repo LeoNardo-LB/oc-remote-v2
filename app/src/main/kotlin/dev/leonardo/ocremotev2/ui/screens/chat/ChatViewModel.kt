@@ -574,18 +574,24 @@ class ChatViewModel @Inject constructor(
             sessionRepository.getSessionsFlow(serverId),
             tokenStatsTracker.stats,
         ) { args ->
+            @Suppress("UNCHECKED_CAST")
             val allProviders = args[0] as List<ProviderCatalog>
+            @Suppress("UNCHECKED_CAST")
             val providers = args[1] as List<ProviderCatalog>
+            @Suppress("UNCHECKED_CAST")
             val defaultModels = args[2] as Map<String, String>
             val selProviderId = args[3] as String?
             val selModelId = args[4] as String?
+            @Suppress("UNCHECKED_CAST")
             val agents = args[5] as List<AgentInfo>
             @Suppress("UNCHECKED_CAST")
             val agentSelection = args[6] as Pair<String, Boolean>
             val selectedAgent = agentSelection.first
             val isAgentExplicitlySelected = agentSelection.second
             val selectedVariant = args[7] as String?
+            @Suppress("UNCHECKED_CAST")
             val commands = args[8] as List<CommandInfo>
+            @Suppress("UNCHECKED_CAST")
             val sessionMessages = args[9] as List<Message>
             @Suppress("UNCHECKED_CAST")
             val allSessions = args[10] as List<Session>
@@ -705,7 +711,9 @@ class ChatViewModel @Inject constructor(
         ) { args ->
             @Suppress("UNCHECKED_CAST")
             val allSessions = args[0] as List<Session>
+            @Suppress("UNCHECKED_CAST")
             val sessionMessages = args[1] as List<Message>
+            @Suppress("UNCHECKED_CAST")
             val allParts = args[2] as Map<String, List<Part>>
             val loading = args[3] as Boolean
             val hasOlderMessages = args[4] as Boolean
@@ -1772,16 +1780,14 @@ class ChatViewModel @Inject constructor(
             kotlinx.coroutines.delay(8_000) // Wait for server async title generation
             try {
                 val refreshed = manageSessionUseCase.getSession(serverId, sid)
-                if (refreshed != null) {
-                    val currentSession = chatRepository.getSessionsSnapshot().find { it.id == sid }
-                    val currentTitle = currentSession?.title
-                    // Only update if the title actually changed (skip if SSE already delivered it)
-                    if (refreshed.title != currentTitle) {
-                        val msg = "[Title] REST fallback: title updated from '$currentTitle' to '${refreshed.title}'"
-                        Log.i(TAG, msg)
-                        appendDiagnosticLog(msg)
-                        sessionRepository.setSessions(serverId, listOf(refreshed))
-                    }
+                val currentSession = chatRepository.getSessionsSnapshot().find { it.id == sid }
+                val currentTitle = currentSession?.title
+                // Only update if the title actually changed (skip if SSE already delivered it)
+                if (refreshed.title != currentTitle) {
+                    val msg = "[Title] REST fallback: title updated from '$currentTitle' to '${refreshed.title}'"
+                    Log.i(TAG, msg)
+                    appendDiagnosticLog(msg)
+                    sessionRepository.setSessions(serverId, listOf(refreshed))
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to refresh session title for $sid: ${e.message}")
@@ -1803,8 +1809,8 @@ class ChatViewModel @Inject constructor(
                 val modelCfg = modelConfigState.value
                 val model = if (modelCfg.selectedProviderId != null && modelCfg.selectedModelId != null) {
                     ModelSelection(
-                        providerId = modelCfg.selectedProviderId!!,
-                        modelId = modelCfg.selectedModelId!!
+                        providerId = modelCfg.selectedProviderId,
+                        modelId = modelCfg.selectedModelId
                     )
                 } else null
 
@@ -2327,8 +2333,8 @@ class ChatViewModel @Inject constructor(
                 val modelCfg = modelConfigState.value
                 val model = if (modelCfg.selectedProviderId != null && modelCfg.selectedModelId != null) {
                     ModelSelection(
-                        providerId = modelCfg.selectedProviderId!!,
-                        modelId = modelCfg.selectedModelId!!
+                        providerId = modelCfg.selectedProviderId,
+                        modelId = modelCfg.selectedModelId
                     )
                 } else null
                 val ok = manageTerminalUseCase.runShellCommand(
