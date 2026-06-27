@@ -1,6 +1,5 @@
 ﻿package dev.leonardo.ocremotev2.ui.screens.settings
 
-import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,37 +12,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.FormatSize
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.PhotoSizeSelectLarge
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.ScreenLockPortrait
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.UnfoldMore
-import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.filled.WrapText
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -63,24 +39,17 @@ import dev.leonardo.ocremotev2.ui.screens.settings.components.ImageCompressionQu
 import dev.leonardo.ocremotev2.ui.screens.settings.components.LanguagePickerDialog
 import dev.leonardo.ocremotev2.ui.screens.settings.components.LocalServerLaunchOptionsDialog
 import dev.leonardo.ocremotev2.ui.screens.settings.components.MessageCountPickerDialog
-import dev.leonardo.ocremotev2.ui.screens.settings.components.PermissionRulesSection
 import dev.leonardo.ocremotev2.ui.screens.settings.components.ReconnectModePickerDialog
-import dev.leonardo.ocremotev2.ui.screens.settings.components.SectionHeader
+import dev.leonardo.ocremotev2.ui.screens.settings.components.TerminalFontSizeDialog
+import dev.leonardo.ocremotev2.ui.screens.settings.components.ThemePickerDialog
 import dev.leonardo.ocremotev2.ui.screens.settings.sections.AdvancedSection
 import dev.leonardo.ocremotev2.ui.screens.settings.sections.AppearanceSection
+import dev.leonardo.ocremotev2.ui.screens.settings.sections.AutoApproveRulesSection
 import dev.leonardo.ocremotev2.ui.screens.settings.sections.ChatBehaviorSection
 import dev.leonardo.ocremotev2.ui.screens.settings.sections.ChatDisplaySection
 import dev.leonardo.ocremotev2.ui.screens.settings.sections.GeneralSection
 import dev.leonardo.ocremotev2.ui.screens.settings.sections.NotificationsSection
-import dev.leonardo.ocremotev2.ui.screens.settings.components.TerminalFontSizeDialog
-import dev.leonardo.ocremotev2.ui.screens.settings.components.ThemePickerDialog
-import dev.leonardo.ocremotev2.ui.screens.settings.components.getImageMaxSideDisplayName
-import dev.leonardo.ocremotev2.ui.screens.settings.components.getLanguageDisplayName
-import dev.leonardo.ocremotev2.ui.screens.settings.components.getReconnectModeDisplayName
-import dev.leonardo.ocremotev2.ui.screens.settings.components.getThemeDisplayName
 import dev.leonardo.ocremotev2.ui.theme.AlphaTokens
-import dev.leonardo.ocremotev2.ui.theme.ListItemTokens
-import kotlin.math.roundToInt
 
 /**
  * Settings Screen - global app preferences.
@@ -93,26 +62,13 @@ fun SettingsScreen(
 ) {
     val currentLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val currentTheme by viewModel.appTheme.collectAsStateWithLifecycle()
-    val dynamicColor by viewModel.dynamicColor.collectAsStateWithLifecycle()
     val chatDensity by viewModel.chatDensity.collectAsStateWithLifecycle()
-    val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
 
     val initialMessageCount by viewModel.initialMessageCount.collectAsStateWithLifecycle()
-    val codeWordWrap by viewModel.codeWordWrap.collectAsStateWithLifecycle()
-    val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsStateWithLifecycle()
-    val amoledDark by viewModel.amoledDark.collectAsStateWithLifecycle()
-    val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
-    val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
-    val showTurnDividers by viewModel.showTurnDividers.collectAsStateWithLifecycle()
-    val hapticFeedback by viewModel.hapticFeedback.collectAsStateWithLifecycle()
     val reconnectMode by viewModel.reconnectMode.collectAsStateWithLifecycle()
-    val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
-    val silentNotifications by viewModel.silentNotifications.collectAsStateWithLifecycle()
-    val compressImageAttachments by viewModel.compressImageAttachments.collectAsStateWithLifecycle()
+    val terminalFontSize by viewModel.terminalFontSize.collectAsStateWithLifecycle()
     val imageAttachmentMaxLongSide by viewModel.imageAttachmentMaxLongSide.collectAsStateWithLifecycle()
     val imageAttachmentWebpQuality by viewModel.imageAttachmentWebpQuality.collectAsStateWithLifecycle()
-    val showLocalRuntime by viewModel.showLocalRuntime.collectAsStateWithLifecycle()
-    val terminalFontSize by viewModel.terminalFontSize.collectAsStateWithLifecycle()
     val localProxyEnabled by viewModel.localProxyEnabled.collectAsStateWithLifecycle()
     val localProxyUrl by viewModel.localProxyUrl.collectAsStateWithLifecycle()
     val localProxyNoProxy by viewModel.localProxyNoProxy.collectAsStateWithLifecycle()
@@ -122,7 +78,6 @@ fun SettingsScreen(
     val localServerRunInBackground by viewModel.localServerRunInBackground.collectAsStateWithLifecycle()
     val localServerAutoStart by viewModel.localServerAutoStart.collectAsStateWithLifecycle()
     val localServerStartupTimeoutSec by viewModel.localServerStartupTimeoutSec.collectAsStateWithLifecycle()
-    val autoApproveRules by viewModel.autoApproveRules.collectAsStateWithLifecycle()
 
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -133,8 +88,6 @@ fun SettingsScreen(
     var showImageMaxSideDialog by remember { mutableStateOf(false) }
     var showImageQualityDialog by remember { mutableStateOf(false) }
     var showLocalLaunchOptionsDialog by remember { mutableStateOf(false) }
-
-    val switchColors = SwitchDefaults.colors()
 
     Scaffold(
         topBar = {
@@ -202,11 +155,7 @@ fun SettingsScreen(
             NotificationsSection(viewModel = viewModel)
 
             // ======== Permissions ========
-            SectionHeader(stringResource(R.string.settings_auto_approve_rules))
-            PermissionRulesSection(
-                rules = autoApproveRules,
-                onDeleteRule = { rule -> viewModel.deletePermissionRule(rule) }
-            )
+            AutoApproveRulesSection(viewModel = viewModel)
         }
 
         if (showThemeDialog) {
