@@ -1,10 +1,8 @@
 ﻿package dev.leonardo.ocremotev2.ui.screens.chat
 
 import android.util.Log
-import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.Immutable
 import dev.leonardo.ocremotev2.BuildConfig
-import dev.leonardo.ocremotev2.R
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -28,7 +26,6 @@ import dev.leonardo.ocremotev2.ui.screens.chat.util.SessionTimestamps
 import dev.leonardo.ocremotev2.ui.screens.chat.util.cacheHitRate
 import dev.leonardo.ocremotev2.ui.screens.chat.util.countMessages
 import dev.leonardo.ocremotev2.ui.screens.chat.util.estimateContextBreakdown
-import dev.leonardo.ocremotev2.domain.repository.DraftRepository
 import dev.leonardo.ocremotev2.domain.model.*
 import dev.leonardo.ocremotev2.domain.repository.ChatRepository
 import dev.leonardo.ocremotev2.domain.repository.SessionRepository
