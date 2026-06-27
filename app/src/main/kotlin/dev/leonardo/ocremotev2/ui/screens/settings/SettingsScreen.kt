@@ -66,6 +66,7 @@ import dev.leonardo.ocremotev2.ui.screens.settings.components.MessageCountPicker
 import dev.leonardo.ocremotev2.ui.screens.settings.components.PermissionRulesSection
 import dev.leonardo.ocremotev2.ui.screens.settings.components.ReconnectModePickerDialog
 import dev.leonardo.ocremotev2.ui.screens.settings.components.SectionHeader
+import dev.leonardo.ocremotev2.ui.screens.settings.sections.GeneralSection
 import dev.leonardo.ocremotev2.ui.screens.settings.components.TerminalFontSizeDialog
 import dev.leonardo.ocremotev2.ui.screens.settings.components.ThemePickerDialog
 import dev.leonardo.ocremotev2.ui.screens.settings.components.getImageMaxSideDisplayName
@@ -159,29 +160,11 @@ fun SettingsScreen(
                     .padding(16.dp)
             ) {
             // ======== General ========
-            SectionHeader(stringResource(R.string.settings_section_general))
-
-            // Language
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_language)) },
-                supportingContent = { Text(getLanguageDisplayName(currentLanguage)) },
-                leadingContent = {
-                    Icon(Icons.Default.Language, contentDescription = stringResource(R.string.a11y_settings_language))
-                },
-                modifier = Modifier.clickable { showLanguageDialog = true }.padding(ListItemTokens.ContentPaddingMedium)
+            GeneralSection(
+                viewModel = viewModel,
+                onShowLanguageDialog = { showLanguageDialog = true },
+                onShowReconnectModeDialog = { showReconnectModeDialog = true },
             )
-
-            // Reconnect mode
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_reconnect_mode)) },
-                supportingContent = { Text(getReconnectModeDisplayName(reconnectMode)) },
-                leadingContent = {
-                    Icon(Icons.Default.Sync, contentDescription = stringResource(R.string.a11y_settings_reconnect_mode))
-                },
-                modifier = Modifier.clickable { showReconnectModeDialog = true }.padding(ListItemTokens.ContentPaddingMedium)
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             // ======== Appearance ========
             SectionHeader(stringResource(R.string.settings_section_appearance))
