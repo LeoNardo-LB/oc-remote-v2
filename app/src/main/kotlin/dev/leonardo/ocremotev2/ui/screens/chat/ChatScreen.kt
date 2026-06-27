@@ -226,7 +226,7 @@ import dev.leonardo.ocremotev2.ui.screens.chat.input.ChatInputMode
 import dev.leonardo.ocremotev2.ui.screens.chat.input.SlashCommand
 import dev.leonardo.ocremotev2.ui.screens.chat.input.rememberAttachmentHandler
 import dev.leonardo.ocremotev2.domain.model.Part
-import dev.leonardo.ocremotev2.ui.screens.chat.input.buildPromptParts
+import dev.leonardo.ocremotev2.ui.screens.chat.util.PromptBuilder
 import dev.leonardo.ocremotev2.ui.screens.chat.components.MessageCard
 import dev.leonardo.ocremotev2.ui.screens.chat.components.MessageCardRole
 import dev.leonardo.ocremotev2.ui.screens.chat.components.ChatEmptyState
@@ -778,7 +778,7 @@ fun ChatScreen(
                                     }
                                 }
                                 // Build prompt parts: split text around confirmed @file mentions
-                                val allParts = buildPromptParts(rawText, confirmedFilePaths, viewModel.getSessionDirectory())
+                                val allParts = PromptBuilder.buildPromptParts(rawText, confirmedFilePaths, viewModel.getSessionDirectory())
                                 // Add image attachments
                                 val attachmentParts = attachments.map { att ->
                                     PromptPart(
