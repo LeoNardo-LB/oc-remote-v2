@@ -19,7 +19,6 @@ import dev.leonardo.ocremotev2.domain.model.PromptPart
 import dev.leonardo.ocremotev2.domain.model.ProviderCatalog
 import dev.leonardo.ocremotev2.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocremotev2.data.repository.SessionStatusManager
-import dev.leonardo.ocremotev2.ui.navigation.routes.ChatNav
 import dev.leonardo.ocremotev2.ui.screens.chat.tools.ToolCardResolver
 import dev.leonardo.ocremotev2.ui.screens.chat.util.ContextBreakdown
 import dev.leonardo.ocremotev2.ui.screens.chat.util.ContextDetailState
@@ -48,11 +47,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.net.URLDecoder
 import javax.inject.Inject
 
@@ -338,13 +334,21 @@ class ChatViewModel @Inject constructor(
     val serverId: String = URLDecoder.decode(
         savedStateHandle.get<String>("serverId") ?: "", "UTF-8"
     )
-    private val directoryParam: String = URLDecoder.decode(
-        savedStateHandle.get<String>(ChatNav.PARAM_DIRECTORY) ?: "", "UTF-8"
+    // ============ Session Lifecycle Delegate (Phase 3 Task 3 — C cluster) ============
+    // Owns session identity/directory/lazy-creation — the spine of the delegate layer.
+    // sessionIdFlow feeds 6 combine pipelines; sessionDirectory/sessionLoaded feed
+    // TerminalDelegate & DraftInputDelegate via their constructor providers.
+    private val sessionLifecycle = SessionLifecycleDelegate(
+        manageSessionUseCase = manageSessionUseCase,
+        sessionRepository = sessionRepository,
+        serverId = serverId,
+        savedStateHandle = savedStateHandle,
+        scope = viewModelScope,
+        onMessagesNeedLoading = { loadMessagesForSession() },
+        onStartObservingMessages = { startObservingMessages() },
     )
-    private val _sessionId = MutableStateFlow(URLDecoder.decode(
-        savedStateHandle.get<String>("sessionId") ?: "", "UTF-8"
-    ))
-    val sessionId: String get() = _sessionId.value
+    /** Current session id — facade over [sessionLifecycle]. */
+    val sessionId: String get() = sessionLifecycle.sessionId
 
     /**
      * Called when ChatScreen enters composition.
@@ -376,13 +380,6 @@ class ChatViewModel @Inject constructor(
     private val _selectedModelId = MutableStateFlow<String?>(null)
     // Track if the model was explicitly selected by the user to avoid overwriting it with defaults/history
     private var isModelExplicitlySelected = false
-    /** The directory of this session's project — sent as x-opencode-directory so the server resolves the correct project context. */
-    private var sessionDirectory: String? = null
-    /** Mutex to prevent concurrent session creation */
-    private val sessionCreateMutex = Mutex()
-    /** Signals when [loadSession] has finished (successfully or with error), so that terminal
-     *  creation can wait for [sessionDirectory] to be populated. */
-    private val sessionLoaded = CompletableDeferred<Unit>()
     private val _agents = MutableStateFlow<List<AgentInfo>>(emptyList())
     /** Pair(agentName, explicitlySelected) — using a single flow avoids race between flag and value */
     private val _selectedAgent = MutableStateFlow("build" to false)
@@ -396,8 +393,8 @@ class ChatViewModel @Inject constructor(
         username = username,
         password = password.ifEmpty { null },
         scope = viewModelScope,
-        sessionDirectoryProvider = { sessionDirectory },
-        sessionLoaded = sessionLoaded,
+        sessionDirectoryProvider = { sessionLifecycle.sessionDirectory },
+        sessionLoaded = sessionLifecycle.sessionLoaded,
     )
     val terminalTabs: StateFlow<List<TerminalTabUi>> get() = terminalDelegate.terminalTabs
     val activeTerminalTabId: StateFlow<String?> get() = terminalDelegate.activeTerminalTabId
@@ -414,8 +411,8 @@ class ChatViewModel @Inject constructor(
         manageAgentUseCase = manageAgentUseCase,
         scope = viewModelScope,
         serverId = serverId,
-        sessionIdProvider = { _sessionId.value },
-        sessionDirectoryProvider = { sessionDirectory },
+        sessionIdProvider = { sessionLifecycle.sessionId },
+        sessionDirectoryProvider = { sessionLifecycle.sessionDirectory },
         selectedAgentProvider = { _selectedAgent.value },
         selectedVariantProvider = { _selectedVariant.value },
     )
@@ -523,7 +520,7 @@ class ChatViewModel @Inject constructor(
      * Performs side effects: model/agent resolution from message history, model caching,
      * and sync-back to raw StateFlows so sendParts()/runShellCommand() use consistent values.
      */
-    val modelConfigState: StateFlow<ModelConfigState> = _sessionId.flatMapLatest { sid ->
+    val modelConfigState: StateFlow<ModelConfigState> = sessionLifecycle.sessionIdFlow.flatMapLatest { sid ->
         combine(
             _allProviders,
             _providers,
@@ -661,7 +658,7 @@ class ChatViewModel @Inject constructor(
      * Message list state — derived from V1 chatRepository flows.
      * Combines messages, parts, and tool expand states.
      */
-    val messageListState: StateFlow<MessageListState> = _sessionId.flatMapLatest { sid ->
+    val messageListState: StateFlow<MessageListState> = sessionLifecycle.sessionIdFlow.flatMapLatest { sid ->
         combine(
             sessionRepository.getSessionsFlow(serverId),
             messagePaging.observeMessages(sid),
@@ -758,12 +755,12 @@ class ChatViewModel @Inject constructor(
 
     /**
      * Session metadata — changes when session info is updated (title, status, agent).
-     * Includes [_sessionId] as a source so lazy-session creation triggers immediate recomputation.
+     * Includes [SessionLifecycleDelegate.sessionIdFlow] as a source so lazy-session creation triggers immediate recomputation.
      * Session status is sourced from [SessionStatusManager.statusFlow] (FSM-driven),
      * the single source of truth for busy/idle/activity state.
      */
     val sessionMetaState: StateFlow<SessionMetaState> = combine(
-        _sessionId,
+        sessionLifecycle.sessionIdFlow,
         sessionRepository.getSessionsFlow(serverId),
         sessionStatusManager.statusFlow,
         sessionRepository.getCurrentAgentFlow(serverId),
@@ -804,7 +801,7 @@ class ChatViewModel @Inject constructor(
      * pending permission/question cards from V1 chatRepository.
      */
     val interactionState: StateFlow<InteractionState> = combine(
-        _sessionId,
+        sessionLifecycle.sessionIdFlow,
         _isLoading,
         _error,
         _isSending,
@@ -857,7 +854,7 @@ class ChatViewModel @Inject constructor(
      * Session directory — current chat's working directory, used for the top bar subtitle.
      * Empty when session is not yet resolved or has no directory.
      */
-    val directoryState: StateFlow<String> = _sessionId.flatMapLatest { sid ->
+    val directoryState: StateFlow<String> = sessionLifecycle.sessionIdFlow.flatMapLatest { sid ->
         sessionRepository.getSessionsFlow(serverId).map { sessions ->
             sessions.find { it.id == sid }?.directory.orEmpty()
         }
@@ -872,7 +869,7 @@ class ChatViewModel @Inject constructor(
      * cache hit rate, and per-call token metrics. Built from the last assistant message
      * (with token-bearing StepFinish) plus session-level stats. Drives [ContextDetailDialog].
      */
-    val contextDetailState: StateFlow<ContextDetailState> = _sessionId.flatMapLatest { sid ->
+    val contextDetailState: StateFlow<ContextDetailState> = sessionLifecycle.sessionIdFlow.flatMapLatest { sid ->
         combine(
             messageListState,
             tokenStatsState,
@@ -1076,7 +1073,7 @@ class ChatViewModel @Inject constructor(
         if (!isNewSession) {
             viewModelScope.launch {
                 try {
-                    loadSession()
+                    sessionLifecycle.loadSession()
                 } catch (e: Exception) {
                 }
                 try {
@@ -1094,12 +1091,7 @@ class ChatViewModel @Inject constructor(
             }
         } else {
             // New session: set directory from route param, skip loading
-            if (directoryParam.isNotEmpty()) {
-                sessionDirectory = directoryParam
-            }
-            if (!sessionLoaded.isCompleted) {
-                sessionLoaded.complete(Unit)
-            }
+            sessionLifecycle.initForNewSession()
             // New session has nothing to load — mark loading complete immediately
             _isLoading.value = false
         }
@@ -1109,28 +1101,15 @@ class ChatViewModel @Inject constructor(
     }
 
     /**
-     * Load session info and messages via V1 API, then observe SSE-driven flows.
+     * Load messages via V1 API for the current session.
+     * Called back from [SessionLifecycleDelegate.loadSession] (cross-cluster
+     * callback) so the C-cluster delegate owns the full load orchestration
+     * while this retains the MessageData-cluster concerns (pagination limit +
+     * list/set). Equivalent to step 2 of the old inlined [loadSession].
      */
-    private suspend fun loadSession() {
+    private suspend fun loadMessagesForSession() {
         // Apply user-configured initial message count as the pagination starting point
         currentMessageLimit = settingsRepository.getSettingsFlow().first().initialMessageCount
-        try {
-            // 1. Load session info for directory / session metadata
-            val session = manageSessionUseCase.getSession(serverId, sessionId)
-            if (session.directory.isNotBlank()) {
-                sessionDirectory = session.directory
-                if (BuildConfig.DEBUG) Log.d(TAG, "Session directory: ${session.directory}")
-            }
-            sessionRepository.setSessions(serverId, listOf(session))
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load session info", e)
-        } finally {
-            if (!sessionLoaded.isCompleted) {
-                sessionLoaded.complete(Unit)
-            }
-        }
-
-        // 2. Load messages via V1 API
         try {
             val messages = manageSessionUseCase.listMessages(serverId, sessionId, limit = currentMessageLimit)
             chatRepository.setMessages(sessionId, messages)
@@ -1138,10 +1117,6 @@ class ChatViewModel @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load messages", e)
         }
-
-        // 3. Start observing chatRepository flows (driven by SSE EventDispatcher)
-        runCatching { startObservingMessages() }
-            .onFailure { Log.e(TAG, "Failed to start observing messages", it) }
     }
 
     /**
@@ -1264,9 +1239,9 @@ class ChatViewModel @Inject constructor(
             // Wait for loadSession() to complete so sessionDirectory is populated.
             // Without this, REST call may use null directory and return incorrect status.
             if (sessionId.isNotBlank()) {
-                sessionLoaded.await()
+                sessionLifecycle.sessionLoaded.await()
             }
-            val result = sessionRepository.fetchSessionStatuses(serverId, directory = sessionDirectory)
+            val result = sessionRepository.fetchSessionStatuses(serverId, directory = sessionLifecycle.sessionDirectory)
             result.onSuccess { statusMap ->
                 // Batch-update ALL session statuses (one REST call, all sessions)
                 sessionRepository.syncAllSessionStatuses(statusMap)
@@ -1292,7 +1267,7 @@ class ChatViewModel @Inject constructor(
      */
     private suspend fun refreshAndSync() {
         // 1. Load session info first (needed for sessionDirectory)
-        loadSession()
+        sessionLifecycle.loadSession()
 
         // 2. Refresh messages (uses _isRefreshing, not _isLoading)
         refreshMessages()
@@ -1300,9 +1275,9 @@ class ChatViewModel @Inject constructor(
         // 3. Sync session statuses AFTER messages are loaded
         //    so we have the latest data when checking idle state
         if (sessionId.isNotBlank()) {
-            sessionLoaded.await()
+            sessionLifecycle.sessionLoaded.await()
         }
-        val result = sessionRepository.fetchSessionStatuses(serverId, directory = sessionDirectory)
+        val result = sessionRepository.fetchSessionStatuses(serverId, directory = sessionLifecycle.sessionDirectory)
         result.onSuccess { statusMap ->
             sessionRepository.syncAllSessionStatuses(statusMap)
             val currentStatus = statusMap[sessionId]
@@ -1363,8 +1338,8 @@ class ChatViewModel @Inject constructor(
      */
     private suspend fun loadPendingQuestions() {
         try {
-            val allQuestions = managePermissionUseCase.listPendingQuestions(serverId, directory = sessionDirectory)
-            if (BuildConfig.DEBUG) Log.d(TAG, "loadPendingQuestions: ${allQuestions.size} total pending (directory=$sessionDirectory), filtering for session $sessionId")
+            val allQuestions = managePermissionUseCase.listPendingQuestions(serverId, directory = sessionLifecycle.sessionDirectory)
+            if (BuildConfig.DEBUG) Log.d(TAG, "loadPendingQuestions: ${allQuestions.size} total pending (directory=${sessionLifecycle.sessionDirectory}), filtering for session $sessionId")
 
             // Include questions from child sessions
             val childSessionIds = chatRepository.getSessionsSnapshot()
@@ -1419,8 +1394,8 @@ class ChatViewModel @Inject constructor(
     /** Load pending permissions from the server REST API on session open (REST recovery). */
     private suspend fun loadPendingPermissions() {
         try {
-            val allPermissions = managePermissionUseCase.listPendingPermissions(serverId, directory = sessionDirectory)
-            if (BuildConfig.DEBUG) Log.d(TAG, "loadPendingPermissions: ${allPermissions.size} total pending (directory=$sessionDirectory), filtering for session $sessionId")
+            val allPermissions = managePermissionUseCase.listPendingPermissions(serverId, directory = sessionLifecycle.sessionDirectory)
+            if (BuildConfig.DEBUG) Log.d(TAG, "loadPendingPermissions: ${allPermissions.size} total pending (directory=${sessionLifecycle.sessionDirectory}), filtering for session $sessionId")
 
             // Include permissions from child sessions
             val childSessionIds = chatRepository.getSessionsSnapshot()
@@ -1577,7 +1552,7 @@ class ChatViewModel @Inject constructor(
     }
 
     /** Get the session directory for building file:// URLs */
-    fun getSessionDirectory(): String? = sessionDirectory
+    fun getSessionDirectory(): String? = sessionLifecycle.sessionDirectory
 
     fun sendMessage(text: String, attachments: List<PromptPart> = emptyList()) {
         if (text.isBlank() && attachments.isEmpty()) return
@@ -1594,34 +1569,6 @@ class ChatViewModel @Inject constructor(
         val parts = promptParts + attachments
         if (parts.isEmpty()) return
         sendParts(parts)
-    }
-
-    /**
-     * Ensures a session exists before sending messages.
-     * If sessionId is empty (new session), creates one via API.
-     * Thread-safe via Mutex to prevent duplicate creation.
-     * After creation, starts observing SSE-driven flows so messages appear.
-     */
-    private suspend fun ensureSession(): String {
-        if (sessionId.isNotEmpty()) return sessionId
-        return sessionCreateMutex.withLock {
-            // Double-check after acquiring lock
-            if (sessionId.isNotEmpty()) return sessionId
-            val dir = if (directoryParam.isNotEmpty()) directoryParam else sessionDirectory
-            val session = manageSessionUseCase.createSession(serverId, directory = dir)
-            sessionRepository.setSessions(serverId, listOf(session))
-            _sessionId.value = session.id
-            sessionDirectory = session.directory.ifBlank { dir }
-            if (!sessionLoaded.isCompleted) {
-                sessionLoaded.complete(Unit)
-            }
-            // Start observing SSE-driven message/part flows for the new session.
-            // Without this, SSE events arrive at EventDispatcher but ChatViewModel
-            // never collects them — messages stay invisible.
-            runCatching { startObservingMessages() }
-                .onFailure { Log.e(TAG, "Failed to start observing after session creation", it) }
-            sessionId
-        }
     }
 
     /**
@@ -1656,7 +1603,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _isSending.value = true
             try {
-                val currentSessionId = ensureSession()
+                val currentSessionId = sessionLifecycle.ensureSession()
                 sessionStatusManager.onSendParts(currentSessionId)
                 // P5-5: read from modelConfigState (resolved effective value) instead of
                 // raw _selectedProviderId which may be null on new session's first send.
@@ -1679,7 +1626,7 @@ class ChatViewModel @Inject constructor(
                     model = model,
                     agent = modelConfigState.value.selectedAgent,
                     variant = _selectedVariant.value,
-                    directory = sessionDirectory
+                    directory = sessionLifecycle.sessionDirectory
                 )
                 // P5-4: clear pendingId on success path (was only cleared in catch block).
                 _pendingMessageIds.update { it - pendingId }
@@ -1707,7 +1654,7 @@ class ChatViewModel @Inject constructor(
      */
     fun replyToPermission(requestId: String, reply: String) {
         viewModelScope.launch {
-            val logMsg = "[Permission] replyToPermission: id=$requestId reply=$reply dir=$sessionDirectory"
+            val logMsg = "[Permission] replyToPermission: id=$requestId reply=$reply dir=${sessionLifecycle.sessionDirectory}"
             Log.i(TAG, logMsg)
             appendDiagnosticLog(logMsg)
             try {
@@ -1715,7 +1662,7 @@ class ChatViewModel @Inject constructor(
                     serverId = serverId,
                     requestId = requestId,
                     reply = reply,
-                    directory = sessionDirectory
+                    directory = sessionLifecycle.sessionDirectory
                 )
                 val resultMsg = "[Permission] replyToPermission result: id=$requestId success=$success"
                 Log.i(TAG, resultMsg)
@@ -1759,7 +1706,7 @@ class ChatViewModel @Inject constructor(
             try {
                 sseJob?.cancel()
                 sseJob = null
-                sessionRepository.abort(serverId, sessionId, sessionDirectory)
+                sessionRepository.abort(serverId, sessionId, sessionLifecycle.sessionDirectory)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Aborted session $sessionId")
                 // Force-complete messages AND set Idle — abort is a terminal action.
                 // Must use markSessionIdle (not Protected) because:
@@ -1783,7 +1730,7 @@ class ChatViewModel @Inject constructor(
      */
     fun replyToQuestion(requestId: String, answers: List<List<String>>) {
         viewModelScope.launch {
-            val logMsg = "[Question] replyToQuestion: id=$requestId answers=$answers dir=$sessionDirectory"
+            val logMsg = "[Question] replyToQuestion: id=$requestId answers=$answers dir=${sessionLifecycle.sessionDirectory}"
             Log.i(TAG, logMsg)
             appendDiagnosticLog(logMsg)
             try {
@@ -1791,7 +1738,7 @@ class ChatViewModel @Inject constructor(
                     serverId = serverId,
                     requestId = requestId,
                     answers = answers,
-                    directory = sessionDirectory
+                    directory = sessionLifecycle.sessionDirectory
                 )
                 val resultMsg = "[Question] replyToQuestion result: id=$requestId success=$success"
                 Log.i(TAG, resultMsg)
@@ -1813,11 +1760,11 @@ class ChatViewModel @Inject constructor(
      */
     fun rejectQuestion(requestId: String) {
         viewModelScope.launch {
-            val logMsg = "[Question] rejectQuestion: id=$requestId dir=$sessionDirectory"
+            val logMsg = "[Question] rejectQuestion: id=$requestId dir=${sessionLifecycle.sessionDirectory}"
             Log.i(TAG, logMsg)
             appendDiagnosticLog(logMsg)
             try {
-                val success = managePermissionUseCase.rejectQuestion(serverId = serverId, requestId = requestId, directory = sessionDirectory)
+                val success = managePermissionUseCase.rejectQuestion(serverId = serverId, requestId = requestId, directory = sessionLifecycle.sessionDirectory)
                 val resultMsg = "[Question] rejectQuestion result: id=$requestId success=$success"
                 Log.i(TAG, resultMsg)
                 appendDiagnosticLog(resultMsg)
@@ -1985,7 +1932,7 @@ class ChatViewModel @Inject constructor(
                     sessionStatusManager.onAbort(sessionId)
                     sseJob?.cancel()
                     sseJob = null
-                    runCatching { sessionRepository.abort(serverId, sessionId, sessionDirectory) }
+                    runCatching { sessionRepository.abort(serverId, sessionId, sessionLifecycle.sessionDirectory) }
                     sessionRepository.markSessionIdle(sessionId)
                     // NOTE: startObservingMessages deferred to after setRevert below
                 }
@@ -2128,13 +2075,13 @@ class ChatViewModel @Inject constructor(
     fun executeCommand(command: String, arguments: String = "", onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                val currentSessionId = ensureSession()
-                if (sessionDirectory.isNullOrBlank()) {
-                    loadSession()
+                val currentSessionId = sessionLifecycle.ensureSession()
+                if (sessionLifecycle.sessionDirectory.isNullOrBlank()) {
+                    sessionLifecycle.loadSession()
                 }
 
                 val normalizedCommand = command.removePrefix("/").trim()
-                val effectiveDirectory = sessionDirectory
+                val effectiveDirectory = sessionLifecycle.sessionDirectory
                     ?: chatRepository.getSessionsSnapshot()
                         .firstOrNull { it.id == currentSessionId }
                         ?.directory
@@ -2194,7 +2141,7 @@ class ChatViewModel @Inject constructor(
                     command = trimmed,
                     agent = modelConfigState.value.selectedAgent,
                     model = model,
-                    directory = sessionDirectory
+                    directory = sessionLifecycle.sessionDirectory
                 )
                 if (BuildConfig.DEBUG) Log.d(TAG, "Executed shell command in session $sessionId: $ok")
                 onResult(ok)
