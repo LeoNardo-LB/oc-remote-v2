@@ -66,6 +66,7 @@ import dev.leonardo.ocremotev2.ui.screens.settings.components.MessageCountPicker
 import dev.leonardo.ocremotev2.ui.screens.settings.components.PermissionRulesSection
 import dev.leonardo.ocremotev2.ui.screens.settings.components.ReconnectModePickerDialog
 import dev.leonardo.ocremotev2.ui.screens.settings.components.SectionHeader
+import dev.leonardo.ocremotev2.ui.screens.settings.sections.AdvancedSection
 import dev.leonardo.ocremotev2.ui.screens.settings.sections.AppearanceSection
 import dev.leonardo.ocremotev2.ui.screens.settings.sections.ChatBehaviorSection
 import dev.leonardo.ocremotev2.ui.screens.settings.sections.ChatDisplaySection
@@ -191,34 +192,10 @@ fun SettingsScreen(
             )
 
             // ======== Advanced ========
-            SectionHeader(stringResource(R.string.settings_section_advanced))
-
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_local_runtime)) },
-                supportingContent = { Text(stringResource(R.string.settings_local_runtime_desc)) },
-                leadingContent = {
-                    Icon(Icons.Default.Code, contentDescription = stringResource(R.string.a11y_settings_local_runtime))
-                },
-                trailingContent = {
-                    Switch(
-                        checked = showLocalRuntime,
-                        onCheckedChange = { viewModel.setShowLocalRuntime(it) },
-                        colors = switchColors,
-                    )
-                },
-                modifier = Modifier.clickable { viewModel.setShowLocalRuntime(!showLocalRuntime) }.padding(ListItemTokens.ContentPaddingMedium),
+            AdvancedSection(
+                viewModel = viewModel,
+                onShowLocalLaunchOptionsDialog = { showLocalLaunchOptionsDialog = true },
             )
-
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.home_local_launch_options)) },
-                supportingContent = { Text(stringResource(R.string.home_local_launch_options_desc)) },
-                leadingContent = {
-                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.a11y_settings_launch_options))
-                },
-                modifier = Modifier.clickable { showLocalLaunchOptionsDialog = true }.padding(ListItemTokens.ContentPaddingMedium),
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             // ======== Notifications ========
             SectionHeader(stringResource(R.string.settings_section_notifications))
