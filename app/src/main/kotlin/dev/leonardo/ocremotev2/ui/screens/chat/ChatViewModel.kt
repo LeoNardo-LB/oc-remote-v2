@@ -296,9 +296,7 @@ class ChatViewModel @Inject constructor(
      *  old messages (should be hidden) from new messages (should be shown). */
     // Removed: using m.id <= revertState.messageId instead (OpenCode pattern)
 
-    // ============ Refresh Tracking (coordinator-level) ============
-    /** Timestamp of last successful refresh. Used to skip unnecessary ON_RESUME refreshes. */
-    private var lastRefreshTimeMs: Long = 0L
+    // (lastRefreshTimeMs migrated to SessionActionsDelegate — Phase 3 Task 6 — G cluster.)
     // (_isLoading / _isRefreshing / _error / _isSending / _messagesList / _rawMessagesList /
     //  _partsList / sseJob) migrated to MessageDataDelegate (Phase 3 Task 5 — B cluster).
 
@@ -443,6 +441,34 @@ class ChatViewModel @Inject constructor(
     val revertedDraftEvent: SharedFlow<RevertedDraftPayload> get() = draftDelegate.revertedDraftEvent
     val draftAttachmentUris: StateFlow<List<String>> get() = draftDelegate.draftAttachmentUris
     val confirmedFilePaths: StateFlow<Set<String>> get() = draftDelegate.confirmedFilePaths
+
+    // ============ Session Actions Delegate (Phase 3 Task 6 — G cluster) ============
+    // Owns 24 stateless REST operations — no private StateFlow. Reads other delegates'
+    // state via providers and delegates to UseCases/Repositories. Cross-delegate
+    // coordinators (sendParts, revertMessage, abortSession) stay in this ViewModel.
+    private val sessionActions = SessionActionsDelegate(
+        shareExportUseCase = shareExportUseCase,
+        undoRedoUseCase = undoRedoUseCase,
+        manageSessionUseCase = manageSessionUseCase,
+        managePermissionUseCase = managePermissionUseCase,
+        manageTerminalUseCase = manageTerminalUseCase,
+        sessionRepository = sessionRepository,
+        chatRepository = chatRepository,
+        serverId = serverId,
+        scope = viewModelScope,
+        sessionIdProvider = { sessionLifecycle.sessionId },
+        sessionDirectoryProvider = { sessionLifecycle.sessionDirectory },
+        modelConfigProvider = { modelConfigState.value },
+        messageListProvider = { messageListState.value.messages },
+        ensureSession = { sessionLifecycle.ensureSession() },
+        loadSessionInfo = { sessionLifecycle.loadSession() },
+        awaitSessionLoaded = { sessionLifecycle.sessionLoaded.await() },
+        refreshMessages = { messageData.refreshMessages() },
+        fixIncompleteMessagesIfIdle = { messageData.fixIncompleteMessagesIfIdle(it) },
+        loadPendingQuestions = { messageData.loadPendingQuestions() },
+        loadPendingPermissions = { messageData.loadPendingPermissions() },
+        restoreRevertedDraft = { draftDelegate.restoreRevertedDraft(it) },
+    )
 
     // ============ Settings (exposed for ChatScreen) ============
     val chatFontSize = settingsRepository.getSettingsFlow().map { it.chatFontSize }.stateIn(
@@ -842,102 +868,25 @@ class ChatViewModel @Inject constructor(
     fun loadMessages() = messageData.loadMessages()
 
     /**
-     * Refresh session data — reloads messages and session status from REST.
+     * Refresh session data — facade over [sessionActions].
      */
-    fun refreshSession() {
-        viewModelScope.launch {
-            refreshAndSync()
-        }
-    }
+    fun refreshSession() = sessionActions.refreshSession()
 
     /**
      * Refresh session only if enough time has passed since last refresh.
-     * Called from ON_RESUME — avoids unnecessary REST calls during brief app-switches.
-     *
-     * Only syncs session status and refreshes messages via REST.
-     * Does NOT restart sseJob to avoid scroll position reset and data flickering.
+     * Facade over [sessionActions].
      */
-    fun refreshIfNeeded() {
-        val elapsed = System.currentTimeMillis() - lastRefreshTimeMs
-        if (elapsed >= REFRESH_COOLDOWN_MS) {
-            refreshSession()
-        }
-    }
+    fun refreshIfNeeded() = sessionActions.refreshIfNeeded()
 
     // refreshMessages — migrated to MessageDataDelegate (Phase 3 Task 5 — B cluster).
 
     /**
      * Query the OpenCode server for actual session statuses and correct
-     * any UI state drift caused by missed SSE events.
-     *
-     * Writes ALL session statuses from REST response (not just current session).
-     * Only marks the current session's messages as completed if it's truly idle.
-     *
-     * Triggered on:
-     * - Entering a session (LaunchedEffect(sessionId))
-     * - Resuming from background (DisposableEffect ON_RESUME)
+     * any UI state drift caused by missed SSE events. Facade over [sessionActions].
      */
-    fun syncSessionStatus() {
-        viewModelScope.launch {
-            // Wait for loadSession() to complete so sessionDirectory is populated.
-            // Without this, REST call may use null directory and return incorrect status.
-            if (sessionId.isNotBlank()) {
-                sessionLifecycle.sessionLoaded.await()
-            }
-            val result = sessionRepository.fetchSessionStatuses(serverId, directory = sessionLifecycle.sessionDirectory)
-            result.onSuccess { statusMap ->
-                // Batch-update ALL session statuses (one REST call, all sessions)
-                sessionRepository.syncAllSessionStatuses(statusMap)
+    fun syncSessionStatus() = sessionActions.syncSessionStatus()
 
-                // Only mark current session as idle if REST explicitly confirmed it's idle.
-                // null means the server didn't report this session (possibly wrong directory),
-                // which must NOT be treated as "confirmed idle" — doing so would incorrectly
-                // overwrite a legitimate Busy status from SSE and break ongoing tasks.
-                val currentStatus = statusMap[sessionId]
-                if (currentStatus is SessionStatus.Idle) {
-                    sessionRepository.markSessionIdleProtected(sessionId)
-                    // If server says idle but local messages are incomplete (server restart),
-                    // fix the messages so the UI shows the correct state.
-                    messageData.fixIncompleteMessagesIfIdle(sessionId)
-                }
-            }
-        }
-    }
-
-    /**
-     * Combined refresh + sync — runs in a single coroutine to avoid
-     * state conflicts between parallel REST responses.
-     */
-    private suspend fun refreshAndSync() {
-        // 1. Load session info first (needed for sessionDirectory)
-        sessionLifecycle.loadSession()
-
-        // 2. Refresh messages (uses _isRefreshing, not _isLoading)
-        messageData.refreshMessages()
-
-        // 3. Sync session statuses AFTER messages are loaded
-        //    so we have the latest data when checking idle state
-        if (sessionId.isNotBlank()) {
-            sessionLifecycle.sessionLoaded.await()
-        }
-        val result = sessionRepository.fetchSessionStatuses(serverId, directory = sessionLifecycle.sessionDirectory)
-        result.onSuccess { statusMap ->
-            sessionRepository.syncAllSessionStatuses(statusMap)
-            val currentStatus = statusMap[sessionId]
-            if (currentStatus is SessionStatus.Idle) {
-                sessionRepository.markSessionIdleProtected(sessionId)
-                messageData.fixIncompleteMessagesIfIdle(sessionId)
-            }
-        }
-
-        // 4. Load pending items
-        messageData.loadPendingQuestions()
-        messageData.loadPendingPermissions()
-
-        lastRefreshTimeMs = System.currentTimeMillis()
-    }
-
-    // fixIncompleteMessagesIfIdle — migrated to MessageDataDelegate (Phase 3 Task 5 — B cluster).
+    // refreshAndSync — migrated to SessionActionsDelegate (Phase 3 Task 6 — G cluster).
 
     /** Load older messages — facade over [messageData]. */
     fun loadOlderMessages() = messageData.loadOlderMessages()
@@ -1065,72 +1014,29 @@ class ChatViewModel @Inject constructor(
     }
 
     /**
-     * Reply to a permission request.
+     * Reply to a permission request. Facade over [sessionActions].
      * @param requestId The permission request ID
      * @param reply One of: "once", "always", "reject"
      */
-    fun replyToPermission(requestId: String, reply: String) {
-        viewModelScope.launch {
-            val logMsg = "[Permission] replyToPermission: id=$requestId reply=$reply dir=${sessionLifecycle.sessionDirectory}"
-            Log.i(TAG, logMsg)
-            appendDiagnosticLog(logMsg)
-            try {
-                val success = managePermissionUseCase.replyToPermission(
-                    serverId = serverId,
-                    requestId = requestId,
-                    reply = reply,
-                    directory = sessionLifecycle.sessionDirectory
-                )
-                val resultMsg = "[Permission] replyToPermission result: id=$requestId success=$success"
-                Log.i(TAG, resultMsg)
-                appendDiagnosticLog(resultMsg)
-                if (success) {
-                    // Optimistically remove the permission card — SSE event may arrive late or not at all
-                    chatRepository.removePermission(requestId)
-                } else {
-                    // API returned non-2xx (e.g. already replied by another client) — remove card anyway
-                    // to prevent permanently stuck permission cards
-                    val warnMsg = "[Permission] API returned failure for $requestId, removing card as fallback (likely already replied)"
-                    Log.w(TAG, warnMsg)
-                    appendDiagnosticLog(warnMsg)
-                    chatRepository.removePermission(requestId)
-                }
-            } catch (e: Exception) {
-                val errMsg = "[Permission] Exception replying to $requestId: ${e.javaClass.simpleName}: ${e.message}"
-                Log.e(TAG, errMsg, e)
-                appendDiagnosticLog(errMsg)
-                // Network/timeout error — remove card to prevent stuck state;
-                // if the reply didn't reach the server, the server will re-emit the permission event
-                chatRepository.removePermission(requestId)
-            }
-        }
-    }
+    fun replyToPermission(requestId: String, reply: String) =
+        sessionActions.replyToPermission(requestId, reply)
 
-    fun savePermissionRule(event: dev.leonardo.ocremotev2.domain.model.SseEvent.PermissionAsked, directory: String) {
-        viewModelScope.launch {
-            val rule = dev.leonardo.ocremotev2.domain.model.AutoApproveRule(
-                toolName = event.permission,
-                sessionId = null,
-                directoryPattern = directory
-            )
-            chatRepository.addPermissionAutoApproveRule(rule)
-        }
-    }
+    /** Save a permission auto-approve rule. Facade over [sessionActions]. */
+    fun savePermissionRule(event: dev.leonardo.ocremotev2.domain.model.SseEvent.PermissionAsked, directory: String) =
+        sessionActions.savePermissionRule(event, directory)
 
+    /**
+     * Abort the current session — coordinator.
+     * Delegates REST abort + markIdle to [sessionActions], then handles
+     * SSE job cancel/restart (B↔C↔G orchestration).
+     */
     fun abortSession() {
         sessionStatusManager.onAbort(sessionId)
         viewModelScope.launch {
             try {
                 messageData.cancelSseJob()
-                sessionRepository.abort(serverId, sessionId, sessionLifecycle.sessionDirectory)
+                sessionActions.abortSession()
                 if (BuildConfig.DEBUG) Log.d(TAG, "Aborted session $sessionId")
-                // Force-complete messages AND set Idle — abort is a terminal action.
-                // Must use markSessionIdle (not Protected) because:
-                // 1. SSE stream is cancelled above, server's idle event won't reach us
-                // 2. markSessionIdleProtected is blocked by SSE freshness window (5s)
-                // 3. markSessionIdleProtected doesn't complete messages, so premature-idle
-                //    protection would block any future idle events
-                sessionRepository.markSessionIdle(sessionId)
                 // P5-2: restart sseJob to avoid _rawMessagesList freeze.
                 runCatching { messageData.startObservingMessages() }
             } catch (e: Exception) {
@@ -1140,203 +1046,46 @@ class ChatViewModel @Inject constructor(
     }
 
     /**
-     * Reply to a question request.
+     * Reply to a question request. Facade over [sessionActions].
      * @param requestId The question request ID
      * @param answers Answers for each question (list of selected labels per question)
      */
-    fun replyToQuestion(requestId: String, answers: List<List<String>>) {
-        viewModelScope.launch {
-            val logMsg = "[Question] replyToQuestion: id=$requestId answers=$answers dir=${sessionLifecycle.sessionDirectory}"
-            Log.i(TAG, logMsg)
-            appendDiagnosticLog(logMsg)
-            try {
-                val success = managePermissionUseCase.replyToQuestion(
-                    serverId = serverId,
-                    requestId = requestId,
-                    answers = answers,
-                    directory = sessionLifecycle.sessionDirectory
-                )
-                val resultMsg = "[Question] replyToQuestion result: id=$requestId success=$success"
-                Log.i(TAG, resultMsg)
-                appendDiagnosticLog(resultMsg)
-                // Always remove the question card regardless of API result.
-                chatRepository.removeQuestion(requestId)
-            } catch (e: Exception) {
-                val errMsg = "[Question] Exception replying to $requestId: ${e.javaClass.simpleName}: ${e.message}"
-                Log.e(TAG, errMsg, e)
-                appendDiagnosticLog(errMsg)
-                // Network/timeout — remove card; server will re-emit if still pending
-                chatRepository.removeQuestion(requestId)
-            }
-        }
-    }
+    fun replyToQuestion(requestId: String, answers: List<List<String>>) =
+        sessionActions.replyToQuestion(requestId, answers)
 
     /**
-     * Reject a question request.
+     * Reject a question request. Facade over [sessionActions].
      */
-    fun rejectQuestion(requestId: String) {
-        viewModelScope.launch {
-            val logMsg = "[Question] rejectQuestion: id=$requestId dir=${sessionLifecycle.sessionDirectory}"
-            Log.i(TAG, logMsg)
-            appendDiagnosticLog(logMsg)
-            try {
-                val success = managePermissionUseCase.rejectQuestion(serverId = serverId, requestId = requestId, directory = sessionLifecycle.sessionDirectory)
-                val resultMsg = "[Question] rejectQuestion result: id=$requestId success=$success"
-                Log.i(TAG, resultMsg)
-                appendDiagnosticLog(resultMsg)
-                // Always remove the question card regardless of API result.
-                // If already answered by another client, server returns non-2xx — card should still close.
-                chatRepository.removeQuestion(requestId)
-            } catch (e: Exception) {
-                val errMsg = "[Question] Exception rejecting $requestId: ${e.javaClass.simpleName}: ${e.message}"
-                Log.e(TAG, errMsg, e)
-                appendDiagnosticLog(errMsg)
-                // Network/timeout — remove card; server will re-emit if still pending
-                chatRepository.removeQuestion(requestId)
-            }
-        }
-    }
+    fun rejectQuestion(requestId: String) =
+        sessionActions.rejectQuestion(requestId)
 
-    // ============ Slash Command Actions ============
+    // ============ Slash Command Actions (delegated — Phase 3 Task 6) ============
 
-    /** Share the current session. Returns the share URL or null on failure. */
-    fun shareSession(onResult: (String?) -> Unit) {
-        viewModelScope.launch {
-            try {
-                val session = shareExportUseCase.shareSession(serverId, sessionId)
-                val url = session.share?.url
-                if (BuildConfig.DEBUG) Log.d(TAG, "Shared session $sessionId: $url")
-                onResult(url)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to share session", e)
-                onResult(null)
-            }
-        }
-    }
+    /** Share the current session. Facade over [sessionActions]. */
+    fun shareSession(onResult: (String?) -> Unit) =
+        sessionActions.shareSession(onResult)
 
-    fun unshareSession(onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            try {
-                shareExportUseCase.unshareSession(serverId, sessionId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Unshared session $sessionId")
-                onResult(true)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to unshare session", e)
-                onResult(false)
-            }
-        }
-    }
+    /** Unshare the current session. Facade over [sessionActions]. */
+    fun unshareSession(onResult: (Boolean) -> Unit) =
+        sessionActions.unshareSession(onResult)
 
-    /** Compact (summarize) the current session. */
-    fun compactSession(onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            try {
-                val config = modelConfigState.value
-                val providerId = config.selectedProviderId
-                val modelId = config.selectedModelId
-                if (providerId == null || modelId == null) {
-                    Log.e(TAG, "Cannot compact: no model selected")
-                    onResult(false)
-                    return@launch
-                }
-                shareExportUseCase.compactSession(serverId, sessionId, providerId, modelId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Compacted session $sessionId")
-                onResult(true)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to compact session", e)
-                onResult(false)
-            }
-        }
-    }
+    /** Compact (summarize) the current session. Facade over [sessionActions]. */
+    fun compactSession(onResult: (Boolean) -> Unit) =
+        sessionActions.compactSession(onResult)
 
     /**
-     * Export the session as JSON directly to a file URI.
-     * Streams API responses directly to the output stream to avoid OOM
-     * on large sessions (messages can be 80+ MB).
-     * Shows a notification with download progress.
+     * Export the session as JSON to a file URI. Facade over [sessionActions].
      */
-    fun exportSession(context: android.content.Context, uri: android.net.Uri, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            val channelId = "opencode_export"
-            val notificationId = 9999
+    fun exportSession(context: android.content.Context, uri: android.net.Uri, onResult: (Boolean) -> Unit) =
+        sessionActions.exportSession(context, uri, onResult)
 
-            // Create notification channel
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                val channel = android.app.NotificationChannel(
-                    channelId,
-                    context.getString(R.string.menu_export_session),
-                    android.app.NotificationManager.IMPORTANCE_LOW
-                ).apply {
-                    description = context.getString(R.string.notification_export_progress)
-                    setShowBadge(false)
-                }
-                notificationManager.createNotificationChannel(channel)
-            }
+    /** Undo the last user message in the session, restoring its text to the input field. Facade over [sessionActions]. */
+    fun undoMessage(onResult: (Boolean) -> Unit) =
+        sessionActions.undoMessage(onResult)
 
-            val builder = androidx.core.app.NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(android.R.drawable.stat_sys_download)
-                .setContentTitle(context.getString(R.string.menu_export_session))
-                .setOngoing(true)
-                .setOnlyAlertOnce(true)
-                .setProgress(0, 0, true)
-
-            try {
-                Log.d(TAG, "exportSession: streaming to $uri")
-                notificationManager.notify(notificationId, builder.build())
-
-                var lastNotifyTime = 0L
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    shareExportUseCase.exportSessionToStream(serverId, sessionId, outputStream) { bytesWritten ->
-                        val now = System.currentTimeMillis()
-                        if (now - lastNotifyTime > 500) { // throttle to 2 updates/sec
-                            lastNotifyTime = now
-                            val mb = String.format("%.1f MB", bytesWritten / 1_000_000.0)
-                            builder.setContentText(mb)
-                            notificationManager.notify(notificationId, builder.build())
-                        }
-                    }
-                }
-
-                Log.d(TAG, "exportSession: done")
-                notificationManager.cancel(notificationId)
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    onResult(true)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to export session", e)
-                notificationManager.cancel(notificationId)
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    onResult(false)
-                }
-            }
-        }
-    }
-
-    /** Undo the last user message in the session, restoring its text to the input field. */
-    fun undoMessage(onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            try {
-                // Find the last user message (before any existing revert point)
-                val messages = messageListState.value.messages
-                val lastUser = messages.firstOrNull { it.isUser }
-                if (lastUser == null) {
-                    onResult(false)
-                    return@launch
-                }
-                undoRedoUseCase.revertSession(serverId, sessionId, lastUser.message.id)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Reverted session $sessionId to message ${lastUser.message.id}")
-                // Restore the user message text to the input field
-                restoreRevertedDraft(extractRevertedDraft(lastUser))
-                onResult(true)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to revert session", e)
-                onResult(false)
-            }
-        }
-    }
-
-    /** Revert to a specific user message by ID, optionally restoring its text to the input field. */
+    /** Revert to a specific user message by ID, optionally restoring its text to the input field.
+     *  Coordinator (B↔D↔G orchestration): halts busy session, reverts via undoRedoUseCase,
+     *  reconnects SSE, restores draft. */
     fun revertMessage(messageId: String, revertedText: String? = null, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
@@ -1368,7 +1117,9 @@ class ChatViewModel @Inject constructor(
                 val targetMessage = messageListState.value.messages
                     .firstOrNull { it.message.id == messageId && it.isUser }
                 val fallbackPayload = RevertedDraftPayload(text = revertedText.orEmpty())
-                restoreRevertedDraft(targetMessage?.let { extractRevertedDraft(it) } ?: fallbackPayload)
+                draftDelegate.restoreRevertedDraft(
+                    targetMessage?.let { sessionActions.extractRevertedDraft(it) } ?: fallbackPayload
+                )
                 onResult(true)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to revert to message $messageId", e)
@@ -1377,195 +1128,42 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun extractRevertedDraft(message: ChatMessage): RevertedDraftPayload {
-        val revertedText = message.parts
-            .filterIsInstance<Part.Text>()
-            .joinToString("\n") { it.text }
+    // extractRevertedDraft — migrated to SessionActionsDelegate (Phase 3 Task 6 — G cluster).
+    // restoreRevertedDraft — inlined to draftDelegate.restoreRevertedDraft() (Phase 3 Task 6).
 
-        val imageUris = message.parts
-            .filterIsInstance<Part.File>()
-            .mapNotNull { part ->
-                val mime = part.mime.lowercase()
-                if (mime.startsWith("image/") && !part.url.isNullOrBlank()) part.url else null
-            }
+    /** Redo the last undone message. Facade over [sessionActions]. */
+    fun redoMessage(onResult: (Boolean) -> Unit) =
+        sessionActions.redoMessage(onResult)
 
-        return RevertedDraftPayload(
-            text = revertedText,
-            attachmentUris = imageUris,
-        )
-    }
+    /** Delete a message from the current session. Facade over [sessionActions]. */
+    fun deleteMessage(messageId: String, onResult: (Boolean) -> Unit) =
+        sessionActions.deleteMessage(messageId, onResult)
 
-    private fun restoreRevertedDraft(payload: RevertedDraftPayload) {
-        draftDelegate.restoreRevertedDraft(payload)
-    }
-
-    /** Redo the last undone message. */
-    fun redoMessage(onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            try {
-                undoRedoUseCase.unrevertSession(serverId, sessionId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Unreverted session $sessionId")
-                onResult(true)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to unrevert session", e)
-                onResult(false)
-            }
-        }
-    }
-
-    /** Delete a message from the current session. */
-    fun deleteMessage(messageId: String, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            try {
-                val success = manageSessionUseCase.deleteMessage(serverId, sessionId, messageId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Deleted message $messageId: success=$success")
-                onResult(success)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to delete message $messageId", e)
-                onResult(false)
-            }
-        }
-    }
-
-    /** Delete a specific part from a message by index. */
-    fun deleteMessagePart(messageId: String, partIndex: Int, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            try {
-                val success = manageSessionUseCase.deleteMessagePart(serverId, sessionId, messageId, partIndex)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Deleted part $partIndex from message $messageId: success=$success")
-                onResult(success)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to delete part $partIndex from message $messageId", e)
-                onResult(false)
-            }
-        }
-    }
+    /** Delete a specific part from a message by index. Facade over [sessionActions]. */
+    fun deleteMessagePart(messageId: String, partIndex: Int, onResult: (Boolean) -> Unit) =
+        sessionActions.deleteMessagePart(messageId, partIndex, onResult)
 
     /**
-     * Called when a SessionUpdated SSE event is received.
-     * Refreshes the message list to pick up revert/unrevert changes.
+     * Called when a SessionUpdated SSE event is received. Facade over [sessionActions].
      */
-    fun onSessionUpdated(session: Session) {
-        if (session.id != sessionId) return
-        viewModelScope.launch {
-            try {
-                val messages = manageSessionUseCase.listMessages(serverId, sessionId, 100)
-                chatRepository.replaceMessages(sessionId, messages)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Refreshed messages after session update")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to refresh messages after session update", e)
-            }
-        }
-    }
+    fun onSessionUpdated(session: Session) =
+        sessionActions.onSessionUpdated(session)
 
-    /** Fork the current session. Returns the new session or null. */
-    fun forkSession(onResult: (Session?) -> Unit) {
-        viewModelScope.launch {
-            try {
-                val session = manageSessionUseCase.forkSession(serverId, sessionId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Forked session $sessionId -> ${session.id}")
-                onResult(session)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to fork session", e)
-                onResult(null)
-            }
-        }
-    }
+    /** Fork the current session. Facade over [sessionActions]. */
+    fun forkSession(onResult: (Session?) -> Unit) =
+        sessionActions.forkSession(onResult)
 
-    /** Rename the current session. */
-    fun renameSession(title: String, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            try {
-                manageSessionUseCase.renameSession(serverId, sessionId, title)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Renamed session $sessionId to $title")
-                onResult(true)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to rename session", e)
-                onResult(false)
-            }
-        }
-    }
+    /** Rename the current session. Facade over [sessionActions]. */
+    fun renameSession(title: String, onResult: (Boolean) -> Unit) =
+        sessionActions.renameSession(title, onResult)
 
-    /** Execute a server-side command (e.g. /init, /review, MCP commands). */
-    fun executeCommand(command: String, arguments: String = "", onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            try {
-                val currentSessionId = sessionLifecycle.ensureSession()
-                if (sessionLifecycle.sessionDirectory.isNullOrBlank()) {
-                    sessionLifecycle.loadSession()
-                }
+    /** Execute a server-side command. Facade over [sessionActions]. */
+    fun executeCommand(command: String, arguments: String = "", onResult: (Boolean) -> Unit) =
+        sessionActions.executeCommand(command, arguments, onResult)
 
-                val normalizedCommand = command.removePrefix("/").trim()
-                val effectiveDirectory = sessionLifecycle.sessionDirectory
-                    ?: chatRepository.getSessionsSnapshot()
-                        .firstOrNull { it.id == currentSessionId }
-                        ?.directory
-                        ?.takeIf { it.isNotBlank() }
-                // /init: when arguments are omitted, rely on x-opencode-directory only.
-                // Passing an explicit path (absolute or ".") can lead to duplicated or
-                // malformed path text in the generated init prompt.
-                val effectiveArguments = if (
-                    normalizedCommand.equals("init", ignoreCase = true) && arguments.isBlank()
-                ) {
-                    ""
-                } else {
-                    arguments
-                }
-
-                val ok = manageTerminalUseCase.executeCommand(
-                    serverId = serverId,
-                    sessionId = currentSessionId,
-                    command = normalizedCommand,
-                    arguments = effectiveArguments,
-                    directory = effectiveDirectory,
-                )
-                if (BuildConfig.DEBUG) {
-                    Log.d(
-                        TAG,
-                        "Executed command /$normalizedCommand in session $currentSessionId: $ok (directory=$effectiveDirectory, arguments=$effectiveArguments)"
-                    )
-                }
-                onResult(ok)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to execute command /$command", e)
-                onResult(false)
-            }
-        }
-    }
-
-    /** Execute shell command in current session. */
-    fun runShellCommand(command: String, onResult: (Boolean) -> Unit) {
-        val trimmed = command.trim()
-        if (trimmed.isBlank()) {
-            onResult(false)
-            return
-        }
-        viewModelScope.launch {
-            try {
-                // P5-5: read from modelConfigState for consistency with sendParts.
-                val modelCfg = modelConfigState.value
-                val model = if (modelCfg.selectedProviderId != null && modelCfg.selectedModelId != null) {
-                    ModelSelection(
-                        providerId = modelCfg.selectedProviderId,
-                        modelId = modelCfg.selectedModelId
-                    )
-                } else null
-                val ok = manageTerminalUseCase.runShellCommand(
-                    serverId = serverId,
-                    sessionId = sessionId,
-                    command = trimmed,
-                    agent = modelConfigState.value.selectedAgent,
-                    model = model,
-                    directory = sessionLifecycle.sessionDirectory
-                )
-                if (BuildConfig.DEBUG) Log.d(TAG, "Executed shell command in session $sessionId: $ok")
-                onResult(ok)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to execute shell command", e)
-                onResult(false)
-            }
-        }
-    }
+    /** Execute shell command in current session. Facade over [sessionActions]. */
+    fun runShellCommand(command: String, onResult: (Boolean) -> Unit) =
+        sessionActions.runShellCommand(command, onResult)
 
     fun openTerminalSession(onResult: (Boolean) -> Unit = {}) =
         terminalDelegate.openTerminalSession(onResult)
@@ -1600,15 +1198,8 @@ class ChatViewModel @Inject constructor(
         serverId = serverId
     )
 
-    /** Get the last assistant message text for copying. */
-    fun getLastAssistantText(): String? {
-        val msgs = messageListState.value.messages
-        val last = msgs.firstOrNull { it.isAssistant } ?: return null
-        return last.parts
-            .filterIsInstance<Part.Text>()
-            .joinToString("") { it.text }
-            .ifBlank { null }
-    }
+    /** Get the last assistant message text for copying. Facade over [sessionActions]. */
+    fun getLastAssistantText(): String? = sessionActions.getLastAssistantText()
 
     /** Append a diagnostic log line for permission/question debugging. */
     private fun appendDiagnosticLog(message: String) {
@@ -1616,9 +1207,7 @@ class ChatViewModel @Inject constructor(
         Log.i(TAG, message)
     }
 
-    companion object {
-        const val REFRESH_COOLDOWN_MS = 5_000L  // Skip refresh if last one was < 5s ago
-    }
+    companion object
 }
 
 /** Holds server connection info for navigation purposes. */
