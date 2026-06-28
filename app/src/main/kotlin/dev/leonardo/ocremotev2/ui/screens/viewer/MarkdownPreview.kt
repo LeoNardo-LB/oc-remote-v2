@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -24,15 +25,14 @@ import dev.leonardo.ocremotev2.ui.theme.CodeTypography
 import dev.leonardo.ocremotev2.ui.theme.SpacingTokens
 
 /**
- * Read-only Markdown preview for the FileViewer (spec §7.3).
+ * Markdown preview for the FileViewer (spec §7.3).
  *
  * Distinct from chat module's `internal MarkdownContent`:
  * - No user/agent message styling, no AMOLED switching
- * - Single theme: surfaceContainer background, onSurface text
+ * - Single theme: surface background, onSurface text
  *
  * Uses mikepenz multiplatform-markdown-renderer-m3 (project dependency).
- * Rendered as multiple independent Text composables — selection across
- * components is not supported (spec §2.2). Hence read-only preview.
+ * Wrapped in SelectionContainer to support long-press text selection.
  *
  * @param scrollState injectable for fraction-anchor scroll (Task 7).
  */
@@ -79,16 +79,18 @@ fun MarkdownPreview(
     val components = markdownComponents()
     val markdownState = rememberMarkdownState(content = markdown)
 
-    Markdown(
-        markdownState = markdownState,
-        colors = colors,
-        typography = typography,
-        components = components,
-        dimens = dimens,
-        modifier = modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .verticalScroll(scrollState)
-            .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.MD.dp)
-    )
+    SelectionContainer {
+        Markdown(
+            markdownState = markdownState,
+            colors = colors,
+            typography = typography,
+            components = components,
+            dimens = dimens,
+            modifier = modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .verticalScroll(scrollState)
+                .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.MD.dp)
+        )
+    }
 }
