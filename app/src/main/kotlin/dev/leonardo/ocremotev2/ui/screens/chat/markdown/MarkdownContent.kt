@@ -11,14 +11,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.LinkInteractionListener
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.mikepenz.markdown.annotator.annotatorSettings
 import com.mikepenz.markdown.coil3.Coil3ImageTransformerImpl
 import com.mikepenz.markdown.compose.components.markdownComponents
+import com.mikepenz.markdown.compose.elements.MarkdownText
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
@@ -226,8 +231,28 @@ internal fun MarkdownContent(
         ),
     )
 
-    val components = remember(density, isUser) {
+    // Explicit link handler — captures LocalUriHandler at THIS scope, ensuring
+    // the custom UriHandler (provided by ChatScreen) is used for link clicks
+    // even inside SelectionContainer.
+    val uriHandler = LocalUriHandler.current
+    val linkListener = remember(uriHandler) {
+        LinkInteractionListener { link ->
+            val url = (link as? LinkAnnotation.Url)?.url
+            if (url != null) uriHandler.openUri(url)
+        }
+    }
+    val linkSettings = annotatorSettings(linkInteractionListener = linkListener)
+
+    val components = remember(density, isUser, linkSettings) {
         markdownComponents(
+            paragraph = { model ->
+                MarkdownText(
+                    content = model.content,
+                    node = model.node,
+                    style = model.typography.text,
+                    annotatorSettings = linkSettings,
+                )
+            },
             heading1 = { model ->
                 // getUnescapedTextInNode returns the raw "# Title" range; strip the
                 // leading marker(s) so only the heading copy is rendered.
