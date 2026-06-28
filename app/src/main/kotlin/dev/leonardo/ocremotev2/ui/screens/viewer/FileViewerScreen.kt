@@ -1,7 +1,5 @@
 ﻿package dev.leonardo.ocremotev2.ui.screens.viewer
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.combinedClickable
@@ -154,53 +152,24 @@ fun FileViewerScreen(
                 )
                 uiState.isEmpty -> MessageState(message = stringResource(R.string.viewer_empty_file))
                 // Source vs render preview with smooth crossfade transition
+                // Source vs render preview — WebView reuse for non-Markdown formats
                 else -> {
-                    val isRenderPreview = uiState.fileType.supportsRender &&
-                        uiState.renderMode == FileViewerRenderMode.RENDER_PREVIEW
-                    Crossfade(
-                        targetState = isRenderPreview,
-                        animationSpec = tween(durationMillis = 200),
-                        label = "render-toggle"
-                    ) { render ->
-                        if (render) {
-                            when (uiState.fileType) {
-                                FileType.MARKDOWN -> MarkdownPreviewWithScrollAnchor(
-                                    markdown = uiState.content,
-                                    sourceScrollFraction = lastSourceFraction
-                                )
-                                FileType.IMAGE -> ImageViewer(
-                                    base64Data = uiState.content,
-                                    mimeType = uiState.mimeType ?: "image/*"
-                                )
-                                FileType.SVG, FileType.CSV -> FormatWebView(
-                                    content = uiState.content,
-                                    fileType = uiState.fileType
-                                )
-                                else -> CodeWebView(
-                                    content = uiState.content,
-                                    filePath = uiState.filePath,
-                                    onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        } else {
-                            if (uiState.isExtremelyLarge) {
-                                Column(Modifier.fillMaxSize()) {
-                                    LargeFileWarningBanner(lineCount = uiState.totalLineCount)
-                                    CodeWebView(
-                                        content = uiState.content,
-                                        filePath = uiState.filePath,
-                                        onAnnotate = { text, start, end -> pendingAnnotation = Triple(text, start, end) },
-                                        annotationsJson = annotationsJson,
-                                        onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
-                                        onAnnotationClick = { idStr ->
-                                            val idx = idStr.toIntOrNull()
-                                            DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
-                                            detailAnnotation = uiState.annotations.find { it.index == idx }
-                                        },
-                                    )
-                                }
-                            } else {
+                    when {
+                        uiState.fileType == FileType.MARKDOWN &&
+                            uiState.renderMode == FileViewerRenderMode.RENDER_PREVIEW -> MarkdownPreviewWithScrollAnchor(
+                            markdown = uiState.content,
+                            sourceScrollFraction = lastSourceFraction
+                        )
+                        uiState.fileType in listOf(FileType.IMAGE, FileType.SVG, FileType.CSV) &&
+                            uiState.renderMode == FileViewerRenderMode.RENDER_PREVIEW -> RenderWebView(
+                            content = uiState.content,
+                            fileType = uiState.fileType,
+                            mimeType = uiState.mimeType ?: "image/*"
+                        )
+                        // Source mode (CodeWebView) or fallback
+                        else -> if (uiState.isExtremelyLarge) {
+                            Column(Modifier.fillMaxSize()) {
+                                LargeFileWarningBanner(lineCount = uiState.totalLineCount)
                                 CodeWebView(
                                     content = uiState.content,
                                     filePath = uiState.filePath,
@@ -212,11 +181,22 @@ fun FileViewerScreen(
                                         DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
                                         detailAnnotation = uiState.annotations.find { it.index == idx }
                                     },
-                                    initialScrollLine = uiState.initialScrollLine,
-                                    modifier = Modifier.fillMaxSize()
                                 )
                             }
-                        }
+                        } else CodeWebView(
+                            content = uiState.content,
+                            filePath = uiState.filePath,
+                            onAnnotate = { text, start, end -> pendingAnnotation = Triple(text, start, end) },
+                            annotationsJson = annotationsJson,
+                            onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
+                            onAnnotationClick = { idStr ->
+                                val idx = idStr.toIntOrNull()
+                                DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
+                                detailAnnotation = uiState.annotations.find { it.index == idx }
+                            },
+                            initialScrollLine = uiState.initialScrollLine,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
             }
