@@ -19,12 +19,18 @@ object LinkClassifier {
     private val windowsAbsoluteRegex = Regex("[A-Za-z]:[\\\\/].*")
 
     fun classify(url: String): LinkTarget = when {
-        url.startsWith("http://") ||
-        url.startsWith("https://") ||
-        url.startsWith("ftp://") ||
-        url.startsWith("mailto:") -> LinkTarget.Web(url)
+        url.startsWith("http://", ignoreCase = true) ||
+        url.startsWith("https://", ignoreCase = true) ||
+        url.startsWith("ftp://", ignoreCase = true) ||
+        url.startsWith("mailto:", ignoreCase = true) -> LinkTarget.Web(url)
 
         url.startsWith("/") -> LinkTarget.AbsolutePath(url)
+
+        url.startsWith("file://", ignoreCase = true) -> {
+            // file:///home/user/foo → AbsolutePath("/home/user/foo")
+            val afterScheme = url.substringAfter("file://")
+            LinkTarget.AbsolutePath(afterScheme)
+        }
 
         windowsAbsoluteRegex.matches(url) -> LinkTarget.AbsolutePath(url)
 

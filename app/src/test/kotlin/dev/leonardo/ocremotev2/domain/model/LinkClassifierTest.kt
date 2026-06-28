@@ -65,4 +65,21 @@ class LinkClassifierTest {
     fun `bare filename classified as RelativePath`() {
         assertTrue(classify("README.md") is LinkTarget.RelativePath)
     }
+
+    @Test
+    fun `file URI classified as AbsolutePath`() {
+        val result = classify("file:///home/user/project/src/Foo.kt")
+        assertTrue(result is LinkTarget.AbsolutePath)
+        assertEquals("/home/user/project/src/Foo.kt", (result as LinkTarget.AbsolutePath).path)
+    }
+
+    @Test
+    fun `uppercase HTTP scheme classified as Web`() {
+        assertTrue(classify("HTTP://example.com") is LinkTarget.Web)
+    }
+
+    @Test
+    fun `mixed case HTTPS scheme classified as Web`() {
+        assertTrue(classify("Https://github.com/repo") is LinkTarget.Web)
+    }
 }

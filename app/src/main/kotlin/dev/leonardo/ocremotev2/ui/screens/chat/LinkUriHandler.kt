@@ -112,6 +112,10 @@ private fun handleLinkClick(
 /**
  * Heuristic: a path is likely a directory if it ends with a separator
  * or its last segment has no dot (no file extension).
+ *
+ * Known limitation: extensionless files (Makefile, Dockerfile, LICENSE)
+ * are misclassified as directories. This is acceptable for v1 — the user
+ * approved the heuristic approach over API pre-checks.
  */
 private fun isLikelyDirectory(path: String): Boolean {
     if (path.endsWith("/") || path.endsWith("\\")) return true
