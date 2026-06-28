@@ -522,6 +522,19 @@ fun NavGraph(
                         )
                     }
                 },
+                onOpenDirectory = { directoryPath ->
+                    navController.navigate(
+                        WorkspaceNav.createRoute(
+                            serverUrl = params.server.serverUrl,
+                            username = params.server.username,
+                            password = params.server.password,
+                            serverName = params.server.serverName,
+                            serverId = params.server.serverId,
+                            sessionId = params.sessionId,
+                            directory = directoryPath
+                        )
+                    ) { launchSingleTop = true }
+                },
                 initialSharedImages = imagesForThisSession,
                 onSharedImagesConsumed = {
                     pendingShareUris = emptyList()
