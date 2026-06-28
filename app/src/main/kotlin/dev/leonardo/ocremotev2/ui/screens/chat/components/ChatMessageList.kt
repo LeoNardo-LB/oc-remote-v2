@@ -298,7 +298,7 @@ fun ChatMessageList(
                         key = { _, item -> item.second.message.id },
                         contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
                     ) { _, (rawIndex, msg) ->
-                        val isStreamingMsg = msg.message.id == streamingMsgId
+                        val isStreamingMsg = (turnGroups[rawIndex] ?: listOf(msg)).any { it.message.id == streamingMsgId }
                         val itemModifier = if (isStreamingMsg) {
                             Modifier
                                 .fillMaxWidth()

@@ -1,8 +1,10 @@
 ﻿package dev.leonardo.ocremotev2.ui.screens.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -168,8 +170,8 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                 // Expandable content
                 AnimatedVisibility(
                     visible = expanded,
-                    enter = fadeIn(),
-                    exit = fadeOut()
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
                 ) {
                     Column {
                         Spacer(modifier = Modifier.height(6.dp))
