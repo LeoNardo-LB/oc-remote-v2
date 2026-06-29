@@ -1,5 +1,8 @@
 ﻿package dev.leonardo.ocremotev2.ui.screens.chat.markdown
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -8,11 +11,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.LinkInteractionListener
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
@@ -21,9 +29,10 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mikepenz.markdown.annotator.annotatorSettings
+import com.mikepenz.markdown.annotator.buildMarkdownAnnotatedString
 import com.mikepenz.markdown.coil3.Coil3ImageTransformerImpl
 import com.mikepenz.markdown.compose.components.markdownComponents
-import com.mikepenz.markdown.compose.elements.MarkdownText
+import com.mikepenz.markdown.compose.elements.material.MarkdownBasicText
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
@@ -31,6 +40,8 @@ import com.mikepenz.markdown.model.markdownAnimations
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
+import org.intellij.markdown.MarkdownElementTypes
+import org.intellij.markdown.ast.findChildOfType
 import dev.leonardo.ocremotev2.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocremotev2.ui.theme.AlphaTokens
 import dev.leonardo.ocremotev2.ui.theme.ChatDensity
@@ -245,11 +256,41 @@ internal fun MarkdownContent(
     val components = remember(density, isUser, linkListener) {
         markdownComponents(
             paragraph = { model ->
-                MarkdownText(
-                    content = model.content,
-                    node = model.node,
+                val settings = annotatorSettings(linkInteractionListener = linkListener)
+                val annotated = model.content.buildMarkdownAnnotatedString(
+                    textNode = model.node,
                     style = model.typography.text,
-                    annotatorSettings = annotatorSettings(linkInteractionListener = linkListener),
+                    annotatorSettings = settings,
+                )
+                val links = remember(model.content, model.node) {
+                    extractMarkdownLinks(model.content, model.node)
+                }
+                var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+                MarkdownBasicText(
+                    text = annotated,
+                    style = model.typography.text,
+                    onTextLayout = { layoutResult = it },
+                    modifier = Modifier
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { }
+                        .pointerInput(annotated) {
+                            detectTapGestures { pos ->
+                                val layout = layoutResult ?: return@detectTapGestures
+                                val offset = layout.getOffsetForPosition(pos)
+                                val text = annotated.text
+                                var searchFrom = 0
+                                for (link in links) {
+                                    val idx = text.indexOf(link.text, searchFrom)
+                                    if (idx >= 0 && offset >= idx && offset < idx + link.text.length) {
+                                        uriHandler.openUri(link.url)
+                                        return@detectTapGestures
+                                    }
+                                    if (idx >= 0) searchFrom = idx + link.text.length
+                                }
+                            }
+                        },
                 )
             },
             heading1 = { model ->
@@ -298,5 +339,32 @@ internal fun MarkdownContent(
         imageTransformer = Coil3ImageTransformerImpl,
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+private data class MarkdownLink(val text: String, val url: String)
+
+/**
+ * Extract [text](url) links from a markdown AST paragraph node.
+ * Uses raw AST offsets to find link text and destination.
+ */
+private fun extractMarkdownLinks(content: String, node: org.intellij.markdown.ast.ASTNode): List<MarkdownLink> {
+    val links = mutableListOf<MarkdownLink>()
+    fun walk(n: org.intellij.markdown.ast.ASTNode) {
+        if (n.type == MarkdownElementTypes.INLINE_LINK) {
+            val dest = n.findChildOfType(MarkdownElementTypes.LINK_DESTINATION)
+            val textNode = n.findChildOfType(MarkdownElementTypes.LINK_TEXT)
+            if (dest != null && textNode != null) {
+                val url = dest.getUnescapedTextInNode(content).toString()
+                val rawText = textNode.getUnescapedTextInNode(content).toString()
+                val linkText = rawText.removeSurrounding("[", "]")
+                if (linkText.isNotEmpty() && url.isNotEmpty()) {
+                    links.add(MarkdownLink(linkText, url))
+                }
+            }
+        }
+        n.children.forEach { walk(it) }
+    }
+    walk(node)
+    return links
 }
 
