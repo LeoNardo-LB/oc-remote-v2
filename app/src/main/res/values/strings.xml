@@ -277,6 +277,7 @@
     <string name="chat_link_no_browser">No app available to open this link</string>
     <string name="chat_link_no_workdir">Cannot resolve link — no working directory</string>
     <string name="chat_link_only_files">Only files can be opened from absolute paths</string>
+    <string name="chat_link_file_not_found">File not found</string>
     
     <!-- Slash Commands -->
     <string name="cmd_new">Create a new session</string>

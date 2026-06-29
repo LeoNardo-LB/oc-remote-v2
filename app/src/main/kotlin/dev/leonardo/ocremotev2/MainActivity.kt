@@ -67,6 +67,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var sessionRepository: SessionRepository
+
+    @Inject
+    lateinit var fileRepository: dev.leonardo.ocremotev2.domain.repository.FileRepository
     
     /**
      * Shared flow for deep-link events from notification taps.
@@ -168,7 +171,8 @@ class MainActivity : ComponentActivity() {
                         sharedImagesFlow = sharedImagesFlow,
                         settingsRepository = settingsRepository,
                         serverRepository = serverRepository,
-                        sessionRepository = sessionRepository
+                        sessionRepository = sessionRepository,
+                        fileRepository = fileRepository
                     )
                 }
             }

@@ -2,6 +2,7 @@
 
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.core.EaseIn
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.tween
@@ -13,11 +14,13 @@ import dev.leonardo.ocremotev2.BuildConfig
 import dev.leonardo.ocremotev2.ui.theme.AppMotion
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dev.leonardo.ocremotev2.SessionDeepLink
 import dev.leonardo.ocremotev2.domain.repository.ServerRepository
+import dev.leonardo.ocremotev2.domain.repository.FileRepository
 import dev.leonardo.ocremotev2.domain.repository.SessionRepository
 import dev.leonardo.ocremotev2.domain.repository.SettingsRepository
 import dev.leonardo.ocremotev2.domain.model.Session
@@ -59,7 +62,8 @@ fun NavGraph(
     sharedImagesFlow: SharedFlow<List<Uri>>,
     settingsRepository: SettingsRepository,
     serverRepository: ServerRepository,
-    sessionRepository: SessionRepository
+    sessionRepository: SessionRepository,
+    fileRepository: FileRepository
 ) {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
@@ -402,6 +406,7 @@ fun NavGraph(
             arguments = ChatNav.navArguments
         ) { entry ->
             val params = ChatNav.fromEntry(entry)
+            val context = LocalContext.current
 
             // Only pass shared images to the targeted session, then clear them
             val imagesForThisSession = if (pendingShareSessionId == params.sessionId && pendingShareUris.isNotEmpty()) {
@@ -507,19 +512,24 @@ fun NavGraph(
                     scope.launch {
                         val session = sessionRepository.getSession(params.server.serverId, params.sessionId).getOrNull()
                         val dir = session?.directory ?: params.directory
-                        navController.navigate(
-                            FileViewerNav.createRoute(
-                                serverUrl = params.server.serverUrl,
-                                username = params.server.username,
-                                password = params.server.password,
-                                serverName = params.server.serverName,
-                                serverId = params.server.serverId,
-                                sessionId = params.sessionId,
-                                filePath = filePath,
-                                source = FileViewerNav.Source.LIVE,
-                                directory = dir
+                        val exists = fileRepository.getFileContent(params.server.serverId, dir, filePath).isSuccess
+                        if (exists) {
+                            navController.navigate(
+                                FileViewerNav.createRoute(
+                                    serverUrl = params.server.serverUrl,
+                                    username = params.server.username,
+                                    password = params.server.password,
+                                    serverName = params.server.serverName,
+                                    serverId = params.server.serverId,
+                                    sessionId = params.sessionId,
+                                    filePath = filePath,
+                                    source = FileViewerNav.Source.LIVE,
+                                    directory = dir
+                                )
                             )
-                        )
+                        } else {
+                            Toast.makeText(context, context.getString(dev.leonardo.ocremotev2.R.string.chat_link_file_not_found), Toast.LENGTH_SHORT).show()
+                        }
                     }
                 },
                 onOpenDirectory = { directoryPath ->
