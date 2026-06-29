@@ -241,16 +241,15 @@ internal fun MarkdownContent(
             if (url != null) uriHandler.openUri(url)
         }
     }
-    val linkSettings = annotatorSettings(linkInteractionListener = linkListener)
 
-    val components = remember(density, isUser, linkSettings) {
+    val components = remember(density, isUser, linkListener) {
         markdownComponents(
             paragraph = { model ->
                 MarkdownText(
                     content = model.content,
                     node = model.node,
                     style = model.typography.text,
-                    annotatorSettings = linkSettings,
+                    annotatorSettings = annotatorSettings(linkInteractionListener = linkListener),
                 )
             },
             heading1 = { model ->
