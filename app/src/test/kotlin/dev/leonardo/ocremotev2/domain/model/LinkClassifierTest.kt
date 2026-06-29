@@ -2,6 +2,7 @@ package dev.leonardo.ocremotev2.domain.model
 
 import dev.leonardo.ocremotev2.domain.model.LinkClassifier.classify
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -81,5 +82,50 @@ class LinkClassifierTest {
     @Test
     fun `mixed case HTTPS scheme classified as Web`() {
         assertTrue(classify("Https://github.com/repo") is LinkTarget.Web)
+    }
+
+    @Test
+    fun `path with slash is likely file path`() {
+        assertTrue(LinkClassifier.isLikelyFilePath("src/Main.kt"))
+    }
+
+    @Test
+    fun `path with backslash is likely file path`() {
+        assertTrue(LinkClassifier.isLikelyFilePath("app\\build.gradle"))
+    }
+
+    @Test
+    fun `directory path ending with slash is likely file path`() {
+        assertTrue(LinkClassifier.isLikelyFilePath("docs/specs/"))
+    }
+
+    @Test
+    fun `bare filename with extension is likely file path`() {
+        assertTrue(LinkClassifier.isLikelyFilePath("Main.kt"))
+    }
+
+    @Test
+    fun `gradle filename is likely file path`() {
+        assertTrue(LinkClassifier.isLikelyFilePath("build.gradle"))
+    }
+
+    @Test
+    fun `code snippet is not likely file path`() {
+        assertFalse(LinkClassifier.isLikelyFilePath("val x = 1"))
+    }
+
+    @Test
+    fun `import statement is not likely file path`() {
+        assertFalse(LinkClassifier.isLikelyFilePath("import foo"))
+    }
+
+    @Test
+    fun `single word is not likely file path`() {
+        assertFalse(LinkClassifier.isLikelyFilePath("TODO"))
+    }
+
+    @Test
+    fun `boolean literal is not likely file path`() {
+        assertFalse(LinkClassifier.isLikelyFilePath("true"))
     }
 }

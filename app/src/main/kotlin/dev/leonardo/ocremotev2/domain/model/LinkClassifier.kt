@@ -36,4 +36,15 @@ object LinkClassifier {
 
         else -> LinkTarget.RelativePath(url)
     }
+
+    private val fileExtensionRegex = Regex("\\.\\w{1,10}$")
+
+    /**
+     * Heuristic: does this inline code content look like a file path or filename?
+     * Returns true if it contains a path separator (/ or \) or has a file extension.
+     */
+    fun isLikelyFilePath(text: String): Boolean {
+        if (text.contains('/') || text.contains('\\')) return true
+        return fileExtensionRegex.containsMatchIn(text)
+    }
 }
