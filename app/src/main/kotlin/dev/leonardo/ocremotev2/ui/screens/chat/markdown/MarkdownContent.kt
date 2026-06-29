@@ -42,6 +42,7 @@ import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.findChildOfType
+import dev.leonardo.ocremotev2.domain.model.LinkClassifier
 import dev.leonardo.ocremotev2.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocremotev2.ui.theme.AlphaTokens
 import dev.leonardo.ocremotev2.ui.theme.ChatDensity
@@ -262,8 +263,8 @@ internal fun MarkdownContent(
                     style = model.typography.text,
                     annotatorSettings = settings,
                 )
-                val links = remember(model.content, model.node) {
-                    extractMarkdownLinks(model.content, model.node)
+                val items = remember(model.content, model.node) {
+                    extractClickableItems(model.content, model.node)
                 }
                 var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
                 MarkdownBasicText(
@@ -281,13 +282,16 @@ internal fun MarkdownContent(
                                 val offset = layout.getOffsetForPosition(pos)
                                 val text = annotated.text
                                 var searchFrom = 0
-                                for (link in links) {
-                                    val idx = text.indexOf(link.text, searchFrom)
-                                    if (idx >= 0 && offset >= idx && offset < idx + link.text.length) {
-                                        uriHandler.openUri(link.url)
+                                for (item in items) {
+                                    val idx = text.indexOf(item.text, searchFrom)
+                                    if (idx >= 0 && offset >= idx && offset < idx + item.text.length) {
+                                        when (item) {
+                                            is ClickableItem.Link -> uriHandler.openUri(item.url)
+                                            is ClickableItem.CodePath -> uriHandler.openUri(item.text)
+                                        }
                                         return@detectTapGestures
                                     }
-                                    if (idx >= 0) searchFrom = idx + link.text.length
+                                    if (idx >= 0) searchFrom = idx + item.text.length
                                 }
                             }
                         },
@@ -341,14 +345,19 @@ internal fun MarkdownContent(
     )
 }
 
-private data class MarkdownLink(val text: String, val url: String)
+private sealed interface ClickableItem {
+    val text: String
+    data class Link(override val text: String, val url: String) : ClickableItem
+    data class CodePath(override val text: String) : ClickableItem
+}
 
 /**
- * Extract [text](url) links from a markdown AST paragraph node.
- * Uses raw AST offsets to find link text and destination.
+ * Extract clickable items from a markdown AST paragraph node:
+ * - [text](url) markdown links → ClickableItem.Link
+ * - `code` inline code that looks like a path → ClickableItem.CodePath
  */
-private fun extractMarkdownLinks(content: String, node: org.intellij.markdown.ast.ASTNode): List<MarkdownLink> {
-    val links = mutableListOf<MarkdownLink>()
+private fun extractClickableItems(content: String, node: org.intellij.markdown.ast.ASTNode): List<ClickableItem> {
+    val items = mutableListOf<ClickableItem>()
     fun walk(n: org.intellij.markdown.ast.ASTNode) {
         if (n.type == MarkdownElementTypes.INLINE_LINK) {
             val dest = n.findChildOfType(MarkdownElementTypes.LINK_DESTINATION)
@@ -358,13 +367,19 @@ private fun extractMarkdownLinks(content: String, node: org.intellij.markdown.as
                 val rawText = textNode.getUnescapedTextInNode(content).toString()
                 val linkText = rawText.removeSurrounding("[", "]")
                 if (linkText.isNotEmpty() && url.isNotEmpty()) {
-                    links.add(MarkdownLink(linkText, url))
+                    items.add(ClickableItem.Link(linkText, url))
                 }
+            }
+        } else if (n.type == MarkdownElementTypes.CODE_SPAN) {
+            val raw = n.getUnescapedTextInNode(content).toString()
+            val codeText = raw.trim('`').trim()
+            if (codeText.isNotEmpty() && LinkClassifier.isLikelyFilePath(codeText)) {
+                items.add(ClickableItem.CodePath(codeText))
             }
         }
         n.children.forEach { walk(it) }
     }
     walk(node)
-    return links
+    return items
 }
 
