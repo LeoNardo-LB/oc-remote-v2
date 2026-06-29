@@ -512,9 +512,7 @@ fun NavGraph(
                     scope.launch {
                         val session = sessionRepository.getSession(params.server.serverId, params.sessionId).getOrNull()
                         val dir = session?.directory ?: params.directory
-                        val exists = fileRepository.getFileContent(params.server.serverId, dir, filePath).isSuccess
-                        if (exists) {
-                            navController.navigate(
+                        navController.navigate(
                                 FileViewerNav.createRoute(
                                     serverUrl = params.server.serverUrl,
                                     username = params.server.username,
@@ -527,9 +525,6 @@ fun NavGraph(
                                     directory = dir
                                 )
                             )
-                        } else {
-                            Toast.makeText(context, context.getString(dev.leonardo.ocremotev2.R.string.chat_link_file_not_found), Toast.LENGTH_SHORT).show()
-                        }
                     }
                 },
                 onOpenDirectory = { directoryPath ->
@@ -544,6 +539,12 @@ fun NavGraph(
                             directory = directoryPath
                         )
                     ) { launchSingleTop = true }
+                },
+                checkFileExists = { filePath ->
+                    val session = sessionRepository.getSession(params.server.serverId, params.sessionId).getOrNull()
+                    val dir = session?.directory ?: params.directory
+                    val result = fileRepository.getFileContent(params.server.serverId, dir, filePath)
+                    result.isSuccess && result.getOrNull()?.content?.isNotEmpty() == true
                 },
                 initialSharedImages = imagesForThisSession,
                 onSharedImagesConsumed = {

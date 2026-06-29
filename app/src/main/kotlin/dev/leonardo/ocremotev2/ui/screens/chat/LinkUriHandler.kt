@@ -35,6 +35,8 @@ fun rememberLinkUriHandler(
     directory: String,
     onOpenFile: (filePath: String) -> Unit,
     onOpenDirectory: (directoryPath: String) -> Unit,
+    onSaveScrollPosition: () -> Unit,
+    fileChecker: suspend (filePath: String) -> Boolean,
     snackbarHostState: SnackbarHostState,
     coroutineScope: CoroutineScope,
 ): UriHandler {
@@ -42,6 +44,7 @@ fun rememberLinkUriHandler(
     val currentDirectory = rememberUpdatedState(directory)
     val currentOnOpenFile = rememberUpdatedState(onOpenFile)
     val currentOnOpenDirectory = rememberUpdatedState(onOpenDirectory)
+    val currentOnSaveScrollPosition = rememberUpdatedState(onSaveScrollPosition)
 
     return remember {
         object : UriHandler {
@@ -52,6 +55,8 @@ fun rememberLinkUriHandler(
                     context = context,
                     onOpenFile = currentOnOpenFile.value,
                     onOpenDirectory = currentOnOpenDirectory.value,
+                    onSaveScrollPosition = currentOnSaveScrollPosition.value,
+                    fileChecker = fileChecker,
                     snackbarHostState = snackbarHostState,
                     coroutineScope = coroutineScope,
                 )
@@ -66,6 +71,8 @@ private fun handleLinkClick(
     context: Context,
     onOpenFile: (String) -> Unit,
     onOpenDirectory: (String) -> Unit,
+    onSaveScrollPosition: () -> Unit,
+    fileChecker: suspend (String) -> Boolean,
     snackbarHostState: SnackbarHostState,
     coroutineScope: CoroutineScope,
 ) {
@@ -93,7 +100,15 @@ private fun handleLinkClick(
             if (isLikelyDirectory(target.path)) {
                 onOpenDirectory(resolved)
             } else {
-                onOpenFile(resolved)
+                // Save synchronously BEFORE async fileChecker — captures exact tap-time position.
+                onSaveScrollPosition()
+                coroutineScope.launch {
+                    if (fileChecker(resolved)) {
+                        onOpenFile(resolved)
+                    } else {
+                        snackbarHostState.showSnackbar(context.getString(R.string.chat_link_file_not_found))
+                    }
+                }
             }
         }
 
@@ -103,7 +118,14 @@ private fun handleLinkClick(
                     snackbarHostState.showSnackbar(context.getString(R.string.chat_link_only_files))
                 }
             } else {
-                onOpenFile(target.path)
+                onSaveScrollPosition()
+                coroutineScope.launch {
+                    if (fileChecker(target.path)) {
+                        onOpenFile(target.path)
+                    } else {
+                        snackbarHostState.showSnackbar(context.getString(R.string.chat_link_file_not_found))
+                    }
+                }
             }
         }
     }

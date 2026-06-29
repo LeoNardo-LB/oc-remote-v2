@@ -267,6 +267,7 @@ fun ChatScreen(
     onOpenWorkspace: () -> Unit = {},
     onOpenFile: (filePath: String) -> Unit = {},
     onOpenDirectory: (directoryPath: String) -> Unit = {},
+    checkFileExists: suspend (filePath: String) -> Boolean = { true },
     initialSharedImages: List<Uri> = emptyList(),
     onSharedImagesConsumed: () -> Unit = {},
     startInTerminalMode: Boolean = false,
@@ -308,6 +309,7 @@ fun ChatScreen(
     // When returning from FileViewer, synchronously disable auto-scroll
     // BEFORE any LaunchedEffect runs to prevent msgCount from racing to bottom.
     if (viewModel.pendingScrollRestore) {
+        Log.d("ScrollDebug", "SYNC GUARD: pendingScrollRestore=true → autoScroll=false | current idx=${listState.firstVisibleItemIndex} offset=${listState.firstVisibleItemScrollOffset}")
         autoScrollEnabled = false
     }
 
@@ -330,6 +332,7 @@ fun ChatScreen(
         if (listState.isScrollInProgress) {
             autoScrollEnabled = false
         } else if (isAtBottom && !viewModel.pendingScrollRestore) {
+            Log.d("ScrollDebug", "scrollEffect: atBottom & !pending → autoScroll=true")
             autoScrollEnabled = true
         }
     }
@@ -338,6 +341,7 @@ fun ChatScreen(
     val messageCount = messageState.messages.size
     LaunchedEffect(messageCount) {
         if (messageCount > 0 && autoScrollEnabled && !listState.isScrollInProgress) {
+            Log.d("ScrollDebug", "msgCountEffect: autoScroll=true → scrollToItem(0) [was idx=${listState.firstVisibleItemIndex}]")
             listState.scrollToItem(0)
         }
     }
@@ -363,13 +367,16 @@ fun ChatScreen(
     LaunchedEffect(viewModel.scrollRestoreVersion) {
         val version = viewModel.scrollRestoreVersion
         if (version > 0) {
+            Log.d("ScrollDebug", "RESTORE START: version=$version savedIdx=${viewModel.savedLazyIndex} savedOffset=${viewModel.savedScrollOffset}")
             autoScrollEnabled = false
             snapshotFlow { messageState.messages.isNotEmpty() }.first { it }
             snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > 0 }
             val savedIdx = viewModel.savedLazyIndex
             val totalItems = listState.layoutInfo.totalItemsCount
             val targetIdx = savedIdx.coerceIn(0, (totalItems - 1).coerceAtLeast(0))
+            Log.d("ScrollDebug", "RESTORE EXEC: scrollToItem(idx=$targetIdx, offset=${viewModel.savedScrollOffset}) | totalItems=$totalItems | before: idx=${listState.firstVisibleItemIndex} offset=${listState.firstVisibleItemScrollOffset}")
             listState.scrollToItem(targetIdx, viewModel.savedScrollOffset)
+            Log.d("ScrollDebug", "RESTORE DONE: after: idx=${listState.firstVisibleItemIndex} offset=${listState.firstVisibleItemScrollOffset}")
             autoScrollEnabled = (targetIdx == 0)
             viewModel.clearPendingScrollRestore()
         } else {
@@ -399,6 +406,15 @@ fun ChatScreen(
         onOpenFile(filePath)
     }
 
+    // Same save wrapper for directory navigation (workspace tree).
+    val onOpenDirectoryWithSave: (String) -> Unit = { dirPath ->
+        viewModel.saveScrollPosition(
+            listState.firstVisibleItemIndex,
+            listState.firstVisibleItemScrollOffset
+        )
+        onOpenDirectory(dirPath)
+    }
+
     var showModelPicker by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -408,7 +424,15 @@ fun ChatScreen(
     val linkUriHandler = rememberLinkUriHandler(
         directory = directory,
         onOpenFile = onOpenFile,
-        onOpenDirectory = onOpenDirectory,
+        onOpenDirectory = onOpenDirectoryWithSave,
+        onSaveScrollPosition = {
+            Log.d("ScrollDebug", "onSaveScrollPosition CALLED: idx=${listState.firstVisibleItemIndex} offset=${listState.firstVisibleItemScrollOffset}")
+            viewModel.saveScrollPosition(
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset
+            )
+        },
+        fileChecker = checkFileExists,
         snackbarHostState = snackbarHostState,
         coroutineScope = coroutineScope,
     )
