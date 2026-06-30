@@ -48,6 +48,12 @@ class EventDispatcher @Inject constructor(
         sessionStatusManager.incompleteAssistantChecker = { sessionId ->
             hasIncompleteAssistant(sessionId)
         }
+        // Resolve a session's directory so SessionStatusManager's REST self-healing
+        // targets the correct server instance (status is isolated per-directory; a null
+        // directory makes non-default-worktree sessions invisible and breaks the FSM recovery).
+        sessionStatusManager.directoryResolver = { sessionId ->
+            sessionHandler.sessions.value.find { it.id == sessionId }?.directory
+        }
     }
 
     // ============ Event Handler Registry (Open/Closed Principle) ============
@@ -342,6 +348,15 @@ class EventDispatcher @Inject constructor(
         }
 
         sessionHandler.updateAllSessionStatuses(mergedStatuses)
+
+        // Sync to SessionStatusManager FSM so UI consumers reading statusFlow (e.g.
+        // ChatScreen's busy progress bar) are corrected in lockstep with this REST
+        // authoritative update — not only the SessionEventHandler layer. Without this,
+        // a REST-confirmed Idle would fix the session list but leave the in-chat
+        // progress bar stuck on Busy (read from the FSM).
+        for ((sessionId, status) in mergedStatuses) {
+            sessionStatusManager.onRestValidation(sessionId, status)
+        }
     }
 
     fun removePermission(permissionId: String) =

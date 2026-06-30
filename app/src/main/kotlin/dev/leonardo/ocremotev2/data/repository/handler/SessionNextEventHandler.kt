@@ -4,7 +4,6 @@ import android.util.Log
 import dev.leonardo.ocremotev2.BuildConfig
 import dev.leonardo.ocremotev2.domain.model.SessionNextEvent
 import dev.leonardo.ocremotev2.domain.model.SseEvent
-import dev.leonardo.ocremotev2.domain.tracker.StreamingStateTracker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,7 +49,7 @@ data class ShellStateInfo(
 
 /**
  * Handles all session.next.* events for real-time status tracking.
- * Manages: agent/model switching, tool progress, step progress, streaming state,
+ * Manages: agent/model switching, tool progress, step progress,
  * compaction state, and shell state.
  */
 @Singleton
@@ -89,12 +88,6 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
     private val _gapDetected = MutableStateFlow<Set<String>>(emptySet())
     val gapDetected: StateFlow<Set<String>> = _gapDetected.asStateFlow()
 
-    /** Streaming state tracker for text parts. */
-    val textStreamingState = StreamingStateTracker()
-
-    /** Streaming state tracker for reasoning parts. */
-    val reasoningStreamingState = StreamingStateTracker()
-
     // ============ SseEventHandler ============
 
     override fun handle(event: SseEvent, serverId: String): Boolean {
@@ -113,19 +106,15 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
             is SessionNextEvent.AgentSwitched -> handleAgentSwitched(event)
             is SessionNextEvent.ModelSwitched -> handleModelSwitched(event)
 
-            is SessionNextEvent.TextStarted -> textStreamingState.onStarted(event.partId, event.sessionId)
-            is SessionNextEvent.TextDelta -> textStreamingState.onDelta(event.partId, event.delta)
-            is SessionNextEvent.TextEnded -> {
-                textStreamingState.onEnded(event.partId)
-                textStreamingState.cleanup()
-            }
+            // Text/Reasoning streaming events carry no state to track here — part content
+            // and time.end are updated via message.part.* events in MessagePartHandler.
+            is SessionNextEvent.TextStarted -> Unit
+            is SessionNextEvent.TextDelta -> Unit
+            is SessionNextEvent.TextEnded -> Unit
 
-            is SessionNextEvent.ReasoningStarted -> reasoningStreamingState.onStarted(event.partId, event.sessionId)
-            is SessionNextEvent.ReasoningDelta -> reasoningStreamingState.onDelta(event.partId, event.delta)
-            is SessionNextEvent.ReasoningEnded -> {
-                reasoningStreamingState.onEnded(event.partId)
-                reasoningStreamingState.cleanup()
-            }
+            is SessionNextEvent.ReasoningStarted -> Unit
+            is SessionNextEvent.ReasoningDelta -> Unit
+            is SessionNextEvent.ReasoningEnded -> Unit
 
             is SessionNextEvent.ToolInputStarted -> handleToolInputStarted(event)
             is SessionNextEvent.ToolInputDelta -> { /* delta tracked, no state change */ }
@@ -256,8 +245,6 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
         _retryState.update { it - sessionId }
         _lastEventSeq.update { it - sessionId }
         _gapDetected.update { it - sessionId }
-        textStreamingState.clearForSession(sessionId)
-        reasoningStreamingState.clearForSession(sessionId)
     }
 
     fun clearForServer(sessionIds: Set<String>) {
@@ -276,7 +263,5 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
         _retryState.value = emptyMap()
         _lastEventSeq.value = emptyMap()
         _gapDetected.value = emptySet()
-        textStreamingState.clearAll()
-        reasoningStreamingState.clearAll()
     }
 }

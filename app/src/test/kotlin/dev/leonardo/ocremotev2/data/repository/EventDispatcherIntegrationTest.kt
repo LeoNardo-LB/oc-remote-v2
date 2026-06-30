@@ -4,6 +4,7 @@ import dev.leonardo.ocremotev2.data.repository.handler.*
 import dev.leonardo.ocremotev2.domain.model.*
 import dev.leonardo.ocremotev2.domain.model.SseEvent
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Before
@@ -19,10 +20,12 @@ import org.junit.Test
 class EventDispatcherIntegrationTest {
 
     private lateinit var dispatcher: EventDispatcher
+    private lateinit var sessionStatusManager: SessionStatusManager
 
     @Before
     fun setup() {
         val messageStore = MessageEventHandler()
+        sessionStatusManager = mockk<SessionStatusManager>(relaxed = true)
         dispatcher = EventDispatcher(
             sessionHandler = SessionEventHandler(),
             messageHandler = messageStore,
@@ -33,7 +36,7 @@ class EventDispatcherIntegrationTest {
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(),
-            sessionStatusManager = mockk<SessionStatusManager>(relaxed = true)
+            sessionStatusManager = sessionStatusManager
         )
     }
 
@@ -786,5 +789,23 @@ class EventDispatcherIntegrationTest {
         assertFalse(dispatcher.serverSessions.value.containsKey("svr1"))
         assertTrue(dispatcher.serverSessions.value.containsKey("svr2"))
         assertEquals(setOf("s3", "s4"), dispatcher.serverSessions.value["svr2"])
+    }
+
+    // ============ syncAllSessionStatuses → SessionStatusManager FSM sync ============
+
+    @Test
+    fun `syncAllSessionStatuses propagates each status to SessionStatusManager FSM`() = runTest {
+        val statuses = mapOf(
+            "s1" to SessionStatus.Busy,
+            "s2" to SessionStatus.Idle
+        )
+
+        dispatcher.syncAllSessionStatuses(statuses)
+
+        // The FSM must be corrected in lockstep so the ChatScreen progress bar (which
+        // reads SessionStatusManager.statusFlow) reflects REST authoritative state,
+        // not only the SessionEventHandler layer.
+        verify(exactly = 1) { sessionStatusManager.onRestValidation("s1", SessionStatus.Busy) }
+        verify(exactly = 1) { sessionStatusManager.onRestValidation("s2", SessionStatus.Idle) }
     }
 }

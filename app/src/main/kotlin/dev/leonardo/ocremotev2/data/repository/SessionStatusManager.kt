@@ -67,6 +67,15 @@ class SessionStatusManager @Inject constructor(
      */
     var incompleteAssistantChecker: ((String) -> Boolean)? = null
 
+    /**
+     * Resolves a session's directory — set by EventDispatcher.
+     * REST validation must target the session's own directory: the server isolates
+     * session status per-directory, so a null/wrong directory returns only the default
+     * instance's statuses and the target session is invisible (treated as idle),
+     * defeating the L2/L3 self-healing guard.
+     */
+    var directoryResolver: ((String) -> String?)? = null
+
     /** Current server ID — set by ChatViewModel so REST validation can query the correct server. */
     @Volatile
     private var currentServerId: String? = null
@@ -184,9 +193,10 @@ class SessionStatusManager @Inject constructor(
 
     private fun triggerRestValidation(sessionId: String) {
         val sid = currentServerId ?: return
+        val directory = directoryResolver?.invoke(sessionId)
         appScope.launch {
             try {
-                val result = sessionRepositoryProvider.get().fetchSessionStatuses(sid, directory = null)
+                val result = sessionRepositoryProvider.get().fetchSessionStatuses(sid, directory = directory)
                 result.onSuccess { statuses ->
                     val serverStatus = statuses[sessionId]
                     if (serverStatus != null) {

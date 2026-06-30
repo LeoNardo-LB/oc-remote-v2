@@ -153,30 +153,6 @@ class SessionNextEventHandlerTest {
         assertNull(handler.stepProgress.value["s1"])
     }
 
-    // ============ Streaming State ============
-
-    @Test
-    fun `TextStarted updates streaming tracker`() {
-        handler.handleSessionNextEvent(
-            SessionNextEvent.TextStarted(sessionId = "s1", messageId = "m1", partId = "p1")
-        )
-        assertEquals(
-            dev.leonardo.ocremotev2.domain.tracker.StreamingState.Started,
-            handler.textStreamingState.getState("p1")
-        )
-    }
-
-    @Test
-    fun `ReasoningStarted updates streaming tracker`() {
-        handler.handleSessionNextEvent(
-            SessionNextEvent.ReasoningStarted(sessionId = "s1", messageId = "m1", partId = "p2")
-        )
-        assertEquals(
-            dev.leonardo.ocremotev2.domain.tracker.StreamingState.Started,
-            handler.reasoningStreamingState.getState("p2")
-        )
-    }
-
     // ============ Compaction State ============
 
     @Test

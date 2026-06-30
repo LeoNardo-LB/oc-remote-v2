@@ -13,6 +13,7 @@ import dev.leonardo.ocremotev2.data.dto.response.FileNodeDto
 import dev.leonardo.ocremotev2.data.dto.response.ServerPaths
 import dev.leonardo.ocremotev2.data.api.file.FileApi
 import dev.leonardo.ocremotev2.data.api.session.SessionApi
+import dev.leonardo.ocremotev2.data.api.RestSessionStatusInfo
 import dev.leonardo.ocremotev2.data.api.system.SystemApi
 import dev.leonardo.ocremotev2.data.api.terminal.TerminalApi
 import dev.leonardo.ocremotev2.domain.model.ServerConnection
@@ -338,30 +339,48 @@ class SessionListViewModel @Inject constructor(
         }
     }
 
+    private fun RestSessionStatusInfo.toStatus(): SessionStatus = when (type) {
+        "busy" -> SessionStatus.Busy
+        "retry" -> SessionStatus.Retry(attempt = attempt ?: 0, message = message ?: "", next = next ?: 0L)
+        else -> SessionStatus.Idle
+    }
+
     private suspend fun syncSessionStatuses(directory: String? = null) {
         try {
             val result = sessionApi.fetchSessionStatus(conn, directory = directory)
             result.onSuccess { statuses ->
                 if (BuildConfig.DEBUG) Log.d(TAG, "Polled ${statuses.size} session statuses for directory: ${directory ?: "all"}")
-                val statusMap = statuses.mapValues { (_, info) ->
-                    when (info.type) {
-                        "busy" -> SessionStatus.Busy
-                        "retry" -> SessionStatus.Retry(
-                            attempt = info.attempt ?: 0,
-                            message = info.message ?: "",
-                            next = info.next ?: 0L
-                        )
-                        else -> SessionStatus.Idle
-                    }
-                }
-                eventDispatcher.syncAllSessionStatuses(statusMap)
+                eventDispatcher.syncAllSessionStatuses(statuses.mapValues { it.value.toStatus() })
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to sync session statuses: ${e.message}")
         }
     }
 
-    private suspend fun syncSessionStatusesFromServer() = syncSessionStatuses()
+    /**
+     * Aggregate session statuses across ALL project worktrees. The server isolates
+     * status per-directory (per server instance); a single null-directory query only
+     * returns the default instance's sessions, leaving other worktrees' active
+     * sessions invisible (treated as idle). Must query each project worktree.
+     */
+    private suspend fun syncSessionStatusesFromServer() {
+        val projects = _projects.value
+        val aggregated = mutableMapOf<String, RestSessionStatusInfo>()
+        try {
+            if (projects.isEmpty()) {
+                sessionApi.fetchSessionStatus(conn).onSuccess { aggregated.putAll(it) }
+            } else {
+                for (project in projects) {
+                    sessionApi.fetchSessionStatus(conn, directory = project.worktree)
+                        .onSuccess { aggregated.putAll(it) }
+                }
+            }
+            if (BuildConfig.DEBUG) Log.d(TAG, "Aggregated ${aggregated.size} session statuses across ${projects.size} projects")
+            eventDispatcher.syncAllSessionStatuses(aggregated.mapValues { it.value.toStatus() })
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to sync session statuses: ${e.message}")
+        }
+    }
 
     fun deleteSession(sessionId: String) {
         viewModelScope.launch {

@@ -7,6 +7,7 @@ import dev.leonardo.ocremotev2.data.api.NetworkMonitor
 import dev.leonardo.ocremotev2.data.api.file.FileApi
 import dev.leonardo.ocremotev2.data.api.message.MessageApi
 import dev.leonardo.ocremotev2.data.api.session.SessionApi
+import dev.leonardo.ocremotev2.data.api.RestSessionStatusInfo
 import dev.leonardo.ocremotev2.domain.model.ServerConnection
 import dev.leonardo.ocremotev2.data.api.SseClient
 import dev.leonardo.ocremotev2.data.api.SseReadTimeoutTracker
@@ -319,20 +320,32 @@ class SseConnectionManager @Inject constructor(
      */
     private suspend fun syncSessionStatuses(conn: ServerConnection) {
         try {
-            val result = sessionApi.fetchSessionStatus(conn)
-            result.onSuccess { statuses ->
-                val statusMap = statuses.mapValues { (_, info) ->
-                    when (info.type) {
-                        "busy" -> SessionStatus.Busy
-                        "retry" -> SessionStatus.Retry(
-                            attempt = info.attempt ?: 0,
-                            message = info.message ?: "",
-                            next = info.next ?: 0L
-                        )
-                        else -> SessionStatus.Idle
-                    }
+            // Aggregate across ALL project worktrees: the server isolates status
+            // per-directory, so a single null-directory query would miss non-default
+            // worktrees' active sessions (treated as idle). See session-status-sync
+            // investigation for root cause.
+            val projects = fileApi.listProjects(conn)
+            val aggregated = mutableMapOf<String, RestSessionStatusInfo>()
+            if (projects.isEmpty()) {
+                sessionApi.fetchSessionStatus(conn).onSuccess { aggregated.putAll(it) }
+            } else {
+                for (project in projects) {
+                    sessionApi.fetchSessionStatus(conn, directory = project.worktree)
+                        .onSuccess { aggregated.putAll(it) }
                 }
-                eventDispatcher.syncAllSessionStatuses(statusMap)
+            }
+            val statusMap = aggregated.mapValues { (_, info) ->
+                when (info.type) {
+                    "busy" -> SessionStatus.Busy
+                    "retry" -> SessionStatus.Retry(
+                        attempt = info.attempt ?: 0,
+                        message = info.message ?: "",
+                        next = info.next ?: 0L
+                    )
+                    else -> SessionStatus.Idle
+                }
+            }
+            eventDispatcher.syncAllSessionStatuses(statusMap)
 
                 // Mark idle sessions with SSE-freshness protection (status only, no message fix).
                 // syncAllSessionStatuses already prevents downgrade for sessions with
@@ -342,8 +355,7 @@ class SseConnectionManager @Inject constructor(
                         eventDispatcher.markSessionIdleProtected(sessionId)
                     }
                 }
-                Log.i(TAG, "Synced statuses for ${statusMap.size} sessions from REST")
-            }
+                Log.i(TAG, "Synced statuses for ${statusMap.size} sessions from REST across ${projects.size} projects")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to sync session statuses: ${e.message}")
         }

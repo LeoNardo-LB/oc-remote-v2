@@ -334,4 +334,45 @@ class MessageEventHandlerTest {
         assertTrue(handler.parts.value["m1"]!![0] is Part.Tool)
         assertTrue((handler.parts.value["m1"]!![0] as Part.Tool).state is ToolState.Running)
     }
+
+    // ============ markSessionIdle (REST fallback: force-complete streaming) ============
+
+    @Test
+    fun `markSessionIdle sets time_end on incomplete Text and Reasoning parts`() {
+        val msg = testAssistantMessage("m1", "s1")
+        val textPart = Part.Text(
+            id = "p1", sessionId = "s1", messageId = "m1", text = "streaming",
+            time = Part.Text.Time(start = 100L, end = null)
+        )
+        val reasoningPart = Part.Reasoning(
+            id = "p2", sessionId = "s1", messageId = "m1", text = "thinking",
+            time = Part.Reasoning.Time(start = 100L, end = null)
+        )
+        handler.setMessages("s1", listOf(MessageWithParts(info = msg, parts = listOf(textPart, reasoningPart))))
+
+        handler.markSessionIdle("s1")
+
+        val parts = handler.parts.value["m1"]!!
+        val textAfter = parts.first { it.id == "p1" } as Part.Text
+        val reasoningAfter = parts.first { it.id == "p2" } as Part.Reasoning
+        assertNotNull("Text part time.end must be force-completed", textAfter.time?.end)
+        assertNotNull("Reasoning part time.end must be force-completed", reasoningAfter.time?.end)
+        val msgAfter = handler.messages.value["s1"]!!.first() as Message.Assistant
+        assertNotNull("Assistant message time.completed must be set", msgAfter.time.completed)
+    }
+
+    @Test
+    fun `markSessionIdle does not overwrite already-ended part time`() {
+        val msg = testAssistantMessage("m1", "s1")
+        val endedText = Part.Text(
+            id = "p1", sessionId = "s1", messageId = "m1", text = "done",
+            time = Part.Text.Time(start = 100L, end = 999L)
+        )
+        handler.setMessages("s1", listOf(MessageWithParts(info = msg, parts = listOf(endedText))))
+
+        handler.markSessionIdle("s1")
+
+        val textAfter = handler.parts.value["m1"]!![0] as Part.Text
+        assertEquals("Already-ended part keeps its original end time", 999L, textAfter.time?.end)
+    }
 }

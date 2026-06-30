@@ -398,18 +398,20 @@ class MessageEventHandler @Inject constructor() {
 
     fun mergeMessages(sessionId: String, newMessages: List<MessageWithParts>) {
         val incoming = newMessages.map { it.info }.sortedBy { m -> m.time.created }
-        _messages.update { current ->
-            val existing = current[sessionId] ?: emptyList()
-            val existingById = existing.associateBy { it.id }
-            current + (sessionId to incoming.map { newMsg -> existingById[newMsg.id] ?: newMsg })
-        }
-        newMessages.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
+        // Update parts FIRST, then messages. This prevents a flash where the combine
+        // flow sees new messages without their parts (P5-3 filter removes them temporarily).
         _parts.update { currentParts ->
             val existingKeys = currentParts.keys
             val newParts = newMessages
                 .filter { it.info.id !in existingKeys }
                 .associate { it.info.id to it.parts }
             currentParts + newParts
+        }
+        newMessages.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
+        _messages.update { current ->
+            val existing = current[sessionId] ?: emptyList()
+            val existingById = existing.associateBy { it.id }
+            current + (sessionId to incoming.map { newMsg -> existingById[newMsg.id] ?: newMsg })
         }
     }
 
@@ -508,14 +510,23 @@ class MessageEventHandler @Inject constructor() {
             for (msgId in messageIds) {
                 val msgParts = updated[msgId] ?: continue
                 val updatedParts = msgParts.map { part ->
-                    if (part is Part.Reasoning && part.time?.end == null) {
-                        changed = true
-                        part.copy(time = Part.Reasoning.Time(
-                            start = part.time?.start ?: System.currentTimeMillis(),
-                            end = System.currentTimeMillis()
-                        ))
-                    } else {
-                        part
+                    val partEnd = System.currentTimeMillis()
+                    when {
+                        part is Part.Text && part.time?.end == null -> {
+                            changed = true
+                            part.copy(time = Part.Text.Time(
+                                start = part.time?.start ?: partEnd,
+                                end = partEnd
+                            ))
+                        }
+                        part is Part.Reasoning && part.time?.end == null -> {
+                            changed = true
+                            part.copy(time = Part.Reasoning.Time(
+                                start = part.time?.start ?: partEnd,
+                                end = partEnd
+                            ))
+                        }
+                        else -> part
                     }
                 }
                 if (changed) updated[msgId] = updatedParts
