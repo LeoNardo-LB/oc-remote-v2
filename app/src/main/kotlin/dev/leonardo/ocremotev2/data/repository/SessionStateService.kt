@@ -6,12 +6,16 @@ import dev.leonardo.ocremotev2.di.ApplicationScope
 import dev.leonardo.ocremotev2.domain.model.*
 import dev.leonardo.ocremotev2.domain.repository.SessionRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
@@ -22,6 +26,11 @@ fun interface MessageForceCompleter { fun markIdle(sessionId: String) }
 
 private const val TAG = "SessionStateService"
 private const val HISTORY_MAX = 20
+private const val STALENESS_CHECK_INTERVAL_MS = 5_000L
+private const val STALENESS_THRESHOLD_MS = 15_000L
+
+/** Result of a full REST → FSM sync, exposed for callers (e.g. manual refresh) to observe. */
+data class SyncResult(val totalSessions: Int, val busyCount: Int)
 
 @Singleton
 class SessionStateService @Inject constructor(
@@ -34,6 +43,34 @@ class SessionStateService @Inject constructor(
     var messageForceCompleter: MessageForceCompleter = MessageForceCompleter {}
 
     @Volatile private var currentServerId: String? = null
+
+    private var stalenessJob: Job? = null
+
+    init { startStalenessGuard() }
+
+    private fun startStalenessGuard() {
+        stalenessJob?.cancel()
+        stalenessJob = appScope.launch {
+            while (isActive) {
+                delay(STALENESS_CHECK_INTERVAL_MS)
+                checkStaleness()
+            }
+        }
+    }
+
+    private fun checkStaleness() {
+        val now = System.currentTimeMillis()
+        _fsmStates.value.forEach { (sessionId, state) ->
+            if (state.core is SessionStatus.Busy && now - state.lastEventAt > STALENESS_THRESHOLD_MS) {
+                Log.w(TAG, "[$sessionId] L2 stale for ${now - state.lastEventAt}ms, triggering REST validation")
+                triggerRestValidation(sessionId)
+            }
+            if (state.core is SessionStatus.Idle && incompleteChecker.hasIncomplete(sessionId)) {
+                Log.w(TAG, "[$sessionId] L5 inconsistency: Idle but has incomplete messages")
+                triggerRestValidation(sessionId)
+            }
+        }
+    }
 
     private val _fsmStates = MutableStateFlow<Map<String, SessionFSMState>>(emptyMap())
     private val _histories = MutableStateFlow<Map<String, List<TransitionRecord>>>(emptyMap())
@@ -141,6 +178,67 @@ class SessionStateService @Inject constructor(
         _histories.value = emptyMap()
     }
 
-    // Placeholder — implemented in Task 4 (staleness guard)
-    internal fun triggerRestValidation(sessionId: String) { /* Task 4 */ }
+    // ============ L3: REST validation (absence=idle closed loop) ============
+    //
+    // Triggered by:
+    //   - applyTransition when result.isSuspicious (lost SSE)
+    //   - checkStaleness (L2 stale Busy / L5 Idle-with-incomplete)
+    //   - External callers (e.g. manual refresh)
+    //
+    // Absence semantics: when the queried [directory] is the session's own directory and the
+    // session is absent from the server's status map, treat it as Idle (server drops idle
+    // sessions from the map). When [directory] is null (unknown instance), absence is ambiguous
+    // — skip to avoid false Idle.
+    internal fun triggerRestValidation(sessionId: String) {
+        val sid = currentServerId ?: return
+        val directory = directoryResolver.resolve(sessionId)
+        appScope.launch {
+            try {
+                val result = sessionRepoProvider.get().fetchSessionStatuses(sid, directory)
+                result.onSuccess { statuses ->
+                    val serverStatus = statuses[sessionId]
+                    if (serverStatus != null) {
+                        if (BuildConfig.DEBUG) Log.d(TAG, "[$sessionId] L3 REST validation: server says ${serverStatus::class.simpleName}")
+                        onRestValidation(sessionId, serverStatus)
+                    } else if (directory != null) {
+                        // Server deletes idle sessions from its status map — absence means idle.
+                        // Only trust this when we queried the session's own directory.
+                        if (BuildConfig.DEBUG) Log.d(TAG, "[$sessionId] L3 REST validation: absent from own directory -> idle")
+                        onRestValidation(sessionId, SessionStatus.Idle)
+                    }
+                    // directory == null + absent -> skip (avoid false idle on unknown instance)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "[$sessionId] L3 REST validation failed: ${e.message}")
+            }
+        }
+    }
+
+    // ============ L4: Full REST sync (unify recovery) ============
+    //
+    // Pull every session status from the server across [projects]' directories (or a single
+    // instance-wide query when [projects] is empty), then fold in local absence semantics:
+    // a local non-Idle session absent from REST is treated as Idle — unless it has incomplete
+    // assistant messages, in which case the local state is preserved (SSE may still be streaming).
+    //
+    // Note: [SessionRepository.fetchSessionStatuses] already maps the raw REST DTO
+    // (`RestSessionStatusInfo`) to the domain [SessionStatus], so no per-entry conversion here.
+    suspend fun syncFromRest(projects: List<Project>): SyncResult {
+        val sid = currentServerId ?: return SyncResult(0, 0)
+        val aggregated = mutableMapOf<String, SessionStatus>()
+        val dirs: List<String?> = if (projects.isEmpty()) listOf(null) else projects.map { it.worktree }
+        for (dir in dirs) {
+            sessionRepoProvider.get().fetchSessionStatuses(sid, dir)
+                .onSuccess { aggregated += it }
+        }
+        // Absence semantics: local non-Idle absent from REST
+        for ((sessionId, state) in _fsmStates.value) {
+            if (state.core !is SessionStatus.Idle && sessionId !in aggregated) {
+                aggregated[sessionId] = if (incompleteChecker.hasIncomplete(sessionId)) state.core  // protect (SSE may still stream)
+                                         else SessionStatus.Idle                                       // absent = idle
+            }
+        }
+        for ((sessionId, status) in aggregated) applyTransition(sessionId, FsmEvent.RestValidation(status))
+        return SyncResult(aggregated.size, aggregated.count { it.value is SessionStatus.Busy })
+    }
 }
