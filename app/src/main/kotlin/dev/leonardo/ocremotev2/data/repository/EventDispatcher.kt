@@ -339,10 +339,13 @@ class EventDispatcher @Inject constructor(
                     }
                     mergedStatuses[sessionId] = currentStatus
                 } else {
-                    // No incomplete messages and absent from REST — confirmed idle
+                    // No incomplete messages and absent from REST — confirmed idle.
+                    // Must explicitly set Idle: updateAllSessionStatuses only updates keys
+                    // present in its input map, so without this the stale Busy persists.
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "Session $sessionId absent from REST, no incomplete messages — marking Idle")
                     }
+                    mergedStatuses[sessionId] = SessionStatus.Idle
                 }
             }
         }

@@ -204,6 +204,15 @@ class SessionStatusManager @Inject constructor(
                             Log.d(TAG, "[$sessionId] L3 REST validation: server says ${serverStatus::class.simpleName}")
                         }
                         onRestValidation(sessionId, serverStatus)
+                    } else if (directory != null) {
+                        // Server deletes idle sessions from its status map, so absence means idle.
+                        // Only trust this when we queried the session's own directory; a null
+                        // directory (session not in local list) is ambiguous — skip to avoid
+                        // wrongly downgrading a genuinely-busy session under an unknown instance.
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "[$sessionId] L3 REST validation: absent from its own directory -> idle")
+                        }
+                        onRestValidation(sessionId, SessionStatus.Idle)
                     }
                 }
             } catch (e: Exception) {
