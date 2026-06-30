@@ -99,7 +99,7 @@ class SessionStatusManager @Inject constructor(
     }
 
     fun onSseEvent(event: SseEvent, sessionId: String) {
-        val fsmEvent = mapSseEventToFsm(event, sessionId) ?: return
+        val fsmEvent = mapSseEventToFsm(event) ?: return
         applyTransition(sessionId, fsmEvent)
     }
 
@@ -131,24 +131,26 @@ class SessionStatusManager @Inject constructor(
         }
     }
 
-    private fun mapSseEventToFsm(event: SseEvent, sessionId: String): FsmEvent? {
+    private fun mapSseEventToFsm(event: SseEvent): FsmEvent? {
         return when (event) {
             is SseEvent.SessionStatus -> FsmEvent.SseStatus(event.status)
             is SseEvent.SessionIdle -> FsmEvent.SseIdle
             is SseEvent.SessionError -> FsmEvent.SseError(event.error)
-            is SseEvent.SessionNext -> mapSessionNextEvent(event.event, sessionId)
+            is SseEvent.SessionNext -> mapSessionNextEvent(event.event)
             else -> null
         }
     }
 
-    private fun mapSessionNextEvent(event: SessionNextEvent, sessionId: String): FsmEvent? {
+    private fun mapSessionNextEvent(event: SessionNextEvent): FsmEvent? {
         return when (event) {
-            is SessionNextEvent.StepStarted -> FsmEvent.StepStarted(sessionId)
-            is SessionNextEvent.TextStarted -> FsmEvent.TextStarted(sessionId)
-            is SessionNextEvent.ToolInputStarted -> FsmEvent.ToolInputStarted(sessionId, event.tool, event.callId)
+            is SessionNextEvent.StepStarted -> FsmEvent.StepStarted
+            is SessionNextEvent.TextStarted -> FsmEvent.TextStarted
+            is SessionNextEvent.TextDelta -> FsmEvent.TextDelta(event.delta)
+            is SessionNextEvent.TextEnded -> FsmEvent.TextEnded
+            is SessionNextEvent.ToolInputStarted -> FsmEvent.ToolInputStarted(event.tool, event.callId)
             // StepEnded has no finish field in SessionNextEvent — pass null.
             // FSM treats non-"tool-calls" finish as "keep current Activity, wait for Core Idle".
-            is SessionNextEvent.StepEnded -> FsmEvent.StepEnded(sessionId, finish = null)
+            is SessionNextEvent.StepEnded -> FsmEvent.StepEnded(finish = null)
             is SessionNextEvent.CompactionStarted -> FsmEvent.CompactionStarted
             is SessionNextEvent.CompactionEnded -> FsmEvent.CompactionEnded
             else -> null

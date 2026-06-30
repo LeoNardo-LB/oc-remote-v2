@@ -17,8 +17,8 @@ sealed class SessionActivity {
         val callId: String?
     ) : SessionActivity()
 
-    /** Context compaction in progress */
-    data object Compacting : SessionActivity()
+    /** Context compaction in progress; saves the prior activity to restore on CompactionEnded */
+    data class Compacting(val savedActivity: SessionActivity?) : SessionActivity()
 }
 
 /**
@@ -60,10 +60,12 @@ sealed class FsmEvent {
     data class RestValidation(val status: SessionStatus) : FsmEvent()
 
     // === Activity events (session.next.*) ===
-    data class StepStarted(val sessionId: String) : FsmEvent()
-    data class TextStarted(val sessionId: String) : FsmEvent()
-    data class ToolInputStarted(val sessionId: String, val toolName: String?, val callId: String?) : FsmEvent()
-    data class StepEnded(val sessionId: String, val finish: String?) : FsmEvent()
+    data object StepStarted : FsmEvent()
+    data object TextStarted : FsmEvent()
+    data class TextDelta(val delta: String) : FsmEvent()
+    data object TextEnded : FsmEvent()
+    data class ToolInputStarted(val toolName: String?, val callId: String?) : FsmEvent()
+    data class StepEnded(val finish: String?) : FsmEvent()
     data object CompactionStarted : FsmEvent()
     data object CompactionEnded : FsmEvent()
 }
