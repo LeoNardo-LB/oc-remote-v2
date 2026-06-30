@@ -44,8 +44,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
@@ -55,7 +57,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Velocity
 import dev.leonardo.ocremotev2.R
 import dev.leonardo.ocremotev2.domain.model.CompactionStateInfo
 import dev.leonardo.ocremotev2.domain.model.Part
@@ -159,18 +160,20 @@ fun ChatMessageList(
             var showAlwaysDialog by remember { mutableStateOf<SseEvent.PermissionAsked?>(null) }
             val pullToRefreshState = rememberPullToRefreshState()
 
-            // Cap fling velocity to prevent LazyColumn from skipping tall items.
+            // Limit per-frame scroll delta to prevent LazyColumn from skipping tall items.
+            // Unlike onPreFling (which caps initial velocity → feels like "grabbing"),
+            // onPreScroll lets the fling start at full speed but caps each frame's delta.
             // Compose's LazyListMeasure advances firstVisibleItemIndex when a single-frame
-            // fling delta exceeds item height (issuetracker.google.com/issues/179593134).
-            // Capping at 5000px/s = ~80px/frame at 60fps, safely below any item height.
-            val flingVelocityLimiter = remember {
+            // delta exceeds item height (issuetracker.google.com/issues/179593134).
+            val scrollDeltaLimiter = remember {
                 object : NestedScrollConnection {
-                    override suspend fun onPreFling(available: Velocity): Velocity {
-                        val max = 5000f
+                    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                        val maxPerFrame = 500f
+                        val y = available.y
                         return when {
-                            available.y > max -> Velocity(0f, available.y - max)
-                            available.y < -max -> Velocity(0f, available.y + max)
-                            else -> Velocity.Zero
+                            y > maxPerFrame -> Offset(0f, y - maxPerFrame)
+                            y < -maxPerFrame -> Offset(0f, y + maxPerFrame)
+                            else -> Offset.Zero
                         }
                     }
                 }
@@ -187,7 +190,7 @@ fun ChatMessageList(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize()
-                        .nestedScroll(flingVelocityLimiter)
+                        .nestedScroll(scrollDeltaLimiter)
                         .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
                     contentPadding = PaddingValues(
                         start = SpacingTokens.MD.dp,
