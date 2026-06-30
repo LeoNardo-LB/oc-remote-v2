@@ -101,14 +101,12 @@ internal fun PartContent(
                 if (part.text.contains("questions:") && part.text.contains("User has answered")) {
                     CollapsibleQuestionPart(question = part.text)
                 } else {
-                    SelectionContainer {
-                        MarkdownContent(
-                            markdown = part.text,
-                            textColor = textColor,
-                            isUser = isUser,
-                            immediate = !isUser
-                        )
-                    }
+                    MarkdownContent(
+                        markdown = part.text,
+                        textColor = textColor,
+                        isUser = isUser,
+                        immediate = !isUser
+                    )
                 }
             }
         }
