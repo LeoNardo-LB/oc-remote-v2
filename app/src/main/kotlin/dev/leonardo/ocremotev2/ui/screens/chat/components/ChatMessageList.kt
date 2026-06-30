@@ -74,7 +74,10 @@ import dev.leonardo.ocremotev2.ui.screens.chat.dialog.PermissionCard
 import dev.leonardo.ocremotev2.ui.screens.chat.dialog.QuestionCard
 import dev.leonardo.ocremotev2.ui.screens.chat.components.AlwaysConfirmDialog
 import dev.leonardo.ocremotev2.ui.screens.chat.util.snapToBottom
+import dev.leonardo.ocremotev2.ui.screens.chat.tools.RenderableTurn
+import dev.leonardo.ocremotev2.ui.screens.chat.tools.computeRenderableTurn
 import dev.leonardo.ocremotev2.ui.screens.chat.util.computeTurnGroups
+import dev.leonardo.ocremotev2.ui.screens.chat.util.formatAssistantErrorMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import dev.leonardo.ocremotev2.ui.theme.ShapeTokens
@@ -113,6 +116,23 @@ fun ChatMessageList(
     modifier: Modifier = Modifier,
 ) {
     val turnGroups = remember(rawMessages) { computeTurnGroups(rawMessages) }
+
+    // Pre-compute all rendering data for assistant display items.
+    // Single remember block — runs only when rawMessages/displayItems change, not during composition.
+    val renderableTurns: List<RenderableTurn?> = remember(rawMessages, displayItems, turnGroups) {
+        displayItems.map { (rawIndex, msg) ->
+            if (!msg.isAssistant) return@map null
+            val turnMsgs = turnGroups[rawIndex] ?: listOf(msg)
+            val isTurnLast = rawIndex == rawMessages.lastIndex ||
+                rawMessages.getOrNull(rawIndex + 1)?.isAssistant != true
+            computeRenderableTurn(
+                turnMessages = turnMsgs,
+                currentMessage = msg,
+                isTurnLast = isTurnLast,
+                formatError = ::formatAssistantErrorMessage,
+            )
+        }
+    }
 
     val streamingMsgId = remember(rawMessages) {
         rawMessages.lastOrNull {
@@ -320,7 +340,7 @@ fun ChatMessageList(
                         displayItems,
                         key = { _, item -> item.second.message.id },
                         contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
-                    ) { _, (rawIndex, msg) ->
+                    ) { displayItemIndex, (rawIndex, msg) ->
                         val isStreamingMsg = (turnGroups[rawIndex] ?: listOf(msg)).any { it.message.id == streamingMsgId }
                         val itemModifier = if (isStreamingMsg) {
                             Modifier
@@ -348,27 +368,17 @@ fun ChatMessageList(
                         Box(modifier = itemModifier) {
                         when {
                             msg.isAssistant -> {
-                                val turnMessagesForMsg = turnGroups[rawIndex] ?: listOf(msg)
                                 val isTurnLast = rawIndex == rawMessages.lastIndex || rawMessages.getOrNull(rawIndex + 1)?.isAssistant != true
 
                                 MessageCard(
                                     role = MessageCardRole.ASSISTANT,
-                                    turnMessages = turnMessagesForMsg,
+                                    renderableTurn = renderableTurns[displayItemIndex],
                                     currentMessage = msg,
                                     onViewSubSession = navigateToChildSession,
                                     onOpenFile = onOpenFile,
                                     isAmoled = isAmoled,
                                     isTurnLast = isTurnLast,
                                     agents = agents,
-                                    copyText = if (isTurnLast) {
-                                        val turnTexts = turnMessagesForMsg
-                                        remember(turnTexts) {
-                                            turnTexts.asReversed()
-                                                .flatMap { m -> m.parts.filterIsInstance<Part.Text>().map { it.text } }
-                                                .joinToString("\n\n")
-                                                .takeIf { it.isNotBlank() }
-                                        }
-                                    } else null
                                 )
                             }
                             msg.isUser -> {

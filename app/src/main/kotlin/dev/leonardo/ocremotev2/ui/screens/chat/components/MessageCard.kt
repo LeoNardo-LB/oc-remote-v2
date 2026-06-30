@@ -43,7 +43,7 @@ import dev.leonardo.ocremotev2.ui.components.AmoledDefaultBorder
 import dev.leonardo.ocremotev2.ui.components.ConfirmDialog
 import dev.leonardo.ocremotev2.ui.components.ProviderIcon
 import dev.leonardo.ocremotev2.ui.screens.chat.ChatMessage
-import dev.leonardo.ocremotev2.ui.screens.chat.filterRenderableParts
+import dev.leonardo.ocremotev2.ui.screens.chat.tools.RenderableTurn
 import dev.leonardo.ocremotev2.ui.screens.chat.isBubbleRenderablePart
 import dev.leonardo.ocremotev2.ui.screens.chat.dialog.ImageThumbnailRow
 import dev.leonardo.ocremotev2.ui.theme.ChatDensity
@@ -52,7 +52,7 @@ import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocremotev2.ui.theme.QueuedBadgeColor
 import dev.leonardo.ocremotev2.ui.theme.QueuedBadgeTextColor
 import dev.leonardo.ocremotev2.ui.screens.chat.util.agentColor
-import dev.leonardo.ocremotev2.ui.screens.chat.util.formatAssistantErrorMessage
+import dev.leonardo.ocremotev2.ui.screens.chat.tools.RenderItem
 import dev.leonardo.ocremotev2.ui.screens.chat.util.formatDuration
 import dev.leonardo.ocremotev2.ui.screens.chat.util.formatTokenCount
 import dev.leonardo.ocremotev2.ui.screens.chat.util.isAmoledTheme
@@ -60,7 +60,7 @@ import dev.leonardo.ocremotev2.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocremotev2.ui.screens.chat.util.resolveUserCommandLabel
 import dev.leonardo.ocremotev2.ui.screens.chat.tools.ContextToolGroupCard
 import dev.leonardo.ocremotev2.ui.screens.chat.tools.PartGroup
-import dev.leonardo.ocremotev2.ui.screens.chat.tools.groupContextParts
+import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalShowTurnDividers
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -73,14 +73,13 @@ enum class MessageCardRole { USER, ASSISTANT }
 @Composable
 internal fun MessageCard(
     role: MessageCardRole,
-    turnMessages: List<ChatMessage>? = null,
     currentMessage: ChatMessage,
     isQueued: Boolean = false,
+    renderableTurn: RenderableTurn? = null,
     onViewSubSession: ((String) -> Unit)? = null,
     onOpenFile: ((String) -> Unit)? = null,
     onRevert: (() -> Unit)? = null,
     onCopyText: (() -> Unit)? = null,
-    copyText: String? = null,
     isAmoled: Boolean = false,
     isTurnLast: Boolean = false,
     agents: List<AgentInfo> = emptyList(),
@@ -94,12 +93,10 @@ internal fun MessageCard(
             isAmoled = isAmoled,
         )
         MessageCardRole.ASSISTANT -> MessageCardAssistant(
-            turnMessages = turnMessages,
+            renderableTurn = renderableTurn ?: error("renderableTurn is required for ASSISTANT role"),
             currentMessage = currentMessage,
             onViewSubSession = onViewSubSession,
             onOpenFile = onOpenFile,
-            onCopyText = onCopyText,
-            copyText = copyText,
             isAmoled = isAmoled,
             isTurnLast = isTurnLast,
             agents = agents,
@@ -326,46 +323,25 @@ private fun MessageCardUser(
 
 @Composable
 private fun MessageCardAssistant(
-    turnMessages: List<ChatMessage>?,
+    renderableTurn: RenderableTurn,
     currentMessage: ChatMessage,
     onViewSubSession: ((String) -> Unit)?,
     onOpenFile: ((String) -> Unit)?,
-    onCopyText: (() -> Unit)?,
-    copyText: String?,
     isAmoled: Boolean,
     isTurnLast: Boolean,
     agents: List<AgentInfo> = emptyList(),
 ) {
     val textColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
 
-    // Reverse turnMessages to correct newest-first order
-    val orderedTurnMessages = turnMessages
-
-    // Collect parts from ALL messages in the turn, not just currentMessage
-    val renderableParts = remember(orderedTurnMessages, currentMessage) {
-        val ordered = orderedTurnMessages?.reversed()
-        ordered?.flatMap { msg -> filterRenderableParts(msg.parts) }
-            ?: filterRenderableParts(currentMessage.parts)
-    }
-
-    // Check for errors across all messages in the turn
-    val errorText = remember(orderedTurnMessages, currentMessage) {
-        orderedTurnMessages?.reversed()
-            ?.firstNotNullOfOrNull { msg ->
-                val am = msg.message as? Message.Assistant
-                formatAssistantErrorMessage(am?.error)
-            }
-            ?: formatAssistantErrorMessage((currentMessage.message as? Message.Assistant)?.error)
-    }
-
-    // Keep for footer display (time, provider icon)
-    val assistantMsg = currentMessage.message as? Message.Assistant
-
-    if (renderableParts.isEmpty() && errorText == null) return
+    if (renderableTurn.isEmpty) return
 
     val compact = LocalChatDensity.current == ChatDensity.Compact
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
+    val showTurnDividers = LocalShowTurnDividers.current
+
+    // Keep for footer display (time, provider icon)
+    val assistantMsg = currentMessage.message as? Message.Assistant
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -385,82 +361,56 @@ private fun MessageCardAssistant(
                 ),
                 verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else SpacingTokens.XS.dp)
             ) {
-                // Render parts grouped by message; a divider separates consecutive messages
-                // (e.g. main agent vs sub-agent) within the same turn bubble — not between parts.
-                val turnMsgs = orderedTurnMessages?.reversed() ?: listOf(currentMessage)
-                for ((msgIndex, msg) in turnMsgs.withIndex()) {
-                    val msgParts = filterRenderableParts(msg.parts)
-                    val groups = groupContextParts(msgParts)
-                    for (group in groups) {
-                        when (group) {
-                            is PartGroup.Context -> key(group.parts.first().id) {
-                                ContextToolGroupCard(
-                                    parts = group.parts,
-                                    onOpenFile = onOpenFile ?: {},
-                                )
-                            }
-                            is PartGroup.Single -> key(group.part.id) {
-                                PartContent(
-                                    part = group.part,
-                                    textColor = textColor,
-                                    isUser = false,
-                                    onViewSubSession = onViewSubSession,
-                                    onOpenFile = onOpenFile,
-                                    turnAgentName = if (group.part is Part.Tool && group.part.tool == "task") {
-                                        val agentParts = orderedTurnMessages?.flatMap { it.parts }
-                                            ?.filterIsInstance<Part.Agent>()
-                                            ?: currentMessage.parts.filterIsInstance<Part.Agent>()
-                                        agentParts.firstOrNull()?.name?.takeIf { it.isNotBlank() }
-                                    } else null
+                // Render pre-computed items — zero filtering/grouping during composition.
+                for (item in renderableTurn.renderItems) {
+                    when (item) {
+                        is RenderItem.TurnDivider -> {
+                            if (showTurnDividers) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = if (compact) 3.dp else 6.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                                 )
                             }
                         }
-                    }
-                    if (msgIndex < turnMsgs.lastIndex && msgParts.isNotEmpty()) {
-                        val showDividers = dev.leonardo.ocremotev2.ui.screens.chat.util.LocalShowTurnDividers.current
-                        if (showDividers) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = if (compact) 3.dp else 6.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
+                        is RenderItem.GroupedParts -> {
+                            when (item.group) {
+                                is PartGroup.Context -> key(item.group.parts.first().id) {
+                                    ContextToolGroupCard(
+                                        parts = item.group.parts,
+                                        onOpenFile = onOpenFile ?: {},
+                                    )
+                                }
+                                is PartGroup.Single -> key(item.group.part.id) {
+                                    PartContent(
+                                        part = item.group.part,
+                                        textColor = textColor,
+                                        isUser = false,
+                                        onViewSubSession = onViewSubSession,
+                                        onOpenFile = onOpenFile,
+                                        turnAgentName = if (item.group.part is Part.Tool && item.group.part.tool == "task") {
+                                            renderableTurn.taskAgentName
+                                        } else null,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
-                // Extract agent name from Message.Assistant.agent field (not Part.Agent)
-                val agentName = if (isTurnLast) {
-                    (orderedTurnMessages?.lastOrNull()?.message as? Message.Assistant)?.agent
-                        ?: (currentMessage.message as? Message.Assistant)?.agent
-                } else null
+                // Pre-computed metadata
+                val agentName = renderableTurn.agentName
+                val stepFinishes = renderableTurn.stepFinishes
+                val copyText = renderableTurn.copyText
 
                 // Token/cost/duration footer — only on the last message of a turn
-                val stepFinishes = remember(isTurnLast, orderedTurnMessages) {
-                    if (isTurnLast && orderedTurnMessages != null) {
-                        orderedTurnMessages.flatMap { msg ->
-                            msg.parts.filterIsInstance<Part.StepFinish>()
-                        }
-                    } else {
-                        emptyList()
-                    }
-                }
-
                 if (stepFinishes.isNotEmpty()) {
                     val lastTokens = stepFinishes.lastOrNull()?.tokens
                     val totalInput = lastTokens?.input ?: 0
                     val totalOutput = lastTokens?.output ?: 0
                     val hasTokenStats = totalInput > 0 || totalOutput > 0
 
-                    val durationMs = if (isTurnLast && orderedTurnMessages != null) {
-                        val first = orderedTurnMessages.firstOrNull()?.message
-                        val last = orderedTurnMessages.lastOrNull()?.message
-                        if (first is Message.Assistant && last is Message.Assistant) {
-                            last.time.completed?.let { end -> end - first.time.created }
-                        } else null
-                    } else null
-
-                    val modelId = if (isTurnLast && orderedTurnMessages != null) {
-                        (orderedTurnMessages.lastOrNull()?.message as? Message.Assistant)?.modelId
-                    } else null
+                    val durationMs = renderableTurn.durationMs
+                    val modelId = renderableTurn.modelId
 
                     val hasFooter = hasTokenStats || (durationMs ?: 0) > 0 || !modelId.isNullOrBlank() || !agentName.isNullOrBlank()
 
@@ -636,7 +586,7 @@ private fun MessageCardAssistant(
                 }
 
                 // Error display
-                if (errorText != null) {
+                if (renderableTurn.errorText != null) {
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = AlphaTokens.FAINT),
                         shape = ShapeTokens.mediumSmall,
@@ -644,7 +594,7 @@ private fun MessageCardAssistant(
                         tonalElevation = 0.dp,
                     ) {
                         ErrorPayloadContent(
-                            text = errorText,
+                            text = renderableTurn.errorText,
                             textStyle = MaterialTheme.typography.bodySmall,
                             textColor = textColor,
                             modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp, vertical = 10.dp)
