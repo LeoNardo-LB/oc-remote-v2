@@ -6,7 +6,6 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dev.leonardo.ocremotev2.R
-import dev.leonardo.ocremotev2.domain.model.Annotation
 import dev.leonardo.ocremotev2.domain.model.ContentType
 import dev.leonardo.ocremotev2.domain.model.VcsDiffMode
 import dev.leonardo.ocremotev2.domain.repository.ToolSnapshotCache
@@ -18,7 +17,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 class FileViewerViewModel @AssistedInject constructor(
     @Assisted private val params: FileViewerParams,

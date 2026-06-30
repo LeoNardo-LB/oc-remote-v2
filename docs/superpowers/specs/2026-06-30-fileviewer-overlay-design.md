@@ -384,6 +384,9 @@ WorkspaceRoute(
 | `ui/screens/chat/ChatViewModel.kt` | 删除 pendingScrollKey/Offset |
 | `ui/navigation/NavGraph.kt` | 删除 FileViewer destination + 改 Chat/Workspace 入参 |
 | `ui/screens/workspace/WorkspaceScreen.kt` | overlay state + 移除 navigate 回调 |
+| `ui/screens/chat/components/PartContent.kt` | `FileViewerNav.Source.*` → `FileViewerSource.*` |
+| `app/src/test/.../FileViewerViewModelTest.kt` | 重写：`SavedStateHandle` → `FileViewerParams` 直接构造 |
+| `app/src/test/.../FileViewerNavTest.kt` | **删除**（FileViewerNav 已删除） |
 
 ## 5. 测试策略
 
