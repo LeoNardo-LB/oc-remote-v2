@@ -142,7 +142,7 @@ fun ChatMessageList(
         rawMessages.lastOrNull {
             it.isAssistant && it.message.time.completed == null
         }?.message?.id
-    }
+    }?.takeIf { sessionMeta.isStreaming }
 
     // Key on streamingMsgId so state resets when streaming message changes (new message
     // or completion). This is simpler and more correct than heightMap + session-scope clear.
@@ -234,13 +234,21 @@ fun ChatMessageList(
                     val layoutInfo = listState.layoutInfo
                     val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
                     val total = layoutInfo.totalItemsCount
-                    !messageState.isLoadingOlder &&
-                    messageState.hasOlderMessages &&
-                    total - lastVisible <= 8
+                    val dist = total - lastVisible
+                    val result = !messageState.isLoadingOlder &&
+                        messageState.hasOlderMessages &&
+                        dist <= 8
+                    if (dist <= 12) {
+                        android.util.Log.d("AutoPag", "last=$lastVisible total=$total dist=$dist hasOlder=${messageState.hasOlderMessages} load=${messageState.isLoadingOlder} → $result")
+                    }
+                    result
                 }
             }
             LaunchedEffect(shouldPaginate) {
-                if (shouldPaginate) viewModel.loadOlderMessages()
+                if (shouldPaginate) {
+                    android.util.Log.d("AutoPag", "→ loadOlderMessages()")
+                    viewModel.loadOlderMessages()
+                }
             }
 
                 LazyColumn(

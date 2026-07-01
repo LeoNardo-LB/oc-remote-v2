@@ -1,6 +1,7 @@
 ﻿package dev.leonardo.ocremotev2.ui.screens.chat.util
 
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import dev.leonardo.ocremotev2.domain.model.FileDiff
 import dev.leonardo.ocremotev2.ui.screens.chat.tools.DefaultToolCardResolver
 import dev.leonardo.ocremotev2.ui.screens.chat.tools.ToolCardResolver
@@ -18,6 +19,13 @@ val LocalShowTurnDividers = compositionLocalOf { true }
 
 /** Whether haptic feedback is enabled. */
 val LocalHapticFeedbackEnabled = compositionLocalOf { true }
+
+/**
+ * Whether the current session is actively streaming (FSM activity = Streaming).
+ * Authoritative gate for the reasoning timer; combined with per-part `time.end == null`
+ * so only the current reasoning part shows the timer (approach B).
+ */
+val LocalSessionStreaming = staticCompositionLocalOf { false }
 
 /** Image save request callback available to image preview composables. */
 val LocalImageSaveRequest = compositionLocalOf<(ByteArray, String, String?) -> Unit> { { _, _, _ -> } }

@@ -78,6 +78,7 @@ import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalToolCardResolver
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalExpandReasoning
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalOnToggleToolExpanded
+import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalSessionStreaming
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalToolExpandedStates
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -114,7 +115,7 @@ internal fun PartContent(
         }
         is Part.Reasoning -> {
             if (part.text.isNotBlank()) {
-                val isStreaming = part.time?.end == null
+                val isStreaming = LocalSessionStreaming.current && (part.time?.end == null)
                 val startTimeMs = part.time?.start
                 val reasoningDuration = part.time?.let { t ->
                     t.end?.let { end -> end - t.start }

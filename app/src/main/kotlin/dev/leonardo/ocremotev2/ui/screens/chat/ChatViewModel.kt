@@ -78,6 +78,8 @@ data class SessionMetaState(
     val currentAgentName: String? = null,
     val currentModelId: String? = null,
     val shareUrl: String? = null,
+    /** True when FSM activity for this session is Streaming (gates reasoning timer + streamingMsgId). */
+    val isStreaming: Boolean = false,
 )
 
 /**
@@ -544,6 +546,7 @@ class ChatViewModel @Inject constructor(
         sessionStateService.statusFlow,
         sessionRepository.getCurrentAgentFlow(serverId),
         sessionRepository.getCurrentModelFlow(serverId),
+        sessionStateService.activityFlow,
     ) { args ->
         val sid = args[0] as String
         @Suppress("UNCHECKED_CAST")
@@ -554,9 +557,12 @@ class ChatViewModel @Inject constructor(
         val currentAgentMap = args[3] as Map<String, String>
         @Suppress("UNCHECKED_CAST")
         val currentModelMap = args[4] as Map<String, Pair<String, String>>
+        @Suppress("UNCHECKED_CAST")
+        val activities = args[5] as Map<String, SessionActivity?>
 
         val session = allSessions.find { it.id == sid }
         val sessionStatus = statuses[sid] ?: SessionStatus.Idle
+        val isStreaming = activities[sid] is SessionActivity.Streaming
 
         SessionMetaState(
             sessionTitle = session?.title ?: "",
@@ -568,6 +574,7 @@ class ChatViewModel @Inject constructor(
             currentAgentName = currentAgentMap[sid],
             currentModelId = currentModelMap[sid]?.second,
             shareUrl = session?.share?.url,
+            isStreaming = isStreaming,
         )
     }.stateIn(
         viewModelScope,

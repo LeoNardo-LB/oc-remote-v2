@@ -195,6 +195,7 @@ import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalShowTurnDividers
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalImageSaveRequest
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalSessionDiffs
+import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalSessionStreaming
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalToolExpandedStates
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalOnToggleToolExpanded
 import dev.leonardo.ocremotev2.ui.screens.chat.util.LocalToolCardResolver
@@ -521,6 +522,7 @@ fun ChatScreen(
         LocalSessionDiffs provides sessionDiffsMap,
         LocalUriHandler provides linkUriHandler,
         LocalOnViewTool provides onViewToolLambda,
+        LocalSessionStreaming provides sessionMeta.isStreaming,
     ) {
     Scaffold(
         snackbarHost = {
