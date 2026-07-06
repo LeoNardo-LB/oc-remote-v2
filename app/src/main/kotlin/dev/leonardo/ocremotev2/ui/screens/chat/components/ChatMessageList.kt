@@ -183,7 +183,7 @@ fun ChatMessageList(
     // Quick Navigate: extract jump targets + track current question
     val jumpTargets = remember(rawMessages) { extractJumpTargets(rawMessages) }
 
-    val currentQuestionRawIndex by remember {
+    val currentQuestionRawIndex by remember(rawMessages) {
         derivedStateOf { findCurrentQuestionRawIndex(listState, rawMessages) }
     }
 
