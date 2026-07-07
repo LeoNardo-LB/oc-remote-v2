@@ -14,27 +14,30 @@ data class JumpTarget(
 )
 
 /**
- * Extract all user questions from the raw message list, in order.
+ * Extract all user questions, sorted by time ascending (Q1 = oldest question),
+ * independent of rawMessages storage order (rawMessages is newest-first in
+ * production — see ChatScreen.kt:993). rawIndex keeps the original index in
+ * rawMessages for jump lookup.
+ *
  * Pure function — no Android/Compose dependencies.
  */
 fun extractJumpTargets(rawMessages: List<ChatMessage>): List<JumpTarget> {
-    var q = 0
-    return rawMessages.mapIndexedNotNull { i, cm ->
-        if (!cm.isUser) null
-        else {
-            q++
+    return rawMessages.withIndex()
+        .filter { it.value.isUser }
+        .sortedBy { it.value.message.time.created }
+        .mapIndexed { i, indexed ->
+            val cm = indexed.value
             JumpTarget(
-                label = "Q$q",
+                label = "Q${i + 1}",
                 timestampMs = cm.message.time.created,
                 preview = cm.parts.firstOrNull { it is Part.Text }
                     ?.let { (it as Part.Text).text }
                     ?.takeIf { it.isNotBlank() }
                     ?: "(无文本)",
-                rawIndex = i,
+                rawIndex = indexed.index,
                 msgId = cm.message.id
             )
         }
-    }
 }
 
 /**

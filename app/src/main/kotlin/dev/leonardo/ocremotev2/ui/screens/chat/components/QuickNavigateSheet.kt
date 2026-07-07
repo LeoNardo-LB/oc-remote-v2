@@ -123,7 +123,7 @@ private fun JumpTargetRow(
     onClick: () -> Unit,
 ) {
     val timeText = remember(target.timestampMs) {
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(target.timestampMs))
+        SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(target.timestampMs))
     }
     val highlightBg = if (isCurrent) {
         MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.SELECTED)

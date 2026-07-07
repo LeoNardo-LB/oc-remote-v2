@@ -52,6 +52,29 @@ class JumpTargetExtractorTest {
     }
 
     @Test
+    fun `extractJumpTargets sorts by time ascending even when input is newest-first`() {
+        // rawMessages in production is newest-first (see ChatScreen.kt:993)
+        val msgs = listOf(
+            userMsg("u2", "world", 3000),      // newest, rawIndex 0
+            assistantMsg("a2", 4000),
+            userMsg("u1", "hello", 1000),      // oldest, rawIndex 2
+            assistantMsg("a1", 2000)
+        )
+        val targets = extractJumpTargets(msgs)
+        assertEquals(2, targets.size)
+        // Q1 = oldest (u1, created=1000) regardless of input order
+        assertEquals("Q1", targets[0].label)
+        assertEquals("hello", targets[0].preview)
+        assertEquals(1000L, targets[0].timestampMs)
+        assertEquals("u1", targets[0].msgId)
+        assertEquals(2, targets[0].rawIndex)
+        // Q2 = newest (u2)
+        assertEquals("Q2", targets[1].label)
+        assertEquals("world", targets[1].preview)
+        assertEquals(0, targets[1].rawIndex)
+    }
+
+    @Test
     fun `extractJumpTargets uses placeholder when text is blank`() {
         val msgs = listOf(userMsg("u1", "   ", 1000))
         val targets = extractJumpTargets(msgs)

@@ -212,7 +212,19 @@ fun ChatMessageList(
         if (displayItemIndex < 0) return
         val lazyIndex = bannerCount + displayItemIndex
         coroutineScope.launch {
+            // reverseLayout=true: requestScrollToItemNoCancel places the item at the
+            // viewport's scroll-start (visually the BOTTOM). A follow-up scrollBy moves
+            // it up to the top so the jumped-to message is immediately readable.
             LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+            listState.scroll {
+                val info = listState.layoutInfo
+                val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                if (item != null) {
+                    // negative delta = backward scroll = content shifts up = item rises to top
+                    val delta = (info.viewportStartOffset - item.offset).toFloat()
+                    scrollBy(delta)
+                }
+            }
         }
         onQuickNavigateDismiss()
     }
