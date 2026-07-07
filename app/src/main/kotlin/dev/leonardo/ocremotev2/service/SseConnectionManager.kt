@@ -1,4 +1,4 @@
-﻿package dev.leonardo.ocremotev2.service
+package dev.leonardo.ocremotev2.service
 
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
@@ -323,9 +323,17 @@ class SseConnectionManager @Inject constructor(
         Log.i(TAG, "[${server.displayName}] Recovered messages for $recoveredCount/${sessionIds.size} sessions")
 
         // Phase 2: Sync real session statuses from server via the unified FSM pipeline.
-        val projects = fileApi.listProjects(conn)
-        sessionStateService.setServerId(server.id)
-        sessionStateService.syncFromRest(projects)
+        // Wrap in try-catch: listProjects / syncFromRest may throw NoTransformationFoundException
+        // when the server returns a non-JSON error response (e.g. 502 Bad Gateway from a reverse
+        // proxy). Phase 1 message recovery is already complete at this point, so a Phase 2 failure
+        // should not propagate and abort the reconnect cycle.
+        try {
+            val projects = fileApi.listProjects(conn)
+            sessionStateService.setServerId(server.id)
+            sessionStateService.syncFromRest(projects)
+        } catch (e: Exception) {
+            Log.w(TAG, "[${server.displayName}] Failed to sync session statuses during recovery: ${e.message}")
+        }
     }
 
     private fun updateServerConnected(serverId: String, connected: Boolean) {
