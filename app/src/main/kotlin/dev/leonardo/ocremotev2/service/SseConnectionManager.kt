@@ -61,7 +61,17 @@ class SseConnectionManager @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val sessionStateService: SessionStateService,
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, exception ->
+            // Defense-in-depth: ensures uncaught exceptions during SSE connection
+            // lifecycle (DNS failures, reconnect races) do not crash the process.
+            // The launch in startSseConnection wraps network calls in try/catch,
+            // but this catches anything that escapes — particularly important because
+            // reconnectServer() cancels the running job then starts a new one, which can
+            // race with an in-flight DNS resolution and surface as UnknownHostException.
+            Log.e(TAG, "Unhandled coroutine exception in SSE connection scope", exception)
+        }
+    )
 
     /** All active/pending server connections keyed by serverId. */
     val connections = ConcurrentHashMap<String, ServerConnectionState>()
