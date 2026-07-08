@@ -314,6 +314,8 @@ internal class MessageDataDelegate(
 
     /**
      * Load messages via V1 API for modelConfigState resolution (model/agent from history).
+     * Does NOT modify pagination state (_hasOlderMessages) — that's owned by
+     * loadMessagesForSession (session entry) and loadOlderMessages (pagination).
      */
     fun loadMessages() {
         val sid = sessionIdFlow.value
@@ -323,10 +325,9 @@ internal class MessageDataDelegate(
             try {
                 val messages = manageSessionUseCase.listMessages(serverId, sid, limit = currentMessageLimit)
                 chatRepository.setMessages(sid, messages)
-                _hasOlderMessages.value = messages.size >= currentMessageLimit
 
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "Loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit, hasOlder=${_hasOlderMessages.value})")
+                    Log.d(TAG, "Loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit)")
                 }
             } catch (e: Throwable) {
                 Log.e(TAG, "Failed to load messages", e)
@@ -336,7 +337,6 @@ internal class MessageDataDelegate(
                     try {
                         val messages = manageSessionUseCase.listMessages(serverId, sid, limit = currentMessageLimit)
                         chatRepository.mergeMessages(sid, messages)
-                        _hasOlderMessages.value = messages.size >= currentMessageLimit
                         if (BuildConfig.DEBUG) Log.d(TAG, "Retry succeeded: loaded ${messages.size} messages (limit=$currentMessageLimit)")
                     } catch (retryEx: Throwable) {
                         Log.e(TAG, "Retry also failed", retryEx)
@@ -360,7 +360,6 @@ internal class MessageDataDelegate(
         try {
             val messages = manageSessionUseCase.listMessages(serverId, sid, limit = currentMessageLimit)
             chatRepository.setMessages(sid, messages)
-            _hasOlderMessages.value = messages.size >= currentMessageLimit
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to refresh messages", e)
         } finally {
