@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
@@ -35,7 +34,6 @@ import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownAnimations
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.rememberMarkdownState
-import com.mikepenz.markdown.utils.getUnescapedTextInNode
 
 import dev.leonardo.ocremotev2.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocremotev2.ui.theme.AlphaTokens
@@ -250,6 +248,29 @@ internal fun MarkdownContent(
 
     val components = remember(density, isUser, linkListener) {
         markdownComponents(
+            text = { model ->
+                val settings = annotatorSettings(linkInteractionListener = linkListener)
+                val result = remember(model.content, model.node) {
+                    buildClickableMarkdown(
+                        content = model.content,
+                        node = model.node,
+                        style = model.typography.text,
+                        annotatorSettings = settings,
+                        linkColor = linkColor,
+                    )
+                }
+                var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+                MarkdownBasicText(
+                    text = result.annotatedString,
+                    style = model.typography.text,
+                    onTextLayout = { layoutResult = it },
+                    modifier = Modifier.clickableMarkdown(
+                        result = result,
+                        layoutResultProvider = { layoutResult },
+                        uriHandler = uriHandler,
+                    ),
+                )
+            },
             paragraph = { model ->
                 val settings = annotatorSettings(linkInteractionListener = linkListener)
                 val result = remember(model.content, model.node) {
@@ -274,14 +295,27 @@ internal fun MarkdownContent(
                 )
             },
             heading1 = { model ->
-                // getUnescapedTextInNode returns the raw "# Title" range; strip the
-                // leading marker(s) so only the heading copy is rendered.
+                val settings = annotatorSettings(linkInteractionListener = linkListener)
+                val result = remember(model.content, model.node) {
+                    buildClickableMarkdown(
+                        content = model.content,
+                        node = model.node,
+                        style = model.typography.text,
+                        annotatorSettings = settings,
+                        linkColor = linkColor,
+                    )
+                }
+                var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
                 Column {
-                    Text(
-                        text = model.node.getUnescapedTextInNode(model.content)
-                            .dropWhile { it == '#' }
-                            .trim(),
+                    MarkdownBasicText(
+                        text = result.annotatedString,
                         style = typography.h1,
+                        onTextLayout = { layoutResult = it },
+                        modifier = Modifier.clickableMarkdown(
+                            result = result,
+                            layoutResultProvider = { layoutResult },
+                            uriHandler = uriHandler,
+                        ),
                     )
                     HorizontalDivider(
                         modifier = Modifier.padding(top = spacing.block),
