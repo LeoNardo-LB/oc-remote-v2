@@ -1,8 +1,5 @@
 ﻿package dev.leonardo.ocremotev2.ui.screens.chat.markdown
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,7 +15,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.LinkInteractionListener
@@ -27,12 +23,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.mikepenz.markdown.annotator.annotatorSettings
-import com.mikepenz.markdown.annotator.buildMarkdownAnnotatedString
 import com.mikepenz.markdown.coil3.Coil3ImageTransformerImpl
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.compose.elements.material.MarkdownBasicText
@@ -43,9 +36,7 @@ import com.mikepenz.markdown.model.markdownAnimations
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
-import org.intellij.markdown.MarkdownElementTypes
-import org.intellij.markdown.ast.findChildOfType
-import dev.leonardo.ocremotev2.domain.model.LinkClassifier
+
 import dev.leonardo.ocremotev2.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocremotev2.ui.theme.AlphaTokens
 import dev.leonardo.ocremotev2.ui.theme.ChatDensity
@@ -261,66 +252,25 @@ internal fun MarkdownContent(
         markdownComponents(
             paragraph = { model ->
                 val settings = annotatorSettings(linkInteractionListener = linkListener)
-                val rawAnnotated = model.content.buildMarkdownAnnotatedString(
-                    textNode = model.node,
-                    style = model.typography.text,
-                    annotatorSettings = settings,
-                )
-                val items = remember(model.content, model.node) {
-                    extractClickableItems(model.content, model.node)
-                }
-                val codePaths = items.filterIsInstance<ClickableItem.CodePath>()
-                val annotated = if (codePaths.isEmpty()) rawAnnotated else {
-                    buildAnnotatedString {
-                        append(rawAnnotated.text)
-                        rawAnnotated.spanStyles.forEach { range ->
-                            addStyle(range.item, range.start, range.end)
-                        }
-                        var searchFrom = 0
-                        for (cp in codePaths) {
-                            val idx = rawAnnotated.text.indexOf(cp.text, searchFrom)
-                            if (idx >= 0) {
-                                addStyle(
-                                    SpanStyle(
-                                        textDecoration = TextDecoration.Underline,
-                                        color = linkColor,
-                                    ),
-                                    idx, idx + cp.text.length,
-                                )
-                                searchFrom = idx + cp.text.length
-                            }
-                        }
-                    }
+                val result = remember(model.content, model.node) {
+                    buildClickableMarkdown(
+                        content = model.content,
+                        node = model.node,
+                        style = model.typography.text,
+                        annotatorSettings = settings,
+                        linkColor = linkColor,
+                    )
                 }
                 var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
                 MarkdownBasicText(
-                    text = annotated,
+                    text = result.annotatedString,
                     style = model.typography.text,
                     onTextLayout = { layoutResult = it },
-                    modifier = Modifier
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { }
-                        .pointerInput(annotated) {
-                            detectTapGestures { pos ->
-                                val layout = layoutResult ?: return@detectTapGestures
-                                val offset = layout.getOffsetForPosition(pos)
-                                val text = annotated.text
-                                var searchFrom = 0
-                                for (item in items) {
-                                    val idx = text.indexOf(item.text, searchFrom)
-                                    if (idx >= 0 && offset >= idx && offset < idx + item.text.length) {
-                                        when (item) {
-                                            is ClickableItem.Link -> uriHandler.openUri(item.url)
-                                            is ClickableItem.CodePath -> uriHandler.openUri(item.text)
-                                        }
-                                        return@detectTapGestures
-                                    }
-                                    if (idx >= 0) searchFrom = idx + item.text.length
-                                }
-                            }
-                        },
+                    modifier = Modifier.clickableMarkdown(
+                        result = result,
+                        layoutResultProvider = { layoutResult },
+                        uriHandler = uriHandler,
+                    ),
                 )
             },
             heading1 = { model ->
@@ -371,41 +321,4 @@ internal fun MarkdownContent(
     )
 }
 
-private sealed interface ClickableItem {
-    val text: String
-    data class Link(override val text: String, val url: String) : ClickableItem
-    data class CodePath(override val text: String) : ClickableItem
-}
-
-/**
- * Extract clickable items from a markdown AST paragraph node:
- * - [text](url) markdown links → ClickableItem.Link
- * - `code` inline code that looks like a path → ClickableItem.CodePath
- */
-private fun extractClickableItems(content: String, node: org.intellij.markdown.ast.ASTNode): List<ClickableItem> {
-    val items = mutableListOf<ClickableItem>()
-    fun walk(n: org.intellij.markdown.ast.ASTNode) {
-        if (n.type == MarkdownElementTypes.INLINE_LINK) {
-            val dest = n.findChildOfType(MarkdownElementTypes.LINK_DESTINATION)
-            val textNode = n.findChildOfType(MarkdownElementTypes.LINK_TEXT)
-            if (dest != null && textNode != null) {
-                val url = dest.getUnescapedTextInNode(content).toString()
-                val rawText = textNode.getUnescapedTextInNode(content).toString()
-                val linkText = rawText.removeSurrounding("[", "]")
-                if (linkText.isNotEmpty() && url.isNotEmpty()) {
-                    items.add(ClickableItem.Link(linkText, url))
-                }
-            }
-        } else if (n.type == MarkdownElementTypes.CODE_SPAN) {
-            val raw = n.getUnescapedTextInNode(content).toString()
-            val codeText = raw.trim('`').trim()
-            if (codeText.isNotEmpty() && LinkClassifier.isLikelyFilePath(codeText)) {
-                items.add(ClickableItem.CodePath(codeText))
-            }
-        }
-        n.children.forEach { walk(it) }
-    }
-    walk(node)
-    return items
-}
 
