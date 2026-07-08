@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+    <link rel="stylesheet" href="viewer.css">
+    <script src="pdf.min.js"></script>
+</head>
+<body>
+    <div id="loading-indicator">Loading PDF...</div>
+    <canvas id="pdf-canvas" style="display:none;"></canvas>
+    <div id="error-message" style="display:none;"></div>
+
+    <script>
+        var pdfDoc = null;
+        var pageNum = 1;
+        var pageRendering = false;
+        var pageNumPending = null;
+        var scale = 1.5;
+
+        /**
+         * Load PDF from base64-encoded data.
+         * Called from Kotlin via evaluateJavascript.
+         */
+        async function loadPdfFromBase64(base64Data) {
+            try {
+                var uint8 = Uint8Array.from(atob(base64Data), function(c) { return c.charCodeAt(0); });
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
+
+                var loadingTask = pdfjsLib.getDocument({ data: uint8 });
+                pdfDoc = await loadingTask.promise;
+
+                document.getElementById('loading-indicator').style.display = 'none';
+                document.getElementById('pdf-canvas').style.display = 'block';
+
+                pageNum = 1;
+                renderPage(pageNum);
+                PdfViewerInterface.onPdfLoaded(pdfDoc.numPages);
+            } catch (err) {
+                document.getElementById('loading-indicator').style.display = 'none';
+                var errEl = document.getElementById('error-message');
+                errEl.style.display = 'block';
+                errEl.textContent = 'Failed to load PDF: ' + (err.message || 'Unknown error');
+                PdfViewerInterface.onError(err.message || 'Unknown error');
+            }
+        }
+
+        /**
+         * Render a specific page to canvas.
+         */
+        function renderPage(num) {
+            pageRendering = true;
+            pdfDoc.getPage(num).then(function(page) {
+                var viewport = page.getViewport({ scale: scale });
+                var outputScale = window.devicePixelRatio || 1;
+
+                var canvas = document.getElementById('pdf-canvas');
+                var context = canvas.getContext('2d');
+
+                canvas.width = Math.floor(viewport.width * outputScale);
+                canvas.height = Math.floor(viewport.height * outputScale);
+                canvas.style.width = Math.floor(viewport.width) + 'px';
+                canvas.style.height = Math.floor(viewport.height) + 'px';
+
+                var transform = outputScale !== 1
+                    ? [outputScale, 0, 0, outputScale, 0, 0]
+                    : null;
+
+                var renderContext = {
+                    canvasContext: context,
+                    transform: transform,
+                    viewport: viewport
+                };
+
+                var renderTask = page.render(renderContext);
+                renderTask.promise.then(function() {
+                    pageRendering = false;
+                    if (pageNumPending !== null) {
+                        renderPage(pageNumPending);
+                        pageNumPending = null;
+                    }
+                    PdfViewerInterface.onPageRendered(pageNum, pdfDoc.numPages);
+                });
+            });
+        }
+
+        function queueRenderPage(num) {
+            if (pageRendering) {
+                pageNumPending = num;
+            } else {
+                renderPage(num);
+            }
+        }
+
+        function nextPage() {
+            if (pageNum >= pdfDoc.numPages) return;
+            pageNum++;
+            queueRenderPage(pageNum);
+        }
+
+        function prevPage() {
+            if (pageNum <= 1) return;
+            pageNum--;
+            queueRenderPage(pageNum);
+        }
+
+        function setScale(newScale) {
+            scale = newScale;
+            queueRenderPage(pageNum);
+        }
+    </script>
+</body>
+</html>
