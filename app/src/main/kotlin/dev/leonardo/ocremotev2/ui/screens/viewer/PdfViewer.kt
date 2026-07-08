@@ -1,15 +1,20 @@
 package dev.leonardo.ocremotev2.ui.screens.viewer
 
 import android.annotation.SuppressLint
+import android.util.Log
 import android.view.View
+import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -21,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -28,13 +34,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.leonardo.ocremotev2.ui.theme.SpacingTokens
 
+private const val TAG = "PdfViewer"
+
 /**
  * PDF viewer using PDF.js in WebView.
  * Loads base64-encoded PDF data and renders pages to canvas.
+ *
+ * Key fix: `allowFileAccessFromFileURLs = true` enables pdf.js Web Worker
+ * to load from `file://` protocol (required for rendering).
  *
  * @param base64Data Base64-encoded PDF content from API
  * @param visible Whether the viewer is visible
@@ -51,10 +63,25 @@ fun PdfViewer(
     var currentPage by remember { mutableIntStateOf(1) }
     var isLoading by remember { mutableStateOf(true) }
     var hasError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
     val escapedBase64 = remember(base64Data) {
         base64Data.replace("\\", "\\\\").replace("'", "\\'")
+    }
+
+    // Clean up WebView when composable leaves composition
+    DisposableEffect(Unit) {
+        onDispose {
+            webViewRef?.apply {
+                stopLoading()
+                loadUrl("about:blank")
+                clearHistory()
+                (parent as? android.view.ViewGroup)?.removeView(this)
+                destroy()
+            }
+            webViewRef = null
+        }
     }
 
     Box(modifier.fillMaxSize()) {
@@ -64,8 +91,12 @@ fun PdfViewer(
                 WebView(ctx).apply {
                     settings.apply {
                         javaScriptEnabled = true
-                        allowFileAccess = true          // 需要加载 assets 中的 pdf.js
+                        allowFileAccess = true
                         allowContentAccess = false
+                        // CRITICAL: Allow Web Worker to load from file:// protocol.
+                        // Without this, pdf.js cannot create its worker and fails silently.
+                        allowFileAccessFromFileURLs = true
+                        allowUniversalAccessFromFileURLs = true
                         builtInZoomControls = true
                         displayZoomControls = false
                         loadWithOverviewMode = true
@@ -89,8 +120,10 @@ fun PdfViewer(
 
                             @android.webkit.JavascriptInterface
                             fun onError(message: String) {
+                                Log.e(TAG, "PDF.js error: $message")
                                 isLoading = false
                                 hasError = true
+                                errorMessage = message
                             }
                         },
                         "PdfViewerInterface"
@@ -99,14 +132,30 @@ fun PdfViewer(
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
+                            Log.d(TAG, "Page finished loading, injecting PDF data")
                             view?.evaluateJavascript(
                                 "loadPdfFromBase64('$escapedBase64')",
                                 null
                             )
                         }
+
+                        override fun onReceivedError(
+                            view: WebView?,
+                            request: android.webkit.WebResourceRequest?,
+                            error: android.webkit.WebResourceError?
+                        ) {
+                            super.onReceivedError(view, request, error)
+                            Log.e(TAG, "WebView error: ${error?.description}")
+                        }
                     }
 
-                    webChromeClient = WebChromeClient()
+                    webChromeClient = object : WebChromeClient() {
+                        override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                            Log.d(TAG, "JS Console [${consoleMessage.messageLevel()}]: ${consoleMessage.message()}")
+                            return true
+                        }
+                    }
+
                     loadUrl("file:///android_asset/pdfjs/pdf_viewer.html")
                 }
             },
@@ -164,12 +213,36 @@ fun PdfViewer(
         }
 
         // ── Loading indicator ──
-        if (isLoading) {
+        if (isLoading && !hasError) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
+            }
+        }
+
+        // ── Error state ──
+        if (hasError) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(SpacingTokens.XXL.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "PDF 加载失败",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Spacer(Modifier.height(SpacingTokens.SM.dp))
+                Text(
+                    text = errorMessage.ifBlank { "未知错误" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
             }
         }
     }
