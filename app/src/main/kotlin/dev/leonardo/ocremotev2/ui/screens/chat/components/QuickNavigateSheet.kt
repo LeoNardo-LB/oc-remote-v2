@@ -4,10 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,14 +20,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -37,23 +37,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import dev.leonardo.ocremotev2.ui.screens.chat.util.JumpTarget
 import dev.leonardo.ocremotev2.ui.theme.AlphaTokens
+import dev.leonardo.ocremotev2.ui.theme.ShapeTokens
 import dev.leonardo.ocremotev2.ui.theme.SpacingTokens
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * ModalBottomSheet listing all user questions for quick navigation.
+ * Dialog listing all user questions for quick navigation.
  *
- * @param show whether the sheet is visible
+ * @param show whether the dialog is visible
  * @param jumpTargets extracted user questions (see JumpTargetExtractor)
  * @param currentRawIndex rawIndex of the currently-visible question, for highlight; null = none
  * @param onJump invoked with msgId when user taps a question
- * @param onDismiss invoked when sheet should close
+ * @param onDismiss invoked when dialog should close
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickNavigateSheet(
     show: Boolean,
@@ -64,68 +66,78 @@ fun QuickNavigateSheet(
 ) {
     if (!show) return
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-    val sheetListState = rememberLazyListState()
+    val listState = rememberLazyListState()
 
-    // Auto-scroll to the currently-highlighted question when the sheet opens,
+    // Auto-scroll to the currently-highlighted question when the dialog opens,
     // so the user sees their current position instead of Q1.
     LaunchedEffect(show, currentRawIndex) {
         if (currentRawIndex != null) {
             val targetIndex = jumpTargets.indexOfFirst { it.rawIndex == currentRawIndex }
             if (targetIndex >= 0) {
-                sheetListState.scrollToItem(targetIndex)
+                listState.scrollToItem(targetIndex)
             }
         }
     }
 
-    ModalBottomSheet(
+    Dialog(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        // Header
-        Row(
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .fillMaxHeight(0.8f),
+            shape = ShapeTokens.large,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 6.dp,
         ) {
-            Text(
-                text = "快速定位",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = "关闭")
-            }
-        }
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "快速定位",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "关闭")
+                    }
+                }
 
-        if (jumpTargets.isEmpty()) {
-            Text(
-                text = "暂无提问",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = SpacingTokens.XXL.dp),
-                textAlign = TextAlign.Center,
-            )
-            return@ModalBottomSheet
-        }
+                if (jumpTargets.isEmpty()) {
+                    Text(
+                        text = "暂无提问",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = SpacingTokens.XXL.dp),
+                        textAlign = TextAlign.Center,
+                    )
+                    return@Column
+                }
 
-        LazyColumn(
-            state = sheetListState,
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = SpacingTokens.XXL.dp),
-        ) {
-            items(jumpTargets, key = { it.msgId }) { target ->
-                JumpTargetRow(
-                    target = target,
-                    isCurrent = target.rawIndex == currentRawIndex,
-                    onClick = { onJump(target.msgId) },
-                )
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
-                )
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = SpacingTokens.XXL.dp),
+                ) {
+                    items(jumpTargets, key = { it.msgId }) { target ->
+                        JumpTargetRow(
+                            target = target,
+                            isCurrent = target.rawIndex == currentRawIndex,
+                            onClick = { onJump(target.msgId) },
+                        )
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+                        )
+                    }
+                }
             }
         }
     }
