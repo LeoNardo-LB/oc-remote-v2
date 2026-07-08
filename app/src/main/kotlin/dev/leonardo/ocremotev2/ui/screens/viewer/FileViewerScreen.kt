@@ -210,7 +210,11 @@ fun FileViewerScreen(
                                     fileType = FileType.HTML,
                                     visible = true
                                 )
-                                else -> {} // no-op (PDF handled in Task 6)
+                                FileType.PDF -> PdfViewer(
+                                    base64Data = uiState.content,
+                                    visible = true
+                                )
+                                else -> {} // no-op
                             }
                         }
                     }
@@ -337,7 +341,7 @@ private fun FileViewerTopBar(
                 }
             }
             // Multi-format render toggle (hidden when annotations exist)
-            if (annotationCount == 0 && uiState.fileType.supportsRender && uiState.mode != FileViewerMode.DIFF) {
+            if (annotationCount == 0 && uiState.fileType.supportsRender && uiState.fileType.supportsSourceView && uiState.mode != FileViewerMode.DIFF) {
                 val isRender = uiState.renderMode == FileViewerRenderMode.RENDER_PREVIEW
                 IconButton(
                     onClick = onToggleRenderMode,
