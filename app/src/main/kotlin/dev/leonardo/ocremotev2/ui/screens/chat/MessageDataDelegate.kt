@@ -202,7 +202,7 @@ internal class MessageDataDelegate(
                     )
                 }
 
-            MessageListState(
+            val state = MessageListState(
                 messages = chatMessages,
                 messageCount = chatMessages.size,
                 hasOlderMessages = hasOlderMessages,
@@ -211,6 +211,7 @@ internal class MessageDataDelegate(
                 queuedMessageIds = queuedMessageIds,
                 pendingMessageIds = pendingMessageIds,
             )
+            state
         }
     }.stateIn(
         scope,

@@ -288,21 +288,13 @@ fun ChatMessageList(
                     val layoutInfo = listState.layoutInfo
                     val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
                     val total = layoutInfo.totalItemsCount
-                    val dist = total - lastVisible
-                    val result = !messageState.isLoadingOlder &&
-                        messageState.hasOlderMessages &&
-                        dist <= 8
-                    if (dist <= 12) {
-                        android.util.Log.d("AutoPag", "last=$lastVisible total=$total dist=$dist hasOlder=${messageState.hasOlderMessages} load=${messageState.isLoadingOlder} → $result")
-                    }
-                    result
+                    !messageState.isLoadingOlder &&
+                    messageState.hasOlderMessages &&
+                    total - lastVisible <= 8
                 }
             }
             LaunchedEffect(shouldPaginate) {
-                if (shouldPaginate) {
-                    android.util.Log.d("AutoPag", "→ loadOlderMessages()")
-                    viewModel.loadOlderMessages()
-                }
+                if (shouldPaginate) viewModel.loadOlderMessages()
             }
 
                 LazyColumn(
