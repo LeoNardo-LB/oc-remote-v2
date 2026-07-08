@@ -98,9 +98,33 @@ internal fun normalizeMarkdown(raw: String, isUser: Boolean): String {
     // returns \r\n in Markdown text, which can break GFM table parsing
     // (the \r may be treated as cell content instead of line ending).
     var result = raw.replace("\r\n", "\n").replace("\r", "\n")
+
+    // Ensure GFM tables are preceded by a blank line.
+    // The JetBrains markdown parser only detects tables at block boundaries;
+    // a table directly following a paragraph (no blank line) renders as plain text.
+    result = ensureBlankLineBeforeGfmTables(result)
+
     if (!isUser) return result
     // User messages: single \n doesn't break in Markdown (soft break).
     return result.replace(Regex("(?<!\n)\n(?!\n)"), "\n\n")
+}
+
+/**
+ * Ensures GFM tables are preceded by a blank line.
+ *
+ * The JetBrains markdown parser only detects GFM tables at block boundaries.
+ * When an LLM outputs a table directly after a paragraph (no blank line),
+ * the `|` characters are treated as literal text and the table doesn't render.
+ *
+ * Pattern: non-table line \n |header| \n |---| → non-table line \n\n |header| \n |---|
+ */
+private fun ensureBlankLineBeforeGfmTables(text: String): String {
+    // Match: a line NOT ending with |, followed by a table header line (starts with |),
+    // followed by a separator line (| with only -, :, spaces, and |).
+    val tableAfterText = Regex("""([^\n]*[^\n|])\n([ \t]*\|[^\n]*\|)\n([ \t]*\|[-:\s|]+\|)""")
+    return text.replace(tableAfterText) { m ->
+        "${m.groupValues[1]}\n\n${m.groupValues[2]}\n${m.groupValues[3]}"
+    }
 }
 
 @Composable
