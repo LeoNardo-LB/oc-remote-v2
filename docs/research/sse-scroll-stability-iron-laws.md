@@ -19,7 +19,7 @@ SSE token 到达
 
 违反管道任何一环，都会重新引入闪烁 / 块状输出 / 视窗跳动。
 
-## 2. 四条铁律（2026-07 修正版）
+## 2. 五条铁律（2026-07 修正版）
 
 ### 铁律 1：`Markdown()` 必须用 `rememberMarkdownState(content, retainState=true)`
 
@@ -56,6 +56,30 @@ SSE token 到达
 **位置**：
 - `ChatScreen.kt` autoScroll LaunchedEffect
 - `ChatMessageList.kt` shouldCompensate LaunchedEffect
+
+### 铁律 5（★ 2026-07 第二轮修复发现）：streamingMsgId 只依赖消息 completed 时间戳，绝不能加 `.takeIf { sessionMeta.isStreaming }`
+
+> **`668384e3` 加了这个 takeIf，导致补偿完全不工作——是"被拖着往下走"的真正元凶。**
+
+`streamingMsgId` 决定了哪个 item 会被套上高度补偿 modifier。它**必须**只看消息自身的 `time.completed == null`：
+
+```kotlin
+// ✅ 正确（v360 验证）
+val streamingMsgId = remember(rawMessages) {
+    rawMessages.lastOrNull { it.isAssistant && it.message.time.completed == null }?.message?.id
+}
+
+// ❌ 错误（668384e3 引入的回归）
+// sessionMeta.isStreaming 在生产中会卡在 false（activityFlow 检测失效），
+// 强制 streamingMsgId=null，关闭所有补偿。
+?.takeIf { sessionMeta.isStreaming }
+```
+
+**根因证据**（诊断日志 v443）：整个 SSE 输出会话期间 `streamingMsgId=null`、`isStreaming=false`、**零条** `MSG_LAYOUT` 事件。补偿从未触发过。
+
+**为什么 sessionMeta.isStreaming 不可靠**：它来自 `SessionStateService` 的 activityFlow（经过 FSM 转换），中间环节多（SSE 事件 → handler → FSM → activityFlow → sessionMeta）。任一环节失效都会导致状态卡住。而消息的 `completed` 时间戳直接反映数据状态，零间接层。
+
+**位置**：`ChatMessageList.kt` 的 `streamingMsgId` 定义。
 
 ## 3. 回归历史：为什么这个能力"反复出现又消失"
 
@@ -149,11 +173,15 @@ SSE token 到达
 
 | 日期 | 提交 | 变更 |
 |------|------|------|
-| 2026-06-22 | v360 (`6bad1cc`) | 双 key，用户验证正常 |
-| 2026-07-01 | `67e46011` | key 改单（回归引入） |
-| 2026-07-01 | `76e1a35f` | 错误铁律写入 AGENTS.md |
-| 2026-07-09 | 本次 | 恢复双 key + 修正铁律 + 本文档 |
+| 2026-06-22 | v360 (`6bad1cc`) | 双 key + completed-only streamingMsgId，用户验证正常 |
+| 2026-07-01 | `67e46011` | key 改单（回归 #1） |
+| 2026-07-01 | `76e1a35f` | 错误铁律写入 AGENTS.md（固化回归 #1） |
+| 2026-07-01 | `668384e3` | streamingMsgId 加 takeIf(sessionMeta.isStreaming)（回归 #2） |
+| 2026-07-09 | 本次 | 恢复双 key（修复 #1）+ 移除 takeIf（修复 #2）+ 修正铁律 + 本文档 |
 
 ---
 
-**最后提醒**：如果你发现视窗又跳动了，**第一步**是运行第 5.1 节的静态检查。90% 的概率是某个 LaunchedEffect 又被改成了单 key。不要在未读本文档、未理解双 key 自愈机制的情况下修改 key 策略。
+**最后提醒**：如果你发现视窗又跳动了，按以下顺序排查：
+1. **`grep -n "takeIf.*isStreaming" ChatMessageList.kt`** — 如果有结果，说明铁律 5 又被违反了（回归 #2）
+2. **`grep -n "LaunchedEffect(listState.isScrollInProgress)" ChatScreen.kt ChatMessageList.kt`** — 如果有单 key 结果，说明铁律 4 又被违反了（回归 #1）
+3. 这两个是历史上反复出现的回归点。不要在未读本文档的情况下修改 key 策略或 streamingMsgId 判定。
