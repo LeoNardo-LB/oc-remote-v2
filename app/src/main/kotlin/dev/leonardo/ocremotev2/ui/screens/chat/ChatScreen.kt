@@ -1095,48 +1095,37 @@ fun ChatScreen(
        }
 
 
-    // Model picker dialog
-    if (showModelPicker) {
-        ModelPickerDialog(
-            providers = modelConfig.providers,
-            selectedProviderId = modelConfig.selectedProviderId,
-            selectedModelId = modelConfig.selectedModelId,
-            onSelect = { providerId, modelId ->
-                viewModel.selectModel(providerId, modelId)
-            },
-            onDismiss = { showModelPicker = false }
-        )
-    }
-
-    // Rename dialog
-    if (showRenameDialog) {
-        RenameSessionDialog(
-            initialTitle = sessionMeta.sessionTitle,
-            onRename = { newTitle ->
-                viewModel.renameSession(newTitle) { ok ->
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar(
-                            if (ok) context.getString(R.string.chat_session_renamed) else context.getString(R.string.chat_session_rename_failed)
-                        )
-                    }
+    // Conditional dialogs — extracted to ChatScreenDialogs
+    ChatScreenDialogs(
+        showModelPicker = showModelPicker,
+        onDismissModelPicker = { showModelPicker = false },
+        showRenameDialog = showRenameDialog,
+        onDismissRenameDialog = { showRenameDialog = false },
+        showSendConfirmDialog = showSendConfirmDialog,
+        onConfirmSend = {
+            pendingSendAction?.invoke()
+            pendingSendAction = null
+        },
+        onDismissSendConfirm = {
+            pendingSendAction = null
+        },
+        providers = modelConfig.providers,
+        selectedProviderId = modelConfig.selectedProviderId,
+        selectedModelId = modelConfig.selectedModelId,
+        onSelectModel = { providerId, modelId ->
+            viewModel.selectModel(providerId, modelId)
+        },
+        sessionTitle = sessionMeta.sessionTitle,
+        onRename = { newTitle ->
+            viewModel.renameSession(newTitle) { ok ->
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        if (ok) context.getString(R.string.chat_session_renamed) else context.getString(R.string.chat_session_rename_failed)
+                    )
                 }
-            },
-            onDismiss = { showRenameDialog = false }
-        )
-    }
-
-    // Send confirmation dialog
-    if (showSendConfirmDialog) {
-        SendConfirmDialog(
-            onConfirm = {
-                pendingSendAction?.invoke()
-                pendingSendAction = null
-            },
-            onDismiss = {
-                pendingSendAction = null
             }
-        )
-    }
+        },
+    )
     } // CompositionLocalProvider
     } // ChatSettingsProvider
 
