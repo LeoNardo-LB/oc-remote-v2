@@ -6,7 +6,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.swipeDown
 import dagger.hilt.android.testing.HiltAndroidTest
 import dev.leonardo.ocremotev2.builder.aUserMessage
 import dev.leonardo.ocremotev2.builder.anAssistantMessage
@@ -139,8 +139,13 @@ class ChatScrollStabilityTest : BaseChatTest() {
         setMessages(*entries.toTypedArray())
         renderChatScreen()
 
-        // Scroll up (swipeUp in reverseLayout = scroll toward older messages)
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+        // Scroll toward older messages.
+        // reverseLayout=true: index 0 (newest) is at the BOTTOM, higher indices
+        // (older) are at the TOP. swipeDown (finger: top→bottom) drags content
+        // DOWN, revealing items that are visually above — i.e. older messages.
+        // Two swipes ensure we reach the oldest entries in a tall list.
+        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.waitForIdle()
 
         // Verify an earlier message is now visible (confirming we scrolled)
@@ -181,8 +186,9 @@ class ChatScrollStabilityTest : BaseChatTest() {
         setMessages(*entries.toTypedArray())
         renderChatScreen()
 
-        // Scroll up
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+        // Scroll toward older messages (swipeDown in reverseLayout, see test 2)
+        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Earlier question 0", substring = true).assertIsDisplayed()
 
@@ -285,8 +291,9 @@ class ChatScrollStabilityTest : BaseChatTest() {
         setMessages(*entries.toTypedArray())
         renderChatScreen()
 
-        // Scroll up
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+        // Scroll toward older messages (swipeDown in reverseLayout, see test 2)
+        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Background question 0", substring = true).assertIsDisplayed()
 
@@ -373,8 +380,9 @@ class ChatScrollStabilityTest : BaseChatTest() {
         setMessages(*entries.toTypedArray())
         renderChatScreen()
 
-        // Scroll up to reveal older messages
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+        // Scroll toward older messages (swipeDown in reverseLayout, see test 2)
+        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.waitForIdle()
 
         // Verify we scrolled to see the older content

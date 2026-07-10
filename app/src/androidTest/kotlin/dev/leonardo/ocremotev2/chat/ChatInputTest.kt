@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performTextInput
 import dev.leonardo.ocremotev2.domain.model.AgentInfo
 import dev.leonardo.ocremotev2.domain.repository.AgentRepository
 import dev.leonardo.ocremotev2.fakes.FakeAgentRepository
+import dagger.hilt.android.testing.HiltAndroidTest
 import javax.inject.Inject
 import org.junit.Test
 
@@ -23,6 +24,7 @@ import org.junit.Test
  *
  * Uses [BaseChatTest] for Hilt + Compose setup with pre-injected fakes.
  */
+@HiltAndroidTest
 class ChatInputTest : BaseChatTest() {
 
     @Inject lateinit var agentRepo: AgentRepository
