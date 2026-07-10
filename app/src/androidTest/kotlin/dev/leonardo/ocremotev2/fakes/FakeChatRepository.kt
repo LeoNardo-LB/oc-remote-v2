@@ -1,5 +1,6 @@
 package dev.leonardo.ocremotev2.fakes
 
+import javax.inject.Inject
 import dev.leonardo.ocremotev2.domain.model.AutoApproveRule
 import dev.leonardo.ocremotev2.domain.model.CompactionStateInfo
 import dev.leonardo.ocremotev2.domain.model.FileDiff
@@ -30,7 +31,7 @@ import javax.inject.Singleton
  * Session-agnostic: all flow methods return the same flow regardless of sessionId/serverId.
  */
 @Singleton
-class FakeChatRepository : ChatRepository {
+class FakeChatRepository @Inject constructor() : ChatRepository {
 
     // ============ Controllable State Flows ============
 

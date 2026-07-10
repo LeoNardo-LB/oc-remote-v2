@@ -1,11 +1,12 @@
 package dev.leonardo.ocremotev2.fakes
 
+import javax.inject.Inject
 import dev.leonardo.ocremotev2.domain.model.Draft
 import dev.leonardo.ocremotev2.domain.repository.DraftRepository
 import javax.inject.Singleton
 
 @Singleton
-class FakeDraftRepository : DraftRepository {
+class FakeDraftRepository @Inject constructor() : DraftRepository {
 
     private val drafts = mutableMapOf<String, Draft>()
 

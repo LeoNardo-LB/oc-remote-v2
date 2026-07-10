@@ -1,5 +1,6 @@
 package dev.leonardo.ocremotev2.fakes
 
+import javax.inject.Inject
 import dev.leonardo.ocremotev2.domain.model.CreateSessionOpts
 import dev.leonardo.ocremotev2.domain.model.MessageWithParts
 import dev.leonardo.ocremotev2.domain.model.Session
@@ -11,7 +12,7 @@ import java.io.OutputStream
 import javax.inject.Singleton
 
 @Singleton
-class FakeSessionRepository : SessionRepository {
+class FakeSessionRepository @Inject constructor() : SessionRepository {
 
     val sessionsState = MutableStateFlow<List<Session>>(emptyList())
     val statusesState = MutableStateFlow<Map<String, SessionStatus>>(emptyMap())

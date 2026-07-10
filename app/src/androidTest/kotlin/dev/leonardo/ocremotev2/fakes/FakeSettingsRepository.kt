@@ -1,5 +1,6 @@
 package dev.leonardo.ocremotev2.fakes
 
+import javax.inject.Inject
 import dev.leonardo.ocremotev2.domain.model.AppSettings
 import dev.leonardo.ocremotev2.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -7,7 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Singleton
 
 @Singleton
-class FakeSettingsRepository : SettingsRepository {
+class FakeSettingsRepository @Inject constructor() : SettingsRepository {
 
     val settingsState = MutableStateFlow(AppSettings())
     val hiddenModelsState = MutableStateFlow<Set<String>>(emptySet())

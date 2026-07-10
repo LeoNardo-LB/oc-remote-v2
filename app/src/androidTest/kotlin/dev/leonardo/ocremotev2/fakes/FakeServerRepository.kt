@@ -1,5 +1,6 @@
 package dev.leonardo.ocremotev2.fakes
 
+import javax.inject.Inject
 import dev.leonardo.ocremotev2.domain.model.LocalServerState
 import dev.leonardo.ocremotev2.domain.model.ProviderInfo
 import dev.leonardo.ocremotev2.domain.model.ProvidersResponse
@@ -20,7 +21,7 @@ import javax.inject.Singleton
  * FakeDomainModule binds this single instance the same way.
  */
 @Singleton
-class FakeServerRepository :
+class FakeServerRepository @Inject constructor() :
     ServerRepository,
     ServerConfigRepository,
     ServerConnectionRepository,

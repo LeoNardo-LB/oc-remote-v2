@@ -1,12 +1,13 @@
 package dev.leonardo.ocremotev2.fakes
 
+import javax.inject.Inject
 import dev.leonardo.ocremotev2.domain.model.AgentInfo
 import dev.leonardo.ocremotev2.domain.model.CommandInfo
 import dev.leonardo.ocremotev2.domain.repository.AgentRepository
 import javax.inject.Singleton
 
 @Singleton
-class FakeAgentRepository : AgentRepository {
+class FakeAgentRepository @Inject constructor() : AgentRepository {
 
     var agentsResult: Result<List<AgentInfo>> = Result.success(emptyList())
     var commandsResult: Result<List<CommandInfo>> = Result.success(emptyList())

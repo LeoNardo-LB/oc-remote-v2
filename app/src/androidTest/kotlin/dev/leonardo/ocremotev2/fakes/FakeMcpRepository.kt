@@ -1,12 +1,13 @@
 package dev.leonardo.ocremotev2.fakes
 
+import javax.inject.Inject
 import dev.leonardo.ocremotev2.domain.model.McpServerStatus
 import dev.leonardo.ocremotev2.domain.model.ServerConnection
 import dev.leonardo.ocremotev2.domain.repository.McpRepository
 import javax.inject.Singleton
 
 @Singleton
-class FakeMcpRepository : McpRepository {
+class FakeMcpRepository @Inject constructor() : McpRepository {
 
     var getMcpServersResult: Result<List<McpServerStatus>> = Result.success(emptyList())
     var toggleMcpResult: Result<Boolean> = Result.success(true)

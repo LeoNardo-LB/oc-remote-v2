@@ -1,5 +1,6 @@
 package dev.leonardo.ocremotev2.fakes
 
+import javax.inject.Inject
 import dev.leonardo.ocremotev2.domain.model.FileContent
 import dev.leonardo.ocremotev2.domain.model.FileNode
 import dev.leonardo.ocremotev2.domain.model.ContentType
@@ -7,7 +8,7 @@ import dev.leonardo.ocremotev2.domain.repository.FileRepository
 import javax.inject.Singleton
 
 @Singleton
-class FakeFileRepository : FileRepository {
+class FakeFileRepository @Inject constructor() : FileRepository {
 
     var listDirectoryResult: Result<List<FileNode>> = Result.success(emptyList())
     var getFileContentResult: Result<FileContent> = Result.success(

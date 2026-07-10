@@ -1,5 +1,6 @@
 package dev.leonardo.ocremotev2.fakes
 
+import javax.inject.Inject
 import dev.leonardo.ocremotev2.domain.model.TerminalEvent
 import dev.leonardo.ocremotev2.domain.repository.TerminalRepository
 import kotlinx.coroutines.flow.Flow
@@ -7,7 +8,7 @@ import kotlinx.coroutines.flow.flowOf
 import javax.inject.Singleton
 
 @Singleton
-class FakeTerminalRepository : TerminalRepository {
+class FakeTerminalRepository @Inject constructor() : TerminalRepository {
 
     var sendInputResult: Result<Unit> = Result.success(Unit)
     var resizeResult: Result<Unit> = Result.success(Unit)
