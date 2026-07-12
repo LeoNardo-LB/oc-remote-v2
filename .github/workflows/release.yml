@@ -32,8 +32,10 @@ jobs:
       - name: Grant execute permissions for gradlew
         run: chmod +x ./gradlew
 
-      - name: Remove local proxy settings
-        run: sed -i '/^systemProp\./d' gradle.properties
+      - name: Remove local-only settings
+        run: |
+          sed -i '/^systemProp\./d' gradle.properties
+          sed -i '/^org.gradle.java.home/d' gradle.properties
 
       - name: Decode Keystore
         env:
