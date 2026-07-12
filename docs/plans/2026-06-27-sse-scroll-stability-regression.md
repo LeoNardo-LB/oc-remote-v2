@@ -36,7 +36,7 @@
 
 ### 回归源 1：mikepenz 0.41.0 → 0.43.0 升级丢失 `immediate` 参数
 
-**位置**：`app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/markdown/MarkdownContent.kt`
+**位置**：`app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/markdown/MarkdownContent.kt`
 
 **beta.360（稳定）**：
 ```kotlin
@@ -75,7 +75,7 @@ HEAD 升级到 0.43.0 时移除了 `immediate` 参数，代码注释错误地写
 
 ### 回归源 2：commit `67e46011` 误伤 ChatMessageList.kt 的 LaunchedEffect key
 
-**位置**：`app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/components/ChatMessageList.kt:127`
+**位置**：`app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/ChatMessageList.kt:127`
 
 **beta.360（稳定）**：
 ```kotlin
@@ -120,12 +120,12 @@ commit `67e46011` 的修复目标是 `ChatScreen.kt` 中 `autoScrollEnabled` 的
 
 ### 回归源 3：遗留调试日志（非用户报告，但应清理）
 
-**位置**：`app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/components/PartContent.kt:154,157,160-166`
+**位置**：`app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/PartContent.kt:154,157,160-166`
 
 ```kotlin
 android.util.Log.e("PartContent", "TOOL ELSE: tool=${part.tool} ...")  // line 154
 android.util.Log.e("PartContent", "isQuestionTool=...")                // line 157
-dev.leonardo.ocremotev2.util.DebugLogger.log("QuestionTool", "=== tool data ===")  // line 160
+dev.leonardo.ocremoteplus.util.DebugLogger.log("QuestionTool", "=== tool data ===")  // line 160
 // ... 共 7 行 DebugLogger 调用
 ```
 
@@ -158,7 +158,7 @@ dev.leonardo.ocremotev2.util.DebugLogger.log("QuestionTool", "=== tool data ==="
 ## Task 1: 恢复 MarkdownContent.kt 的 immediate 参数
 
 **Files:**
-- Modify: `app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/markdown/MarkdownContent.kt:260-263`
+- Modify: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/markdown/MarkdownContent.kt:260-263`
 
 **Interfaces:**
 - Consumes: `immediate: Boolean` 参数（函数签名已保留，line 100）
@@ -166,7 +166,7 @@ dev.leonardo.ocremotev2.util.DebugLogger.log("QuestionTool", "=== tool data ==="
 
 - [ ] **Step 1: Read 当前代码确认状态**
 
-Run: `Read app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/markdown/MarkdownContent.kt` offset=258 limit=10
+Run: `Read app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/markdown/MarkdownContent.kt` offset=258 limit=10
 
 Expected: 看到 `rememberMarkdownState(content, retainState=true)` **没有** `immediate` 参数
 
@@ -195,7 +195,7 @@ Expected: 看到 `rememberMarkdownState(content, retainState=true)` **没有** `
 
 - [ ] **Step 3: 验证代码模式存在**
 
-Run: `grep -n "immediate = immediate" app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/markdown/MarkdownContent.kt`
+Run: `grep -n "immediate = immediate" app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/markdown/MarkdownContent.kt`
 
 Expected: 至少 2 行匹配（函数参数声明 + rememberMarkdownState 调用）
 
@@ -208,7 +208,7 @@ Expected: `BUILD SUCCESSFUL`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/markdown/MarkdownContent.kt
+git add app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/markdown/MarkdownContent.kt
 git commit -m "fix: restore immediate parameter to rememberMarkdownState
 
 mikepenz 0.43.0 defaults to async parsing; without immediate=true
@@ -222,7 +222,7 @@ upgrading from 0.41.0 (beta.360) to 0.43.0."
 ## Task 2: 恢复 ChatMessageList.kt 的 LaunchedEffect key
 
 **Files:**
-- Modify: `app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/components/ChatMessageList.kt:123-133`
+- Modify: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/ChatMessageList.kt:123-133`
 
 **Interfaces:**
 - Consumes: `isAtBottom: Boolean`（函数参数已存在）
@@ -232,7 +232,7 @@ upgrading from 0.41.0 (beta.360) to 0.43.0."
 
 - [ ] **Step 1: Read 当前代码确认状态**
 
-Run: `Read app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/components/ChatMessageList.kt` offset=124 limit=12
+Run: `Read app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/ChatMessageList.kt` offset=124 limit=12
 
 Expected: 看到 `LaunchedEffect(listState.isScrollInProgress) {`（无 isAtBottom）
 
@@ -259,13 +259,13 @@ Expected: 看到 `LaunchedEffect(listState.isScrollInProgress) {`（无 isAtBott
 
 - [ ] **Step 3: 验证代码模式存在**
 
-Run: `grep -n "LaunchedEffect(listState.isScrollInProgress, isAtBottom)" app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/components/ChatMessageList.kt`
+Run: `grep -n "LaunchedEffect(listState.isScrollInProgress, isAtBottom)" app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/ChatMessageList.kt`
 
 Expected: 1 行匹配
 
 - [ ] **Step 4: 确认 ChatScreen.kt 未被误改**
 
-Run: `grep -n "LaunchedEffect(listState.isScrollInProgress)" app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/ChatScreen.kt`
+Run: `grep -n "LaunchedEffect(listState.isScrollInProgress)" app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/ChatScreen.kt`
 
 Expected: ChatScreen.kt 仍然是 `LaunchedEffect(listState.isScrollInProgress)`（**不带** isAtBottom）
 
@@ -278,7 +278,7 @@ Expected: `BUILD SUCCESSFUL`
 - [ ] **Step 6: Commit**
 
 ```bash
-git add app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/components/ChatMessageList.kt
+git add app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/ChatMessageList.kt
 git commit -m "fix: restore isAtBottom as LaunchedEffect key for shouldCompensate
 
 commit 67e46011 removed isAtBottom from the key to fix autoScroll-lock
@@ -294,7 +294,7 @@ the 67e46011 fix (the two effects are independent)."
 ## Task 3: 清理 PartContent.kt 遗留调试日志
 
 **Files:**
-- Modify: `app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/components/PartContent.kt:154,157,159-166`
+- Modify: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/PartContent.kt:154,157,159-166`
 
 **Interfaces:**
 - Consumes: 无
@@ -302,7 +302,7 @@ the 67e46011 fix (the two effects are independent)."
 
 - [ ] **Step 1: Read 当前代码确认调试日志位置**
 
-Run: `Read app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/components/PartContent.kt` offset=148 limit=22
+Run: `Read app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/PartContent.kt` offset=148 limit=22
 
 Expected: 看到 line 154, 157 的 `android.util.Log.e(...)` 和 line 160-166 的 `DebugLogger.log(...)`
 
@@ -325,18 +325,18 @@ Expected: 看到 line 154, 157 的 `android.util.Log.e(...)` 和 line 160-166 �
 ```kotlin
 // 删除这 8 行（含注释）：
                     // Debug: log full tool data to find where answers live
-                    dev.leonardo.ocremotev2.util.DebugLogger.log("QuestionTool", "=== tool data ===")
-                    dev.leonardo.ocremotev2.util.DebugLogger.log("QuestionTool", "input keys: ${toolInput.keys}")
-                    dev.leonardo.ocremotev2.util.DebugLogger.log("QuestionTool", "input: $toolInput")
-                    dev.leonardo.ocremotev2.util.DebugLogger.log("QuestionTool", "output: $toolOutput")
-                    dev.leonardo.ocremotev2.util.DebugLogger.log("QuestionTool", "metadata: ${completedState?.metadata}")
-                    dev.leonardo.ocremotev2.util.DebugLogger.log("QuestionTool", "title: ${completedState?.title}")
-                    dev.leonardo.ocremotev2.util.DebugLogger.log("QuestionTool", "tool name: ${part.tool}")
+                    dev.leonardo.ocremoteplus.util.DebugLogger.log("QuestionTool", "=== tool data ===")
+                    dev.leonardo.ocremoteplus.util.DebugLogger.log("QuestionTool", "input keys: ${toolInput.keys}")
+                    dev.leonardo.ocremoteplus.util.DebugLogger.log("QuestionTool", "input: $toolInput")
+                    dev.leonardo.ocremoteplus.util.DebugLogger.log("QuestionTool", "output: $toolOutput")
+                    dev.leonardo.ocremoteplus.util.DebugLogger.log("QuestionTool", "metadata: ${completedState?.metadata}")
+                    dev.leonardo.ocremoteplus.util.DebugLogger.log("QuestionTool", "title: ${completedState?.title}")
+                    dev.leonardo.ocremoteplus.util.DebugLogger.log("QuestionTool", "tool name: ${part.tool}")
 ```
 
 - [ ] **Step 5: 验证调试日志已清除**
 
-Run: `grep -nE "android\.util\.Log|DebugLogger" app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/components/PartContent.kt`
+Run: `grep -nE "android\.util\.Log|DebugLogger" app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/PartContent.kt`
 
 Expected: 无匹配（或只匹配 import 行，不匹配调用）
 
@@ -349,7 +349,7 @@ Expected: `BUILD SUCCESSFUL`（如果失败提示 `DebugLogger` import 未使用
 - [ ] **Step 7: Commit**
 
 ```bash
-git add app/src/main/kotlin/dev/leonardo/ocremotev2/ui/screens/chat/components/PartContent.kt
+git add app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/PartContent.kt
 git commit -m "chore: remove diagnostic logging from PartContent
 
 Log.e and DebugLogger calls left over from question-tool debugging

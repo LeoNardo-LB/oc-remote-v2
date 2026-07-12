@@ -1,4 +1,4 @@
-﻿# Add project specific ProGuard rules here.
+# Add project specific ProGuard rules here.
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
 
@@ -12,11 +12,11 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
--keep,includedescriptorclasses class dev.leonardo.ocremotev2.**$$serializer { *; }
--keepclassmembers class dev.leonardo.ocremotev2.** {
+-keep,includedescriptorclasses class dev.leonardo.ocremoteplus.**$$serializer { *; }
+-keepclassmembers class dev.leonardo.ocremoteplus.** {
     *** Companion;
 }
--keepclasseswithmembers class dev.leonardo.ocremotev2.** {
+-keepclasseswithmembers class dev.leonardo.ocremoteplus.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 

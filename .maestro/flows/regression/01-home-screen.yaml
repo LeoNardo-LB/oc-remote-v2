@@ -1,4 +1,4 @@
-appId: dev.leonardo.ocremotev2
+appId: dev.leonardo.ocremoteplus
 name: "回归: 主屏幕和服务器卡片"
 tags: [regression, color-cleanup]
 ---

@@ -1,4 +1,4 @@
-appId: dev.leonardo.ocremotev2
+appId: dev.leonardo.ocremoteplus
 name: "回归: 设置页面 (Switch颜色)"
 tags: [regression, color-cleanup]
 ---

@@ -1,4 +1,4 @@
-﻿import java.io.FileInputStream
+import java.io.FileInputStream
 import java.util.Properties
 
 // Single source of truth for version — read from version.properties
@@ -16,17 +16,17 @@ plugins {
 }
 
 android {
-    namespace = "dev.leonardo.ocremotev2"
+    namespace = "dev.leonardo.ocremoteplus"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "dev.leonardo.ocremotev2"
+        applicationId = "dev.leonardo.ocremoteplus"
         minSdk = 26
         targetSdk = 35
         versionCode = vCode
         versionName = vName
 
-        testInstrumentationRunner = "dev.leonardo.ocremotev2.HiltTestRunner"
+        testInstrumentationRunner = "dev.leonardo.ocremoteplus.HiltTestRunner"
         vectorDrawables {
             useSupportLibrary = true
         }

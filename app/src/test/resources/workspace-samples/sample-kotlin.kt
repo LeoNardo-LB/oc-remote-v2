@@ -1,11 +1,11 @@
-﻿package dev.leonardo.ocremotev2.data.api
+package dev.leonardo.ocremoteplus.data.api
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.body
-import dev.leonardo.ocremotev2.data.dto.response.*
+import dev.leonardo.ocremoteplus.data.dto.response.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
