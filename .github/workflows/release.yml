@@ -14,11 +14,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.1.0
 
-      - name: Extract version from build.gradle.kts
+      - name: Extract version from version.properties
         id: version
         run: |
-          VERSION=$(grep 'versionName = ' app/build.gradle.kts | head -1 | sed 's/.*versionName = "\(.*\)"/\1/')
-          VERSION_CODE=$(grep 'versionCode = ' app/build.gradle.kts | head -1 | sed 's/.*versionCode = \([0-9]*\)/\1/')
+          VERSION=$(grep 'VERSION_NAME=' version.properties | cut -d'=' -f2)
+          VERSION_CODE=$(grep 'VERSION_CODE=' version.properties | cut -d'=' -f2)
           echo "name=$VERSION" >> $GITHUB_OUTPUT
           echo "code=$VERSION_CODE" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION (code: $VERSION_CODE)"
