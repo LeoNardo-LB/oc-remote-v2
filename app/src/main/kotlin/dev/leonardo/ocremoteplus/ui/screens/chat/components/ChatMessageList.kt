@@ -248,10 +248,20 @@ fun ChatMessageList(
         ) {
             var showAlwaysDialog by remember { mutableStateOf<SseEvent.PermissionAsked?>(null) }
 
-            // Custom FlingBehavior: split large per-frame deltas into chunks below
-            // LazyListMeasure's fast-scroll estimation threshold. Total scroll distance
-            // is preserved — fling feels identical to native, just without item skipping.
-            // Only affects fling — drag scrolling is untouched.
+            // Custom FlingBehavior: caps per-frame scroll delta below LazyListMeasure's
+            // fast-scroll estimation threshold. Without this cap, large fling velocities
+            // produce per-frame deltas > viewportSize, triggering the estimation — but
+            // ONLY for forward scroll (towards END/higher indices). This creates asymmetric
+            // fling speed: scrolling towards END (older msgs in reverseLayout) is near-
+            // instant (estimation skips items), while scrolling towards START (newer msgs)
+            // is slow (every item composed). The cap + carry pattern ensures symmetric
+            // behavior: each frame's scrollBy stays sub-threshold for BOTH directions,
+            // and excess delta is carried to the next frame to preserve total distance.
+            //
+            // Root cause: the original chunking approach (inner while loop calling scrollBy
+            // multiple times per frame) did NOT prevent estimation because all scrollBy
+            // calls within one frame are accumulated into a single layout pass. The
+            // estimation sees the TOTAL per-frame delta, not individual chunks.
             val safeFlingBehavior = remember {
                 object : FlingBehavior {
                     override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
@@ -260,8 +270,12 @@ fun ChatMessageList(
 
                         var velocity = initialVelocity
                         val friction = 2f
-                        val chunkSize = 300f
                         val minVelocity = 50f
+                        // Safely below viewport/2 on typical phones (viewport ≈ 600-800px).
+                        // At 60fps with v=15000px/s, per-frame delta = 250px — just at cap.
+                        // At 120fps, per-frame delta = 125px — well below cap.
+                        val maxPerFrame = 250f
+                        var carry = 0f
                         var lastFrame = withFrameNanos { it }
 
                         while (kotlin.math.abs(velocity) > minVelocity) {
@@ -270,19 +284,14 @@ fun ChatMessageList(
                             lastFrame = frame
                             if (dt <= 0f || dt > 0.1f) continue
 
-                            // Per-frame delta in pixels (velocity is in px/s)
-                            val delta = velocity * dt
-                            var remaining = delta
+                            // Per-frame delta = velocity * dt + carry from previous frame.
+                            // carry preserves total scroll distance when capping kicks in.
+                            val rawDelta = velocity * dt + carry
+                            val delta = rawDelta.coerceIn(-maxPerFrame, maxPerFrame)
+                            carry = rawDelta - delta
 
-                            // Split into sub-threshold chunks
-                            while (kotlin.math.abs(remaining) > chunkSize) {
-                                val chunk = remaining.coerceIn(-chunkSize, chunkSize)
-                                val consumed = scrollBy(chunk)
-                                if (kotlin.math.abs(consumed) < 0.5f) return velocity
-                                remaining -= chunk
-                            }
-                            val finalConsumed = scrollBy(remaining)
-                            if (kotlin.math.abs(finalConsumed) < 0.5f) return velocity
+                            val consumed = scrollBy(delta)
+                            if (kotlin.math.abs(consumed) < 0.5f) return velocity
 
                             // Exponential decay: v(t+dt) = v(t) * e^(-friction * dt)
                             velocity *= kotlin.math.exp(-friction * dt)
