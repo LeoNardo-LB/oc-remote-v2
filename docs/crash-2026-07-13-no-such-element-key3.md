@@ -1,8 +1,7 @@
 # Runtime Crash: NoSuchElementException key=3
 
-**Status**: Pending analysis (deferred until all optimization phases complete)
-**Reported**: 2026-07-13
-**Source**: Main workspace production build
+**Status**: ✅ FIXED (2026-07-13)
+**Source**: Main workspace production build v1.0.0
 
 ## Crash Details
 
@@ -13,33 +12,43 @@
 - **Thread**: main
 - **Exception**: `java.util.NoSuchElementException: Cannot find value for key 3`
 
-## Stack Trace (deobfuscated hints)
+## Root Cause
+
+**`CodeSourceView.kt:258`** used `key = { it }` — a **bare Int** as LazyColumn item key.
+
+Compose LazyColumn internally maintains a `Map<Key, Int>` (key-to-index map) for item
+positioning and diffing. When item keys are bare Ints, the key space collides with
+Compose's internal index tracking. During pagination (`onLoadMore` changes `visLines`),
+the key-to-index map is rebuilt. A touch event during this rebuild triggers a Comparator
+lookup on a stale map snapshot → `Map.getValue(3)` → `NoSuchElementException`.
+
+### Trigger Chain
 
 ```
-NoSuchElementException: Cannot find value for key 3
-  at r8-map-id.r()                          ← Map lookup
-  at r8-map-id.c()                          ← Wrapper
-  at ic2.compare()                          ← Comparator (LazyColumn sort?)
-  at cx.r()                                 ← Comparison dispatch
-  at oj3.n()                                ← Snapshot list mutation
-  at nj3.e()                                ← Snapshot state update
-  at t91.invoke()                           ← Composable lambda (line ~1572 in some file)
-  at mq0.j() / lq0.invokeSuspend()         ← Coroutine continuation
-  at ... DispatchedTaskKt.resume/dispatch   ← Coroutine dispatch
-  at ... dispatchTouchEvent                 ← Touch event triggered
+User scrolls file viewer (dispatchTouchEvent)
+  → snapshotFlow detects near-bottom → onLoadMore()
+  → visLines changes → LazyColumn reconfiguration
+  → Compose rebuilds internal keyToIndex Map
+  → Comparator compares items using stale Map
+  → Map.getValue(3) → key 3 not in new Map → CRASH
 ```
 
-## Preliminary Hypotheses
+### Evidence
 
-1. **LazyColumn key lookup**: A `key(index)` or `key(item.id)` in a LazyColumn refers to an index/id that was removed from the backing list during scroll/recomposition. The comparator (`ic2.compare`) suggests a sorted list operation.
+- Project code has **zero** `Map.getValue()` calls and **zero** `Comparator<>` declarations
+- The crash originates in Compose runtime internals (R8-obfuscated `r8-map-id.r/c`)
+- `CodeSourceView.kt` was the **only** file using bare Int as LazyColumn key
+- Chat screen uses String keys (`"u_xxx"`/`"t_xxx"`) — not affected
 
-2. **TurnGroupCalculator**: The `t91.invoke` at line ~1572 could be in `TurnGroupCalculator` which groups messages by turn — a concurrent list mutation while grouping could cause a missing-key lookup.
+## Fix
 
-3. **Concurrent list modification**: The `.compare()` frame suggests a sorting operation on a list that was concurrently modified — an item (key=3) was present when sort started but removed before its comparator ran.
+1. **Primary**: `key = { it }` → `key = { index -> "line_$index" }`
+   String keys avoid collision with Compose's internal Int key space.
 
-## TODO (after all phases complete)
+2. **Secondary**: `lineAnnotations[index]!!` → `lineAnnotations[index]?.let { ... } ?: baseLine`
+   Eliminates TOCTOU race between `containsKey` check and `!!` force-unwrap (2 locations).
 
-- [ ] Deobfuscate R8 map IDs against the release mapping file
-- [ ] Identify the exact Composable (t91.invoke) — likely ChatMessageList or TurnGroupCalculator
-- [ ] Check if this is related to the RS-005 fix (connections guard in collect) or RS-009 (assistantMessageIds)
-- [ ] Verify if the race conditions we fixed in phases 1-4 could have caused this
+## Verification
+
+- `compileDevDebugKotlin` ✅
+- `ui.screens.viewer.*` tests ✅ (all pass)

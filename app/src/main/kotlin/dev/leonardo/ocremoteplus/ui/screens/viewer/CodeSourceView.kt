@@ -197,15 +197,13 @@ fun CodeSourceView(
                             else
                                 content.length
                             val baseLine = annotated.subSequence(start, endExclusive)
-                            val lineAnnotated = if (lineAnnotations.containsKey(index)) {
+                            val lineAnnotated = lineAnnotations[index]?.let { anns ->
                                 HighlightBuilder.buildAnnotatedLineWithAnnotations(
                                     baseLine,
-                                    lineAnnotations[index]!!,
+                                    anns,
                                     highlightColor
                                 )
-                            } else {
-                                baseLine
-                            }
+                            } ?: baseLine
                             Text(
                                 text = lineAnnotated,
                                 style = CodeTypography,
@@ -255,7 +253,7 @@ fun CodeSourceView(
         ) {
             items(
                 count = visLines ?: lineCount,
-                key = { it }
+                key = { index -> "line_$index" }  // String key — avoid Int key space collision with Compose internals (crash fix)
             ) { index ->
                 val start = lineOffsets[index]
                 val endExclusive = if (index + 1 < lineOffsets.size)
@@ -263,11 +261,9 @@ fun CodeSourceView(
                 else
                     content.length
                 val baseLine = annotated.subSequence(start, endExclusive)
-                val lineAnnotated = if (lineAnnotations.containsKey(index)) {
-                    HighlightBuilder.buildAnnotatedLineWithAnnotations(baseLine, lineAnnotations[index]!!, highlightColor)
-                } else {
-                    baseLine
-                }
+                val lineAnnotated = lineAnnotations[index]?.let { anns ->
+                    HighlightBuilder.buildAnnotatedLineWithAnnotations(baseLine, anns, highlightColor)
+                } ?: baseLine
 
                 val tapModifier: Modifier = onTapAnnotation?.let { callback ->
                     lineAnnotations[index]?.firstOrNull()?.third?.let { displayIdx ->
