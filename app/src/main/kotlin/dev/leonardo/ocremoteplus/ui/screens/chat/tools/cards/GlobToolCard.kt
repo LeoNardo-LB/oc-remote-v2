@@ -100,7 +100,7 @@ internal fun GlobToolCard(
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(1.dp)
                     ) {
-                        items(files) { filePath ->
+                        items(files, key = { it }) { filePath ->
                             SelectionContainer {
                                 Text(
                                     text = filePath,

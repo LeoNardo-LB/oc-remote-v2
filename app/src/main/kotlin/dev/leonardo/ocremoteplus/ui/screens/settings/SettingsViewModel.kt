@@ -8,6 +8,7 @@ import dev.leonardo.ocremoteplus.domain.model.AppSettings
 import dev.leonardo.ocremoteplus.domain.model.AutoApproveRule
 import dev.leonardo.ocremoteplus.domain.usecase.GetSettingsFlowUseCase
 import dev.leonardo.ocremoteplus.domain.usecase.UpdateSettingsUseCase
+import dev.leonardo.ocremoteplus.ui.WhileSubscribed5s
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,7 +28,7 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = getSettingsFlowUseCase()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
+        .stateIn(viewModelScope, WhileSubscribed5s, AppSettings())
 
     // --- Convenience properties (mapped from aggregated settings flow) ---
 
@@ -68,7 +69,7 @@ class SettingsViewModel @Inject constructor(
     val autoApproveRules: StateFlow<List<AutoApproveRule>> = _rulesRefreshTrigger
         .map { autoApprover.loadRules() }
         .map { it.toList().sortedByDescending { rule -> rule.createdAt } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     fun deletePermissionRule(rule: AutoApproveRule) {
         viewModelScope.launch {

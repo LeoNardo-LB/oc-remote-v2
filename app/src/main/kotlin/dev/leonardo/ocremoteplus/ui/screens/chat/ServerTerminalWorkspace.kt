@@ -197,11 +197,13 @@ internal class ServerTerminalWorkspace(
         scope.launch {
             try {
                 removed.socket?.close()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(WORKSPACE_TAG, "removed.socket.close failed: ${e.message}", e)
             }
             try {
                 removed.ptyId?.let { api.removePty(conn, it) }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(WORKSPACE_TAG, "removePty failed: ${e.message}", e)
             }
         }
         publishActiveState()
@@ -328,11 +330,13 @@ internal class ServerTerminalWorkspace(
             scope.launch {
                 try {
                     tab.socket?.close()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    Log.w(WORKSPACE_TAG, "tab.socket.close failed: ${e.message}", e)
                 }
                 try {
                     tab.ptyId?.let { api.removePty(conn, it) }
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    Log.w(WORKSPACE_TAG, "removePty failed: ${e.message}", e)
                 }
             }
         }

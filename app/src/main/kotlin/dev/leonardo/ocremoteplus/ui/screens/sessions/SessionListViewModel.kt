@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import dev.leonardo.ocremoteplus.BuildConfig
+import dev.leonardo.ocremoteplus.ui.WhileSubscribed5s
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,6 +29,7 @@ import dev.leonardo.ocremoteplus.domain.usecase.DeleteSessionUseCase
 import dev.leonardo.ocremoteplus.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocremoteplus.ui.screens.sessions.components.TreeNode
 import dev.leonardo.ocremoteplus.ui.screens.sessions.components.buildTreeNodes
+import dev.leonardo.ocremoteplus.ui.WhileSubscribed5s
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -250,7 +252,7 @@ class SessionListViewModel @Inject constructor(
             prefillDirectory = prefillDirectory,
             searchQuery = searchQuery,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SessionListUiState())
+    }.stateIn(viewModelScope, WhileSubscribed5s, SessionListUiState())
 
     init {
         loadSessions()

@@ -11,6 +11,7 @@ import dev.leonardo.ocremoteplus.ui.screens.chat.util.SessionTimestamps
 import dev.leonardo.ocremoteplus.ui.screens.chat.util.cacheHitRate
 import dev.leonardo.ocremoteplus.ui.screens.chat.util.countMessages
 import dev.leonardo.ocremoteplus.ui.screens.chat.util.estimateContextBreakdown
+import dev.leonardo.ocremoteplus.ui.WhileSubscribed5s
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -46,7 +47,7 @@ class ContextDetailDelegate(
         }
     }.stateIn(
         scope,
-        SharingStarted.WhileSubscribed(5000),
+        WhileSubscribed5s,
         ContextDetailState()
     )
 

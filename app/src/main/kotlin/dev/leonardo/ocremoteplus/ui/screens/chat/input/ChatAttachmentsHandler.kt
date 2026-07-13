@@ -130,8 +130,9 @@ internal fun rememberAttachmentHandler(
                         context.contentResolver.takePersistableUriPermission(
                             uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
                         )
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
                         // Not all URIs support persistable permissions
+                        Log.w("ChatAttachmentsHandler", "takePersistableUriPermission failed: ${e.message}", e)
                     }
 
                     val prepared = buildAttachmentFromUri(
@@ -145,8 +146,9 @@ internal fun rememberAttachmentHandler(
                     attachments.add(prepared.attachment)
                     onAddDraftAttachment(uri.toString())
                     prepared.comparison?.let { optimizedComparisons.add(it) }
-                } catch (_: Exception) {
+                } catch (e: Exception) {
                     // Skip files that fail to read
+                    Log.w("ChatAttachmentsHandler", "buildAttachmentFromUri failed: ${e.message}", e)
                 }
             }
             if (optimizedComparisons.isNotEmpty()) {
@@ -227,8 +229,9 @@ internal fun rememberAttachmentHandler(
                     context.contentResolver.takePersistableUriPermission(
                         uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
-                } catch (_: Exception) {
+                } catch (e: Exception) {
                     // Not all URIs support persistable permissions
+                    Log.w("ChatAttachmentsHandler", "takePersistableUriPermission failed: ${e.message}", e)
                 }
 
                 val prepared = buildAttachmentFromUri(

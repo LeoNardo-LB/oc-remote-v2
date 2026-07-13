@@ -16,6 +16,7 @@ import dev.leonardo.ocremoteplus.domain.usecase.ManagePermissionUseCase
 import dev.leonardo.ocremoteplus.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocremoteplus.domain.usecase.MessagePaginationUseCase
 import dev.leonardo.ocremoteplus.ui.screens.chat.tools.ToolProgressOutputInjector
+import dev.leonardo.ocremoteplus.ui.WhileSubscribed5s
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -217,7 +218,7 @@ internal class MessageDataDelegate(
         }
     }.stateIn(
         scope,
-        SharingStarted.WhileSubscribed(5000),
+        WhileSubscribed5s,
         MessageListState()
     )
 
@@ -250,7 +251,7 @@ internal class MessageDataDelegate(
         )
     }.stateIn(
         scope,
-        SharingStarted.WhileSubscribed(5000),
+        WhileSubscribed5s,
         InteractionState()
     )
 

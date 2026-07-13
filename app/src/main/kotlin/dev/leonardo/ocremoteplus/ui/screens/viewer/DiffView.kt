@@ -72,7 +72,7 @@ fun DiffView(
             state = listState,
             modifier = Modifier.fillMaxSize()
         ) {
-            items(lines) { line -> DiffLine(line) }
+            items(lines, key = { it.hashCode() }) { line -> DiffLine(line) }
         }
     }
 }

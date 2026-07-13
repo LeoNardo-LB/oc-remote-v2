@@ -114,7 +114,7 @@ internal fun WebSearchToolCard(
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(results) { result ->
+                        items(results, key = { "${it.title}_${it.url}" }) { result ->
                             SearchResultRow(result = result, isAmoled = isAmoled)
                         }
                     }

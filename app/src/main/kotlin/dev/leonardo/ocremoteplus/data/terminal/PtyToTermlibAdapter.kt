@@ -168,7 +168,7 @@ class PtyToTermlibAdapter(
         priorJob?.cancel()
         if (priorSocket != null) {
             scope.launch {
-                try { priorSocket.close() } catch (_: Exception) {}
+                try { priorSocket.close() } catch (e: Exception) { Log.w(TAG, "priorSocket.close failed: ${e.message}", e) }
             }
         }
     }
@@ -186,9 +186,10 @@ class PtyToTermlibAdapter(
         val job = synchronized(lock) { readerJob } ?: return
         try {
             job.join()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             // CancellationException from external cancel propagates; swallow
             // other exceptions (the reader logs them itself).
+            Log.w(TAG, "awaitReader swallowed: ${e.message}", e)
         }
     }
 

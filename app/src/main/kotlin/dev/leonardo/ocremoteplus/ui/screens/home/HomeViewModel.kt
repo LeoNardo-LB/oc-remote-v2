@@ -468,6 +468,7 @@ class HomeViewModel @Inject constructor(
             getApplication<Application>().unbindService(serviceConnection)
         } catch (e: Exception) {
             // Service might not be bound
+            Log.w(TAG, "unbindService failed: ${e.message}", e)
         }
     }
 }

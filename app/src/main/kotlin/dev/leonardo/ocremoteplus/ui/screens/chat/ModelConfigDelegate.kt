@@ -13,6 +13,7 @@ import dev.leonardo.ocremoteplus.domain.tracker.TokenStatsTracker
 import dev.leonardo.ocremoteplus.domain.usecase.ManageAgentUseCase
 import dev.leonardo.ocremoteplus.domain.usecase.MessagePaginationUseCase
 import dev.leonardo.ocremoteplus.domain.usecase.SelectModelUseCase
+import dev.leonardo.ocremoteplus.ui.WhileSubscribed5s
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -205,7 +206,7 @@ internal class ModelConfigDelegate(
         }
     }.stateIn(
         scope,
-        SharingStarted.WhileSubscribed(5000),
+        WhileSubscribed5s,
         ModelConfigState()
     )
 

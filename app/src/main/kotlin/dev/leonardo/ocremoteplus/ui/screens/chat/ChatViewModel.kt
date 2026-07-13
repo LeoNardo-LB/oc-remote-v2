@@ -3,6 +3,7 @@ package dev.leonardo.ocremoteplus.ui.screens.chat
 import android.util.Log
 import androidx.compose.runtime.Immutable
 import dev.leonardo.ocremoteplus.BuildConfig
+import dev.leonardo.ocremoteplus.ui.WhileSubscribed5s
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -33,6 +34,7 @@ import dev.leonardo.ocremoteplus.domain.repository.SettingsRepository
 import dev.leonardo.ocremoteplus.domain.tracker.TokenStatsTracker
 import dev.leonardo.ocremoteplus.domain.usecase.*
 import dev.leonardo.ocremoteplus.data.api.SseClient
+import dev.leonardo.ocremoteplus.ui.WhileSubscribed5s
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -418,22 +420,22 @@ class ChatViewModel @Inject constructor(
 
     // ============ Settings (exposed for ChatScreen) ============
     val chatFontSize = settingsRepository.getSettingsFlow().map { it.chatFontSize }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), "medium"
+        viewModelScope, WhileSubscribed5s, "medium"
     )
     val chatDensity = settingsRepository.getSettingsFlow().map { it.chatDensity }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), "normal"
+        viewModelScope, WhileSubscribed5s, "normal"
     )
     val codeWordWrap = settingsRepository.getSettingsFlow().map { it.codeWordWrap }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+        viewModelScope, WhileSubscribed5s, false
     )
     val confirmBeforeSend = settingsRepository.getSettingsFlow().map { it.confirmBeforeSend }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+        viewModelScope, WhileSubscribed5s, false
     )
     val compactMessages = settingsRepository.getSettingsFlow().map { it.compactMessages }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+        viewModelScope, WhileSubscribed5s, false
     )
     val collapseTools = settingsRepository.getSettingsFlow().map { it.collapseTools }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+        viewModelScope, WhileSubscribed5s, false
     )
     // ============ Tool Expand / Pagination (delegated — Phase 3 Task 5) ============
     val toolExpandedStates: StateFlow<Map<String, Boolean>> get() = messageData.toolExpandedStates
@@ -450,25 +452,25 @@ class ChatViewModel @Inject constructor(
     val listState = androidx.compose.foundation.lazy.LazyListState()
 
     val expandReasoning = settingsRepository.getSettingsFlow().map { it.expandReasoning }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+        viewModelScope, WhileSubscribed5s, false
     )
     val showTurnDividers = settingsRepository.getSettingsFlow().map { it.showTurnDividers }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), true
+        viewModelScope, WhileSubscribed5s, true
     )
     val hapticFeedback = settingsRepository.getSettingsFlow().map { it.hapticFeedback }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), true
+        viewModelScope, WhileSubscribed5s, true
     )
     val keepScreenOn = settingsRepository.getSettingsFlow().map { it.keepScreenOn }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+        viewModelScope, WhileSubscribed5s, false
     )
     val compressImageAttachments = settingsRepository.getSettingsFlow().map { it.compressImageAttachments }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), true
+        viewModelScope, WhileSubscribed5s, true
     )
     val imageAttachmentMaxLongSide = settingsRepository.getSettingsFlow().map { it.imageAttachmentMaxLongSide }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), 1440
+        viewModelScope, WhileSubscribed5s, 1440
     )
     val imageAttachmentWebpQuality = settingsRepository.getSettingsFlow().map { it.imageAttachmentWebpQuality }.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), 60
+        viewModelScope, WhileSubscribed5s, 60
     )
     /** Expose restored draft as StateFlow for ChatScreen consumption. */
     val restoredDraftState: StateFlow<RevertedDraftPayload?> get() = draftDelegate.restoredDraftState
@@ -523,7 +525,7 @@ class ChatViewModel @Inject constructor(
         )
     }.stateIn(
         viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
+        WhileSubscribed5s,
         SessionMetaState()
     )
 
@@ -546,7 +548,7 @@ class ChatViewModel @Inject constructor(
         )
     }.stateIn(
         viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
+        WhileSubscribed5s,
         TokenStatsState()
     )
 
@@ -560,7 +562,7 @@ class ChatViewModel @Inject constructor(
         }
     }.stateIn(
         viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
+        WhileSubscribed5s,
         ""
     )
 
@@ -644,7 +646,7 @@ class ChatViewModel @Inject constructor(
         )
     }.stateIn(
         viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
+        WhileSubscribed5s,
         ChatUiState()
     )
 

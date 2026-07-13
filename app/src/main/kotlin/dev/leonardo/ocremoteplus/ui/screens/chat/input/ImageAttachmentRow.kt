@@ -56,7 +56,7 @@ internal fun ImageAttachmentRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(attachments.size) { index ->
+        items(attachments.size, key = { index -> attachments[index].uri }) { index ->
             val attachment = attachments[index]
             Box(
                 modifier = Modifier
