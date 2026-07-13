@@ -294,7 +294,12 @@ fun ChatMessageList(
 
             // Auto-pagination: trigger load when user is within 8 items of the top.
             // Replaces PullToRefreshBox — seamless, no manual gesture needed.
-            val shouldPaginate by remember {
+            //
+            // CRITICAL: remember MUST be keyed on messageState. Without the key,
+            // derivedStateOf captures the initial messageState (where hasOlderMessages=false)
+            // and never sees updates when loadMessagesForSession() sets hasOlderMessages=true.
+            // This was the root cause of pagination silently failing after session entry.
+            val shouldPaginate by remember(messageState) {
                 derivedStateOf {
                     val layoutInfo = listState.layoutInfo
                     val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
