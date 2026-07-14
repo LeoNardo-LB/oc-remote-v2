@@ -1,15 +1,12 @@
 package dev.leonardo.ocremoteplus.ui.screens.chat
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -142,7 +139,6 @@ import dev.leonardo.ocremoteplus.domain.model.CommandInfo
 import dev.leonardo.ocremoteplus.domain.model.ModelCatalog
 import dev.leonardo.ocremoteplus.domain.model.ProviderCatalog
 import dev.leonardo.ocremoteplus.MainActivity
-import dev.leonardo.ocremoteplus.ui.theme.AppMotion
 import dev.leonardo.ocremoteplus.ui.theme.CodeTypography
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
@@ -635,15 +631,6 @@ fun ChatScreen(
                         onQuickNavigate = { showQuickNavigate = true },
 
                     )
-                    // Indeterminate progress bar under the top bar when busy
-                    val isBusy = sessionMeta.sessionStatus is SessionStatus.Busy || sessionMeta.sessionStatus is SessionStatus.Retry
-                    AnimatedVisibility(
-                        visible = isBusy,
-                        enter = fadeIn(animationSpec = tween(AppMotion.SHORT)),
-                        exit = fadeOut(animationSpec = tween(AppMotion.SHORT))
-                    ) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
                 }
             }
         },
