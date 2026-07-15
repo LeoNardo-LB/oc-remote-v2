@@ -167,13 +167,11 @@ class MessageEventHandler @Inject constructor() {
                 "${if (isUpdate) "UPDATE" else "NEW"} total=$total")
             current + (sessionId to msgs)
         }
-        // Move parts from temp ID to real ID
+        // Remove optimistic parts (don't move to real ID — SSE message_part_updated
+        // will provide the authoritative parts). Moving would cause duplicate text
+        // because the summary seeding below also creates parts.
         replacedTempId?.let { tempId ->
-            _parts.update { current ->
-                val tempParts = current[tempId] ?: return@update current
-                (current - tempId) + (event.info.id to tempParts)
-            }
-            // Clean up pending status — message is now confirmed by server
+            _parts.update { current -> current - tempId }
         }
         Log.d("MsgPipeline", "[MsgHandler] messages cache updated: total=${_messages.value.size}, session msgs=${_messages.value[sessionId]?.size ?: 0}")
         if (event.info is Message.Assistant) {
@@ -181,8 +179,9 @@ class MessageEventHandler @Inject constructor() {
         }
         // SSE MessageUpdated carries no parts; for User messages, seed parts map from summary
         // so that consumers (notifications, UI) can read text without waiting for REST sync.
+        // Skip seeding when we just replaced an optimistic message — SSE will provide parts.
         val info = event.info
-        if (info is Message.User) {
+        if (info is Message.User && replacedTempId == null) {
             _parts.update { current ->
                 if (current.containsKey(info.id)) {
                     current
