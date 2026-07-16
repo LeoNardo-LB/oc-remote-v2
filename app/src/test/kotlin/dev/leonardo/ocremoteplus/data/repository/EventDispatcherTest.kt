@@ -375,4 +375,92 @@ class EventDispatcherTest {
 
         assertNull(dispatcher.currentAgent.value["s1"])
     }
+
+    // ============ Multi-Server Deduplication (Same Backend) ============
+
+    @Test
+    fun `second server events for claimed session are skipped`() = runTest {
+        val session = testSession("s1")
+        // Server1 claims ownership
+        dispatcher.processEvent(SseEvent.SessionCreated(session), "server1")
+
+        // Server2 sends update for same session — should be skipped
+        dispatcher.processEvent(
+            SseEvent.SessionUpdated(session.copy(title = "From Server2")), "server2"
+        )
+
+        assertEquals("Test", dispatcher.sessions.value.first().title)
+    }
+
+    @Test
+    fun `MessagePartDelta not doubled from second server`() = runTest {
+        // Server1 claims ownership and sends a delta
+        dispatcher.processEvent(
+            SseEvent.MessagePartDelta(
+                sessionId = "s1", messageId = "m1", partId = "p1",
+                field = "text", delta = "Hello"
+            ), "server1"
+        )
+        messageHandler.forceFlushDeltas()
+
+        // Server2 sends same delta — should be skipped by ownership check
+        dispatcher.processEvent(
+            SseEvent.MessagePartDelta(
+                sessionId = "s1", messageId = "m1", partId = "p1",
+                field = "text", delta = "Hello"
+            ), "server2"
+        )
+        messageHandler.forceFlushDeltas()
+
+        val parts = dispatcher.parts.value["m1"].orEmpty()
+        val textPart = parts.firstOrNull { it is Part.Text } as? Part.Text
+        assertNotNull(textPart)
+        // Text must be "Hello" (single application), NOT "HelloHello" (doubled)
+        assertEquals("Hello", textPart!!.text)
+    }
+
+    @Test
+    fun `clearForServer releases ownership allowing another server to claim`() = runTest {
+        val session = testSession("s1")
+        dispatcher.processEvent(SseEvent.SessionCreated(session), "server1")
+
+        // Server2 blocked while server1 owns s1
+        val msg = Message.User(id = "m1", sessionId = "s1", time = TimeInfo(1000L))
+        dispatcher.processEvent(SseEvent.MessageUpdated(msg), "server2")
+        assertNull(dispatcher.messages.value["s1"])
+
+        // Server1 disconnects → ownership released
+        dispatcher.clearForServer("server1")
+
+        // Server2 can now claim s1
+        dispatcher.processEvent(SseEvent.SessionCreated(session), "server2")
+        dispatcher.processEvent(SseEvent.MessageUpdated(msg), "server2")
+        assertEquals(1, dispatcher.messages.value["s1"]?.size)
+    }
+
+    @Test
+    fun `events without sessionId bypass ownership check`() = runTest {
+        // Server1 claims a session
+        dispatcher.processEvent(SseEvent.SessionCreated(testSession("s1")), "server1")
+
+        // Server2's session-less events should NOT be skipped
+        dispatcher.processEvent(SseEvent.ServerHeartbeat, "server2")
+        dispatcher.processEvent(SseEvent.ServerConnected, "server2")
+        dispatcher.processEvent(SseEvent.VcsBranchUpdated("main"), "server2")
+
+        // Server2 can still send events for a DIFFERENT session
+        dispatcher.processEvent(SseEvent.SessionCreated(testSession("s2")), "server2")
+        assertTrue(dispatcher.sessions.value.any { it.id == "s2" })
+    }
+
+    @Test
+    fun `SessionDeleted releases ownership for that session`() = runTest {
+        val session = testSession("s1")
+        dispatcher.processEvent(SseEvent.SessionCreated(session), "server1")
+        dispatcher.processEvent(SseEvent.SessionDeleted(session), "server1")
+
+        // After deletion, server2 can create a new session with same ID
+        dispatcher.processEvent(SseEvent.SessionCreated(session), "server2")
+        assertTrue(dispatcher.sessions.value.any { it.id == "s1" })
+    }
 }

@@ -58,6 +58,20 @@ class EventDispatcher @Inject constructor(
         }
     }
 
+    /**
+     * Tracks which serverId "owns" each session for SSE event processing.
+     *
+     * When two server configs point to the same backend (same OpenCode serve
+     * instance), both SSE connections deliver identical global events. Without
+     * ownership tracking, append-style events like [SseEvent.MessagePartDelta]
+     * would be applied twice, doubling the streaming text output.
+     *
+     * The first server to deliver an event for a session claims ownership.
+     * Events for that session from any other serverId are skipped.
+     * Ownership is released on [clearForServer], [clearAll], or [SseEvent.SessionDeleted].
+     */
+    private val streamingSessionOwners = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     // ============ Event Handler Registry (Open/Closed Principle) ============
     // Maps each SseEvent subclass to its single responsible handler.
     // To support a new event domain: add a bind() call below. processEvent itself
@@ -159,8 +173,27 @@ class EventDispatcher @Inject constructor(
      * Handles cross-cutting concerns after dispatch:
      * - SessionDeleted: cascades cleanup to all handlers for the deleted session
      * - CommandExecuted: resets session status to Idle
+     *
+     * Multi-server dedup: if two server configs point to the same backend,
+     * only the first server to claim a session processes its events. Subsequent
+     * events for the same session from a different serverId are skipped to
+     * prevent doubled streaming output.
      */
     fun processEvent(event: SseEvent, serverId: String) {
+        // Ownership check: prevent duplicate event processing when two SSE
+        // connections deliver the same events (same backend, different configs).
+        val sessionId = extractSessionId(event)
+        if (sessionId != null) {
+            val owner = streamingSessionOwners.putIfAbsent(sessionId, serverId)
+            if (owner != null && owner != serverId) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Skipping duplicate ${event::class.simpleName} for session " +
+                        "${sessionId.take(12)} from server=$serverId (owner=$owner)")
+                }
+                return
+            }
+        }
+
         // Registry dispatch: route event to its single registered handler (O(1) lookup).
         // Replaces the previous broadcast model where every event was sent to all 6
         // handlers and each filtered internally via its own `when` block.
@@ -174,13 +207,14 @@ class EventDispatcher @Inject constructor(
 
         // Cross-handler: SessionDeleted cascades cleanup to other handlers
         if (event is SseEvent.SessionDeleted) {
-            val sessionId = event.info.id
-            messageHandler.clearForSession(sessionId)
-            permissionHandler.clearForSession(sessionId)
-            questionHandler.clearForSession(sessionId)
-            miscHandler.clearForSession(sessionId)
-            sessionNextHandler.clearForSession(sessionId)
-            sessionStateService.clearSession(sessionId)
+            val deletedSessionId = event.info.id
+            streamingSessionOwners.remove(deletedSessionId)
+            messageHandler.clearForSession(deletedSessionId)
+            permissionHandler.clearForSession(deletedSessionId)
+            questionHandler.clearForSession(deletedSessionId)
+            miscHandler.clearForSession(deletedSessionId)
+            sessionNextHandler.clearForSession(deletedSessionId)
+            sessionStateService.clearSession(deletedSessionId)
         }
 
         // Cross-handler: CommandExecuted — only mark messages as completed.
@@ -344,6 +378,7 @@ class EventDispatcher @Inject constructor(
         miscHandler.clearAll()
         sessionNextHandler.clearAll()
         sessionStateService.clearAll()
+        streamingSessionOwners.clear()
     }
 
     fun clearForServer(serverId: String) {
@@ -354,6 +389,9 @@ class EventDispatcher @Inject constructor(
         questionHandler.clearForServer(sessionIds)
         miscHandler.clearForServer(sessionIds)
         sessionNextHandler.clearForServer(sessionIds)
+        // Release streaming ownership for sessions owned by this server,
+        // allowing another server to claim them if still connected.
+        streamingSessionOwners.entries.removeAll { it.value == serverId }
     }
 }
 

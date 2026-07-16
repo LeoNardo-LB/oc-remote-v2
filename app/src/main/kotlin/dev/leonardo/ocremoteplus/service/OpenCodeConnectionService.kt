@@ -205,11 +205,25 @@ class OpenCodeConnectionService : Service() {
 
     /**
      * Connect to an OpenCode server. If already connected to this server, no-op.
-     * Multiple servers can be connected simultaneously.
+     * Multiple servers can be connected simultaneously — but not to the same
+     * backend (same url + username). Duplicate backend connections would
+     * deliver identical SSE events twice, causing doubled streaming output.
      */
     fun connect(server: ServerConfig) {
         if (connectionManager.connections.containsKey(server.id)) {
             if (BuildConfig.DEBUG) Log.d(TAG, "Already connected to server ${server.id}, skipping")
+            return
+        }
+
+        // Dedup by backend signature: same url + username = same OpenCode serve instance.
+        // Two SSE connections to the same backend deliver duplicate global events,
+        // causing MessagePartDelta (append semantics) to double the streaming text.
+        val existingBackend = connectionManager.connections.values.firstOrNull { state ->
+            state.config.url == server.url && state.config.username == server.username
+        }
+        if (existingBackend != null) {
+            Log.w(TAG, "Backend ${server.url} already connected via '${existingBackend.config.displayName}'" +
+                " (id=${existingBackend.config.id}), skipping duplicate for '${server.displayName}'")
             return
         }
 

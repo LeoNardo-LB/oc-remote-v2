@@ -129,7 +129,11 @@ internal fun MessageCardAssistant(
                 val copyText = renderableTurn.copyText
 
                 // Streaming footer — minimal: time + agent + spinning circle
-                if (isStreaming && isTurnLast) {
+                // Only shows when no stepFinishes yet. Once StepFinish arrives, the
+                // token/cost footer below replaces it. Without this guard, both footers
+                // render simultaneously during the gap between StepFinish arrival and
+                // message completion (time.completed set), causing a duplicate stats bar.
+                if (isStreaming && isTurnLast && stepFinishes.isEmpty()) {
                     Spacer(modifier = Modifier.height(if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
