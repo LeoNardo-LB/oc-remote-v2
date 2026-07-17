@@ -342,23 +342,32 @@ fun ChatScreen(
     }
 
     val messageCount = messageState.messages.size
-    LaunchedEffect(messageCount) {
+    // Key on autoScrollEnabled too: when snapToBottom() finishes and autoScroll
+    // re-enables, this effect re-runs to catch any messages that arrived during
+    // the scroll animation (race condition on cold start with large lists).
+    LaunchedEffect(messageCount, autoScrollEnabled) {
         if (messageCount > 0 && autoScrollEnabled && !listState.isScrollInProgress) {
             listState.scrollToItem(0)
         }
     }
 
-    // Scroll to bottom when the last assistant message first gets text content.
-    // Without this, a zero-height assistant bubble (created before parts arrive)
-    // grows off-screen because messageCount doesn't change when parts are populated.
-    val lastMsgTextLen = remember(messageState.messages) {
+    // Scroll to bottom when the last assistant message first gets content.
+    // Includes Part.Reasoning text — during the reasoning/thinking phase, the
+    // model streams reasoning deltas before any Part.Text arrives. Without this,
+    // a reasoning-only bubble grows off-screen until the text response starts.
+    val lastMsgContentLen = remember(messageState.messages) {
         messageState.messages.lastOrNull()?.let { msg ->
-            if (msg.isAssistant) msg.parts.filterIsInstance<Part.Text>().sumOf { it.text.length }
-            else -1  // Non-assistant → don't trigger
+            if (msg.isAssistant) msg.parts.sumOf { part ->
+                when (part) {
+                    is Part.Text -> part.text.length
+                    is Part.Reasoning -> part.text.length
+                    else -> 0
+                }
+            } else -1  // Non-assistant → don't trigger
         } ?: -1
     }
-    LaunchedEffect(lastMsgTextLen) {
-        if (lastMsgTextLen > 0 && autoScrollEnabled && !listState.isScrollInProgress) {
+    LaunchedEffect(lastMsgContentLen) {
+        if (lastMsgContentLen > 0 && autoScrollEnabled && !listState.isScrollInProgress) {
             listState.scrollToItem(0)
         }
     }
